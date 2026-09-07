@@ -1,0 +1,1735 @@
+/**
+ * HUD(下バー・右カラム・手札・参加者)
+ *
+ * css/tnx2.css(11,788 行)を役割で分けたもの(2026-09-07)。**読み込み順に意味がある**ため
+ * ファイル名に連番を付け、system.json の styles も同じ順に並べる。後ろのファイルほど
+ * 後勝ちする——順序を変えると見た目が変わる。
+ */
+
+/* ================================================================
+   28. HUD
+   ================================================================ */
+
+.deck-card,
+.card-in-hand {
+    width: 100px;
+    height: 150px;
+    border-radius: 4px;
+    position: relative;
+    background: #222;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    transition: transform var(--tnx2-transition-fast), box-shadow var(--tnx2-transition-mid);
+}
+
+.deck-card:hover,
+.card-in-hand:hover {
+    transform: translateY(-10px) scale(1.05);
+    z-index: 10;
+}
+
+.deck-card img,
+.card-in-hand img {
+    width: 100%;
+    height: 100%;
+    border-radius: 4px;
+    border: none;
+    display: block;
+}
+
+#tnx-hud {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 50;
+}
+
+/* コンテナ自体はクリックを透過させ、子要素(パネル・ボタン)のみ受け付ける。
+   収納時に visibility: hidden の子がキャンバス操作を妨げないようにするため。 */
+.tnx-hud .hud-container {
+    position: absolute;
+    pointer-events: none;
+}
+
+.tnx-hud .hud-container > * {
+    pointer-events: auto;
+}
+
+/* ロード沈静化まで右カラムを非表示にし、実測位置を置いてからフェードインで出す
+   （安全位置→実測位置への位置スナップを見せない。下バーは別要素で表示のまま）。 */
+body:not(.tnx-hud-settled) .tnx-hud .hud-right-column {
+    opacity: 0;
+    pointer-events: none;
+}
+.tnx-hud .hud-right-column {
+    top: 17px;
+    bottom: 15px;
+    right: var(--tnx-right-offset, 370px);
+    transition: opacity 0.25s ease;
+    /* 幅を明示しないと absolute の shrink-to-fit が max-content で確定し、
+       wrap 前提のフレックス子(プレイヤー手札)がカラムごと押し広げてしまう。
+       基準はニューロ/デッキパネル幅 (カード100px×2 + gap 8px + padding 16px)。 */
+    width: 224px;
+    /* grid から flex へ: DOM にない要素の gap が残らず、
+       情報項目(flex:1)が余白を自然に吸収できる。 */
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* ── パネル基底: 情報項目プレートと同じ角落とし3層構造(2026-08-22 リデザイン) ──
+   ::before=枠レイヤー(左アクセントバー3px+グロー枠色・切り欠き形状に追従する drop-shadow)・
+   ::after=内側の地(奥行きグラデ+斜めテクスチャ)。ホスト自身には clip-path/filter を掛けない
+   (掛けるとパネル内に生成されるコンテキストメニューの fixed 配置が壊れ、描画も切り取られる)。
+   スキャンラインの重ね掛けはカード画像の視認性を損なうため地のテクスチャのみに留める */
+.tnx-hud .main-area,
+.tnx-hud .neuro-area,
+.tnx-hud .hud-panel {
+    position: relative;
+    padding: 8px 10px 8px 12px;
+    display: flex;
+}
+
+.tnx-hud .main-area::before,
+.tnx-hud .neuro-area::before,
+.tnx-hud .hud-panel::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, var(--tnx2-accent) 0 3px, var(--tnx2-border-glow) 3px);
+    clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+    filter: drop-shadow(0 0 5px rgba(0, 200, 224, 0.22));
+    z-index: 0;
+}
+
+.tnx-hud .main-area::after,
+.tnx-hud .neuro-area::after,
+.tnx-hud .hud-panel::after {
+    content: "";
+    position: absolute;
+    inset: 1px 1px 1px 3px;
+    /* 地は不透明トークンで敷く(半透明にすると下の枠レイヤー全面が透けてパネル全体が
+       枠色に染まる)。色味は右下の固定サイズのコーナーグローで足す(%グラデだと
+       大きいパネルで色掛かりが広がりすぎる) */
+    background:
+        repeating-linear-gradient(-35deg, rgba(0, 200, 224, 0.05) 0 2px, transparent 2px 9px),
+        radial-gradient(220px 160px at 100% 100%, rgba(0, 200, 224, 0.16), transparent 70%),
+        linear-gradient(150deg, var(--tnx2-bg-1), var(--tnx2-bg-2));
+    clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px);
+    z-index: 0;
+}
+
+.tnx-hud .main-area > *,
+.tnx-hud .neuro-area > *,
+.tnx-hud .hud-panel > * {
+    position: relative;
+    z-index: 1;
+}
+
+.tnx-hud .main-area {
+    flex-direction: row;
+    gap: 8px;
+    height: auto;
+    width: auto;
+    align-items: center;
+}
+
+.tnx-hud .neuro-area {
+    flex-direction: column;
+    gap: 6px;
+    height: auto;
+    width: auto;
+    align-items: flex-start;
+}
+
+.tnx-hud .hud-insert-area {
+    flex: 1; /* 右カラム(flex column)内で余白をすべて吸収する */
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    min-height: 56px;
+    min-width: 120px;
+}
+
+/* ── 情報項目(14-9): 上演中のアクトの情報項目一覧 ──
+   受け皿の点線枠は実要素(2026-08-17 是正=旧 ::after は擬似要素で子を持てず項目が枠外に
+   並んでいた)。項目は装飾プレート(2026-08-17 ユーザー指示=簡素すぎる見た目の是正):
+   公開=アクセント枠+グロー・非公開=施錠風に彩度を落とす・目標値チップは開示で埋まる */
+.tnx-hud .hud-info-frame {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 6px;
+    width: 100%;
+    min-height: 24px;
+    padding: 6px;
+    border: 1px dashed rgba(0, 200, 224, 0.15);
+    border-radius: 2px;
+}
+
+/* プレートは角落とし(clip-path)のため border が使えない——外層=枠レイヤー(左アクセント
+   バー+グロー枠色)・::before=内側の地・::after=スキャンライン(シートと同じモチーフ)の
+   3層で作る。グローは切り欠き形状に追従する drop-shadow */
+.tnx-hud .hud-info-item {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    width: 100%;
+    padding: 7px 9px 7px 12px;
+    background: linear-gradient(90deg, var(--tnx2-accent) 0 4px, var(--tnx2-border-glow) 4px);
+    clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+    filter: drop-shadow(0 0 5px rgba(0, 200, 224, 0.22));
+    font-size: 0.92em;
+}
+
+.tnx-hud .hud-info-item::before {
+    content: "";
+    position: absolute;
+    inset: 1px 1px 1px 4px;
+    background: linear-gradient(150deg, var(--tnx2-bg-1), var(--tnx2-bg-2) 55%, rgba(0, 200, 224, 0.10));
+    clip-path: polygon(9px 0, 100% 0, 100% calc(100% - 9px), calc(100% - 9px) 100%, 0 100%, 0 9px);
+    z-index: 0;
+}
+
+.tnx-hud .hud-info-item::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: repeating-linear-gradient(
+        to bottom,
+        transparent 0px,
+        transparent 3px,
+        rgba(0, 0, 0, 0.10) 3px,
+        rgba(0, 0, 0, 0.10) 4px
+    );
+    z-index: 2;
+}
+
+.tnx-hud .hud-info-item > * {
+    position: relative;
+    z-index: 1;
+}
+
+/* 見出し行: アクセントのヘアラインで区切る */
+.tnx-hud .hud-info-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    padding-bottom: 4px;
+    background: linear-gradient(90deg, rgba(0, 200, 224, 0.55), transparent 75%) bottom / 100% 1px no-repeat;
+}
+
+.tnx-hud .hud-info-title {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-shadow: 0 0 6px rgba(0, 200, 224, 0.35);
+}
+
+/* 非公開(RL=実名+施錠印/PL=「非公開の情報」): 彩度を落とし斜線ハッチの施錠風 */
+.tnx-hud .hud-info-item.is-hidden {
+    background: linear-gradient(90deg, var(--tnx2-text-muted) 0 4px, var(--tnx2-border-subtle) 4px);
+    filter: none;
+}
+
+.tnx-hud .hud-info-item.is-hidden::before {
+    background:
+        repeating-linear-gradient(-45deg, transparent 0 6px, rgba(255, 255, 255, 0.04) 6px 12px),
+        linear-gradient(150deg, var(--tnx2-bg-1), var(--tnx2-bg-2));
+}
+
+.tnx-hud .hud-info-item.is-hidden .hud-info-head {
+    background: linear-gradient(90deg, rgba(255, 255, 255, 0.22), transparent 75%) bottom / 100% 1px no-repeat;
+}
+
+.tnx-hud .hud-info-item.is-hidden .hud-info-title { text-shadow: none; }
+
+.tnx-hud .hud-info-item.is-masked { color: var(--tnx2-text-muted); }
+
+.tnx-hud .hud-info-item.is-masked .hud-info-title { font-weight: 400; }
+
+.tnx-hud .hud-info-lock {
+    flex: 0 0 auto;
+    color: var(--tnx2-text-muted);
+    font-size: 0.85em;
+}
+
+/* 目標値チップ: 六角プレートで開示済みがネオン点灯していく(公開項目の目標値は卓に見える情報) */
+.tnx-hud .hud-info-tns {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 0 2px 1px;
+}
+
+.tnx-hud .hud-info-tn {
+    min-width: 26px;
+    padding: 0 7px;
+    background: rgba(255, 255, 255, 0.06);
+    clip-path: polygon(5px 0, calc(100% - 5px) 0, 100% 50%, calc(100% - 5px) 100%, 5px 100%, 0 50%);
+    color: var(--tnx2-text-muted);
+    font-family: var(--tnx2-font-mono);
+    font-size: 0.85em;
+    line-height: 17px;
+    text-align: center;
+}
+
+.tnx-hud .hud-info-tn.is-open {
+    background: linear-gradient(180deg, rgba(0, 200, 224, 0.45), rgba(0, 200, 224, 0.16));
+    color: #dff9ff;
+    text-shadow: 0 0 5px rgba(0, 200, 224, 0.9);
+}
+
+/* 旧: .hud-insert-area::after の点線枠(擬似要素)は 2026-08-17 に実要素 .hud-info-frame へ
+   置換した(擬似要素は子を持てず、情報項目が枠の外に並んでいたため)。
+   旧「プレイヤー手札エリア」(右カラム・revealPlayerHands 時のみ)は参加者パネル
+   (.participants-area・下バー)へ置き換えた */
+
+.tnx-hud .neuro-cards-row {
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+    align-items: flex-end;
+}
+
+/* 残枚数は見出しと同じ六角ネオンチップ(ダークガラス面+リム発光+文字グロー) */
+.tnx-hud .deck-count {
+    position: absolute;
+    bottom: 4px;
+    right: 4px;
+    min-width: 26px;
+    padding: 0 8px;
+    background: rgba(1, 6, 9, 0.94);
+    clip-path: polygon(5px 0, calc(100% - 5px) 0, 100% 50%, calc(100% - 5px) 100%, 5px 100%, 0 50%);
+    filter: drop-shadow(0 0 1px var(--tnx2-accent)) drop-shadow(0 0 4px rgba(0, 200, 224, 0.45));
+    color: var(--tnx2-accent);
+    font-family: var(--tnx2-font-mono);
+    font-size: 0.85em;
+    font-weight: 500;
+    line-height: 18px;
+    text-align: center;
+    text-shadow: 0 0 3px rgba(0, 200, 224, 0.8), 0 0 8px rgba(0, 200, 224, 0.5);
+}
+
+
+/* 画面左下(left:222px)に配置。column flex: アクセスエリアが上、hud-bottom-mainが下。
+   align-items: flex-start により各子要素は自身のコンテンツ幅のみを使用する。 */
+.tnx-hud .hud-bottom-bar {
+    bottom: 15px;
+    left: 222px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
+}
+
+/* row flex: 手札コンテンツ（collapsible）・切り札・ボタンを横並びにする。
+   gap ではなく margin-right を各要素に持たせる。
+   収納時に margin-right もゼロへ遷移させ、ボタンが浮かないようにする。 */
+.tnx-hud .hud-bottom-main {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-end;
+    gap: 0;
+}
+
+/* 手札エリアのみをラップするコラプス用コンテナ。 */
+.tnx-hud .hud-bottom-content {
+    display: flex;
+    overflow: hidden;
+    min-width: 0;
+    max-width: 540px;
+    margin-right: 8px;
+    transition: max-width 0.4s ease-in-out, opacity 0.4s ease-in-out, margin-right 0.4s ease-in-out;
+}
+
+.tnx-hud .hand-area {
+    flex-direction: column;
+    align-items: flex-start;
+    height: auto;
+    max-width: 534px;
+    gap: 6px;
+}
+
+.tnx-hud .hand-cards-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    align-items: flex-end;
+}
+
+.tnx-hud .trump-area {
+    height: auto;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    max-width: 300px;
+    margin-right: 8px;
+    transition: max-width 0.4s ease-in-out, padding-left 0.4s ease-in-out, padding-right 0.4s ease-in-out, opacity 0.4s ease-in-out, margin-right 0.4s ease-in-out;
+}
+
+/* ── ステータスカードエリア(14-7・状態からの自動表示)。
+      手札の左隣に置き、カードは手札・切り札と同サイズ(100x150) ── */
+.tnx-hud .status-card-area {
+    flex-direction: column;
+    align-items: flex-start;
+    height: auto;
+    gap: 6px;
+    margin-right: 8px;
+    overflow: hidden;
+    max-width: 460px;
+    transition: max-width 0.4s ease-in-out, padding-left 0.4s ease-in-out, padding-right 0.4s ease-in-out, opacity 0.4s ease-in-out, margin-right 0.4s ease-in-out;
+}
+
+.tnx-hud .status-cards-row {
+    display: flex;
+    gap: 4px;
+    align-items: flex-end;
+}
+
+/* 手札・切り札と高さを揃える(150px)。幅はアクセスカード素材のアスペクト比のまま
+   (2:3 を強制すると歪むため)。アクセントの縁とグローで強調する */
+.tnx-hud .status-card {
+    height: 150px;
+    flex: 0 0 auto;
+    border-radius: 4px;
+    background: #222;
+    box-shadow: 0 0 0 1px rgba(0, 200, 224, 0.55), 0 0 10px rgba(0, 200, 224, 0.35), 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+.tnx-hud .status-card img {
+    display: block;
+    height: 100%;
+    width: auto;
+    border-radius: 4px;
+}
+
+/* ── 下バー上段のパネル行(参加者・アクセスカード) ── */
+.tnx-hud .hud-bottom-panels {
+    display: flex;
+    align-items: flex-end;
+    gap: 8px;
+}
+
+/* パネルを内容幅より狭く自動縮小させない(縮小するとリストが横スクロール化して
+   手札が見切れる。幅が足りない環境では右へ伸びる方を選ぶ) */
+.tnx-hud .hud-bottom-panels > * {
+    flex-shrink: 0;
+}
+
+/* ── 参加者パネル(ステータス+手札の常時表示。行はカードのドロップ先) ── */
+.tnx-hud .participants-area {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 6px 8px 6px 12px;
+    margin-bottom: 5px;
+    max-height: 45vh;
+    overflow: hidden;
+    transition: max-height 0.4s ease-in-out, opacity 0.4s ease-in-out, margin-bottom 0.4s ease-in-out;
+}
+
+.tnx-hud .participants-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    /* 見出し行は情報項目と同じアクセントのヘアラインで区切る */
+    padding-bottom: 4px;
+    background: linear-gradient(90deg, rgba(0, 200, 224, 0.55), transparent 75%) bottom / 100% 1px no-repeat;
+}
+
+.tnx-hud .participants-fold-icon {
+    font-size: 0.7em;
+    color: var(--tnx2-accent-dim);
+    transition: transform 0.4s ease-in-out;
+}
+.tnx-hud .participants-area.collapsed .participants-fold-icon {
+    transform: rotate(-90deg);
+}
+
+.tnx-hud .participants-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    overflow-y: auto;
+    overflow-x: hidden; /* 横スクロールバーを出さない(幅は内容駆動で収まる前提) */
+    max-height: 40vh; /* 参加者が多くても画面を占有しすぎない */
+    max-width: 1000px;
+    margin-top: 2px;
+    padding-top: 4px;
+    transition: max-height 0.25s ease, max-width 0.25s ease, opacity 0.25s ease, margin-top 0.25s ease, padding-top 0.25s ease;
+}
+/* アコーディオン折りたたみ時: 高さ・幅ともにゼロへ → エリアがラベル幅のみに縮小 */
+.tnx-hud .participants-area.collapsed .participants-list {
+    max-height: 0;
+    max-width: 0;
+    opacity: 0;
+    margin-top: 0;
+    padding-top: 0;
+    overflow: hidden;
+}
+
+.tnx-hud .participants-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.tnx-hud .participants-list::-webkit-scrollbar-thumb {
+    background: rgba(0, 200, 224, 0.3);
+    border-radius: 3px;
+}
+
+/* 行は情報項目と同族のミニプレート(左アクセントバー=ドロップ先の操作対象の印) */
+.tnx-hud .participant-row {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 5px 8px 5px 11px;
+    background: linear-gradient(90deg, var(--tnx2-accent) 0 3px, var(--tnx2-border-active) 3px);
+    clip-path: polygon(7px 0, 100% 0, 100% calc(100% - 7px), calc(100% - 7px) 100%, 0 100%, 0 7px);
+    filter: drop-shadow(0 0 3px rgba(0, 200, 224, 0.15));
+    flex-shrink: 0;
+    align-self: flex-start; /* 行は自身の内容幅で描く(余分な幅を予約しない) */
+}
+
+.tnx-hud .participant-row::before {
+    content: "";
+    position: absolute;
+    inset: 1px 1px 1px 3px;
+    background: linear-gradient(150deg, var(--tnx2-bg-1), var(--tnx2-bg-2) 60%, rgba(0, 200, 224, 0.08));
+    clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+    z-index: 0;
+}
+
+.tnx-hud .participant-row > * {
+    position: relative;
+    z-index: 1;
+}
+
+.tnx-hud .participant-name {
+    font-size: 0.72em;
+    font-weight: bold;
+    line-height: 1.2;
+}
+
+.tnx-hud .participant-main {
+    display: flex;
+    gap: 6px;
+    align-items: flex-start;
+}
+
+/* 左列: 現在のステータス(アクセスカード)。中身があるときだけ描画される(hbs 側) */
+.tnx-hud .participant-status {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    flex: 0 0 auto;
+}
+
+/* ステータスカードは手札のカードと高さを揃え(69px)、アクセントの縁とグローで強調する。
+   幅はアクセスカード素材(179x249)のアスペクト比のまま(トランプ2:3と比率が違うため
+   幅で揃えると低く見え、強制すると歪む) */
+.tnx-hud .participant-status-card {
+    height: 69px;
+    border-radius: 3px;
+    box-shadow: 0 0 0 1px rgba(0, 200, 224, 0.55), 0 0 8px rgba(0, 200, 224, 0.35);
+}
+
+.tnx-hud .participant-status-card img {
+    display: block;
+    height: 100%;
+    width: auto;
+    border-radius: 3px;
+}
+
+/* 「登場中」「RULER(RL)」プレート: アクセスカードの意匠(英題+下端の和文リボン)を CSS で組む。
+   斜めスキャンライン+奥行きグラデの上に "ON STAGE"、下端に「登場中」リボン。
+   枠と光彩はステータスカードの強調リングと同系 */
+.tnx-hud .participant-status-plate,
+.tnx-hud .status-plate {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    flex: 0 0 auto;
+    color: var(--tnx2-accent);
+    background:
+        repeating-linear-gradient(-35deg, rgba(0, 200, 224, 0.08) 0 2px, transparent 2px 7px),
+        linear-gradient(165deg, #06181f 0%, #0c3440 55%, #06181f 100%);
+    box-shadow: 0 0 0 1px rgba(0, 200, 224, 0.55), 0 0 8px rgba(0, 200, 224, 0.35), inset 0 0 12px rgba(0, 200, 224, 0.12);
+}
+
+.tnx-hud .participant-status-plate {
+    width: 50px;
+    height: 69px;
+    border-radius: 3px;
+}
+
+.tnx-hud .status-plate {
+    width: 108px;
+    height: 150px;
+    border-radius: 4px;
+}
+
+.tnx-hud .status-plate-en {
+    font-family: var(--tnx2-font-mono);
+    font-weight: 700;
+    text-align: center;
+    line-height: 1.35;
+    letter-spacing: 0.18em;
+    text-indent: 0.18em; /* letter-spacing の末尾ぶんを補正して中央に見せる */
+    text-shadow: 0 0 8px rgba(0, 200, 224, 0.7);
+    /* リボンの高さぶん重心が下がるのを打ち消して光学中央に置く */
+    margin-bottom: 10px;
+}
+
+.tnx-hud .participant-status-plate .status-plate-en {
+    font-size: 9px;
+    max-width: 40px; /* "ON STAGE" を空白で2行(ON/STAGE)に折る */
+}
+
+.tnx-hud .status-plate .status-plate-en {
+    font-size: 17px;
+    max-width: 88px;
+    margin-bottom: 20px;
+}
+
+.tnx-hud .status-plate-ja {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    text-align: center;
+    background: linear-gradient(90deg, rgba(0, 200, 224, 0.15), rgba(0, 200, 224, 0.9) 50%, rgba(0, 200, 224, 0.15));
+    color: #03222b;
+    font-weight: 700;
+    font-size: 9px;
+    line-height: 14px;
+    letter-spacing: 0.2em;
+    text-indent: 0.2em;
+}
+
+.tnx-hud .status-plate .status-plate-ja {
+    font-size: 12px;
+    line-height: 20px;
+    letter-spacing: 0.35em;
+    text-indent: 0.35em;
+}
+
+/* 空ステータスの器(登場三態で基本埋まるが、万一空のときも空であることを明示する) */
+.tnx-hud .participant-status-empty {
+    width: 50px;
+    height: 69px;
+    border: 1px dashed rgba(255, 255, 255, 0.25);
+    border-radius: 2px;
+}
+
+/* 右列: 手札。幅は実枚数分だけ取り、4枚分を超える場合のみこの列の中で折り返す
+   (ステータス列を含めた行全体では折り返さない・空きスロットの幅は予約しない) */
+.tnx-hud .participant-cards {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    align-content: flex-start;
+    max-width: 193px; /* 46px×4枚 + 3px×3ギャップ = 4枚で折り返す上限 */
+    flex: 0 0 auto;
+}
+
+.tnx-hud .participant-card-img {
+    width: 46px;
+    flex-shrink: 0;
+    border-radius: 2px;
+    display: block;
+}
+
+.tnx-hud .participant-empty {
+    font-size: 0.7em;
+    color: var(--tnx2-text-muted);
+}
+
+/* ── アクセスカードエリア ── */
+.tnx-hud .access-area {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 6px 8px 6px 12px;
+    margin-bottom: 5px;
+    max-height: 300px;
+    overflow: hidden;
+    transition: max-height 0.4s ease-in-out, opacity 0.4s ease-in-out, margin-bottom 0.4s ease-in-out;
+}
+
+.tnx-hud .access-area-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    /* 見出し行は情報項目と同じアクセントのヘアラインで区切る */
+    padding-bottom: 4px;
+    background: linear-gradient(90deg, rgba(0, 200, 224, 0.55), transparent 75%) bottom / 100% 1px no-repeat;
+}
+
+.tnx-hud .access-fold-icon {
+    font-size: 0.7em;
+    color: var(--tnx2-accent-dim);
+    transition: transform 0.4s ease-in-out;
+}
+.tnx-hud .access-area.collapsed .access-fold-icon {
+    transform: rotate(-90deg);
+}
+
+.tnx-hud .access-cards-row {
+    display: flex;
+    gap: 4px;
+    align-items: flex-end;
+    /* overflow: hidden の内側にホバー浮き上がり(-3px)分の逃げ場を確保する */
+    margin-top: 2px;
+    padding-top: 4px;
+    max-height: 110px;
+    max-width: 1000px;
+    overflow: hidden;
+    transition: max-height 0.25s ease, max-width 0.25s ease, opacity 0.25s ease, margin-top 0.25s ease, padding-top 0.25s ease;
+}
+/* アコーディオン折りたたみ時: 高さ・幅ともにゼロへ → エリアがラベル幅のみに縮小 */
+.tnx-hud .access-area.collapsed .access-cards-row {
+    max-height: 0;
+    max-width: 0;
+    opacity: 0;
+    margin-top: 0;
+    padding-top: 0;
+}
+
+.tnx-hud .access-card {
+    width: 56px;
+    flex: 0 0 auto;
+    cursor: pointer;
+    transition: transform 0.15s ease;
+}
+.tnx-hud .access-card:hover {
+    transform: translateY(-3px);
+}
+.tnx-hud .access-card img {
+    display: block;
+    width: 100%;
+    border-radius: 4px;
+}
+
+/* 空スロットは破線の器(空ステータスの器・情報項目の点線枠と同族) */
+.tnx-hud .card-empty-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--tnx2-text-muted);
+    width: 100px;
+    height: 150px;
+    border: 1px dashed rgba(0, 200, 224, 0.22);
+    border-radius: 2px;
+}
+
+.tnx-hud .card-empty-placeholder.card-empty-clickable {
+    cursor: pointer;
+    transition: color var(--tnx2-transition-fast);
+}
+
+.tnx-hud .card-empty-placeholder.card-empty-clickable:hover {
+    color: var(--tnx2-accent);
+}
+
+/* ── HUD カラム折りたたみ ── */
+.tnx-hud .hud-collapse-toggle {
+    width: 26px;
+    height: 26px;
+    flex: 0 0 auto;
+    padding: 0;
+    background: rgba(6, 24, 31, 0.85);
+    border: 1px solid var(--tnx2-border-glow);
+    border-radius: 2px;
+    color: var(--tnx2-text-accent);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7em;
+    line-height: 1;
+    transition: background 0.15s, color 0.15s;
+}
+.tnx-hud .hud-collapse-toggle:hover {
+    background: rgba(0, 200, 224, 0.2);
+    color: var(--tnx2-text-accent);
+    border-color: var(--tnx2-accent-dim);
+}
+
+/* 右カラム: flex 末端に寄せる */
+.tnx-hud .hud-collapse-right {
+    align-self: flex-end;
+}
+
+/* 下バー: flex 末端(右)に配置。position: absolute 不使用。 */
+.tnx-hud .hud-collapse-bottom {
+    flex: 0 0 auto;
+    align-self: flex-end;
+}
+
+/* 下バー展開時はコアのホットバーを退避させる(収納で復帰) */
+#hotbar {
+    transition: transform 0.25s ease, opacity 0.25s ease;
+}
+body.tnx-bottom-hud-expanded #hotbar {
+    transform: translateY(150%);
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* 収納/展開アニメーション: 右カラムは子要素スライド+フェード。 */
+.tnx-hud .hud-right-column > *:not(.hud-collapse-toggle) {
+    transition: transform 0.25s ease, opacity 0.25s ease, visibility 0.25s;
+}
+.tnx-hud .hud-right-column.collapsed > *:not(.hud-collapse-toggle) {
+    transform: translateX(40px);
+    opacity: 0;
+    visibility: hidden;
+}
+
+/* 下バー全体収納: 参加者・アクセスエリア・ステータス・手札コンテンツ・切り札をそれぞれ非表示へ。
+   ボタン(.hud-collapse-bottom)は hud-bottom-main 内で対象外のため常に表示される。 */
+.tnx-hud .hud-bottom-bar.collapsed .access-area,
+.tnx-hud .hud-bottom-bar.collapsed .participants-area {
+    max-height: 0;
+    opacity: 0;
+    margin-bottom: 0;
+    pointer-events: none;
+}
+.tnx-hud .hud-bottom-bar.collapsed .status-card-area {
+    max-width: 0;
+    margin-right: 0;
+    padding-left: 0;
+    padding-right: 0;
+    opacity: 0;
+    pointer-events: none;
+}
+.tnx-hud .hud-bottom-bar.collapsed .hud-bottom-content {
+    max-width: 0;
+    margin-right: 0;
+    opacity: 0;
+    pointer-events: none;
+}
+.tnx-hud .hud-bottom-bar.collapsed .trump-area {
+    max-width: 0;
+    margin-right: 0;
+    padding-left: 0;
+    padding-right: 0;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.tnx-hud .card-empty-placeholder i { font-size: 2.5em; }
+
+.tnx-hud .card-slot {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+}
+
+/* パネル見出しは六角ネオンチップ。発光は「面の塗り」でなく「管(リム)と文字」に持たせる
+   ——面を縦グラデで陰影付けすると安っぽく見える(2026-08-22 ユーザー指摘)。
+   面はダークガラスの平塗り・リムは clip 形状に追従する二段 drop-shadow(芯+ブルーム)・
+   文字は近接+広域の二層グロー */
+.tnx-hud .card-slot-label {
+    font-family: var(--tnx2-font-mono);
+    font-size: 0.7em;
+    /* 白の太字ゴシックはネオンに見えない(2026-08-22 ユーザー指摘)——文字自体を発光色にし、
+       ウェイトは落とす(発光体は細い方が管らしい)。面は背景より一段暗い黒ガラスに沈めて分離する */
+    font-weight: 500;
+    letter-spacing: 0.12em;
+    text-indent: 0.12em;
+    color: var(--tnx2-accent);
+    white-space: nowrap;
+    line-height: 18px;
+    padding: 0 12px;
+    background: rgba(1, 6, 9, 0.94);
+    clip-path: polygon(5px 0, calc(100% - 5px) 0, 100% 50%, calc(100% - 5px) 100%, 5px 100%, 0 50%);
+    filter: drop-shadow(0 0 1px var(--tnx2-accent)) drop-shadow(0 0 4px rgba(0, 200, 224, 0.45));
+    text-shadow: 0 0 3px rgba(0, 200, 224, 0.8), 0 0 10px rgba(0, 200, 224, 0.5);
+}
+
+.tnx-hud .card-slot .card-slot-label {
+    align-self: flex-start;
+}
+
+.tnx-hud .hand-area .card-in-hand:hover {
+    box-shadow: 0 0 16px var(--tnx2-accent), 0 0 32px rgba(0, 195, 255, 0.25);
+}
+
+/* 切り札は手札より多層グローで豪華に */
+.tnx-hud .trump-area .card-in-hand:hover {
+    transform: translateY(-12px) scale(1.08);
+    box-shadow:
+        0 0 10px var(--tnx2-accent),
+        0 0 25px var(--tnx2-accent),
+        0 0 50px rgba(0, 200, 224, 0.5),
+        0 0 80px rgba(0, 200, 224, 0.2);
+}
+
+.tnx-hud .deck-card.scene-card-display:hover {
+    transform: none;
+    box-shadow: none;
+    cursor: default;
+}
+
+/* ── 判定待機 (check-pending) ─────────────────────────────────── */
+
+/* パネルの枠と地をゴールド系に切り替えて待機を示す(旧・破線 outline は角落とし
+   プレート化に伴い撤去。カード側のゴールドグローと合わせて視認させる) */
+.tnx-hud .hand-area.check-pending::before {
+    background: linear-gradient(90deg, #ffd700 0 3px, rgba(255, 205, 60, 0.8) 3px);
+    filter: drop-shadow(0 0 7px rgba(255, 215, 0, 0.5));
+}
+
+.tnx-hud .hand-area.check-pending::after {
+    background:
+        repeating-linear-gradient(-35deg, rgba(255, 215, 0, 0.05) 0 2px, transparent 2px 9px),
+        radial-gradient(220px 160px at 100% 100%, rgba(255, 215, 0, 0.16), transparent 70%),
+        linear-gradient(150deg, #14110a, #1c1508);
+}
+
+.tnx-hud .hand-area.check-pending.trump-mode::before {
+    background: linear-gradient(90deg, #ff8c00 0 3px, rgba(255, 155, 45, 0.8) 3px);
+    filter: drop-shadow(0 0 7px rgba(255, 140, 0, 0.5));
+}
+
+.tnx-hud .hand-area.check-pending.trump-mode::after {
+    background:
+        repeating-linear-gradient(-35deg, rgba(255, 140, 0, 0.05) 0 2px, transparent 2px 9px),
+        radial-gradient(220px 160px at 100% 100%, rgba(255, 140, 0, 0.16), transparent 70%),
+        linear-gradient(150deg, #140f0a, #1c1208);
+}
+
+/* 有効スートのカードをゴールドグローで強調 */
+.tnx-hud .hand-area.check-pending .card-in-hand.check-valid {
+    box-shadow: 0 0 10px 3px rgba(255, 215, 0, 0.75);
+}
+
+.tnx-hud .hand-area.check-pending .card-in-hand.check-valid:hover {
+    transform: translateY(-14px) scale(1.1);
+    box-shadow:
+        0 0 14px 4px rgba(255, 215, 0, 0.9),
+        0 0 28px 8px rgba(255, 215, 0, 0.4);
+}
+
+/* 切り札モード: 全カードをオレンジグローに切り替え */
+.tnx-hud .hand-area.check-pending.trump-mode .card-in-hand {
+    opacity: 1;
+    filter: none;
+    pointer-events: auto;
+    box-shadow: 0 0 10px 3px rgba(255, 140, 0, 0.7);
+}
+
+.tnx-hud .hand-area.check-pending.trump-mode .card-in-hand:hover {
+    transform: translateY(-14px) scale(1.1);
+    box-shadow:
+        0 0 14px 4px rgba(255, 140, 0, 0.9),
+        0 0 28px 8px rgba(255, 140, 0, 0.4);
+}
+
+/* ── 判定トリガー要素 ─────────────────────────────────────────────── */
+
+.check-trigger {
+    cursor: pointer;
+}
+
+.check-trigger:hover {
+    opacity: 0.75;
+}
+
+/* 判定トリガーの無効化(グレーアウト＋クリック不能)の共通クラス。技能の使用不可(負傷)・
+   重圧の能力値判定不可などで applyTriggerDisable が付与する(再利用) */
+.tnx-trigger-disabled {
+    cursor: not-allowed;
+    opacity: 0.4;
+}
+
+/* ── 手札スロット ── */
+
+.tnx-hud .hand-cards-row .card-hand-slot {
+    display:        flex;
+    flex-direction: column;
+    align-items:    center;
+    position:       relative;
+    transition:     transform var(--tnx2-transition-fast);
+}
+
+/* スロットごとホバー（ラベルとカードを一緒に浮き上がらせる） */
+.tnx-hud .hand-area .card-hand-slot:hover {
+    transform: translateY(-10px) scale(1.05);
+    z-index: 10;
+}
+
+/* スロット内のカードはスロットが transform するため個別 transform をキャンセル */
+.tnx-hud .hand-area .card-hand-slot:hover .card-in-hand,
+.tnx-hud .hand-area.check-pending .card-hand-slot.check-valid:hover .card-in-hand,
+.tnx-hud .hand-area.check-pending.trump-mode .card-hand-slot:hover .card-in-hand {
+    transform: none;
+}
+
+/* 判定有効カード・切り札モード: より強い浮き上がり */
+.tnx-hud .hand-area.check-pending .card-hand-slot.check-valid:hover,
+.tnx-hud .hand-area.check-pending.trump-mode .card-hand-slot:hover {
+    transform: translateY(-14px) scale(1.1);
+}
+
+/* 達成値プレビューラベル（カード上部に絶対配置・ホバー時のみ表示） */
+.tnx-hud .card-preview-label {
+    position:       absolute;
+    top:            8px;
+    left:           0;
+    right:          0;
+    text-align:     center;
+    font-size:      1.8em;
+    font-weight:    900;
+    color:          #fff;
+    background:     none;
+    text-shadow:
+        0 0 8px  rgba(0, 200, 224, 0.9),
+        0 0 16px rgba(0, 200, 224, 0.5),
+        0 1px 3px rgba(0, 0, 0, 1),
+        0 -1px 3px rgba(0, 0, 0, 1),
+        1px 0 3px rgba(0, 0, 0, 1),
+       -1px 0 3px rgba(0, 0, 0, 1);
+    letter-spacing: 0.02em;
+    white-space:    nowrap;
+    pointer-events: none;
+    opacity:        0;
+    visibility:     hidden;
+    transition:     opacity 0.12s;
+    z-index:        2;
+}
+
+/* ホバー時・中身がある場合のみ表示 */
+.tnx-hud .card-hand-slot:hover .card-preview-label:not(:empty) {
+    opacity:    1;
+    visibility: visible;
+}
+
+/* スート不一致（達成値 0）: シアンではなく赤グローで警告 */
+.tnx-hud .hand-area.check-pending .card-hand-slot:not(.check-valid) .card-preview-label {
+    color: #ff8080;
+    text-shadow:
+        0 0 8px  rgba(220, 50, 50, 0.9),
+        0 0 16px rgba(220, 50, 50, 0.5),
+        0 1px 3px rgba(0, 0, 0, 1),
+        0 -1px 3px rgba(0, 0, 0, 1),
+        1px 0 3px rgba(0, 0, 0, 1),
+       -1px 0 3px rgba(0, 0, 0, 1);
+}
+
+/* ── 判定ダイアログ ────────────────────────────────────────────────── */
+
+.tnx-check-dialog .window-content {
+    padding: 8px 12px 12px;
+}
+
+.check-dialog-body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.check-header {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.check-type-label {
+    font-size: 0.75em;
+    color: var(--tnx2-accent, #00c3ff);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.check-skill-label {
+    font-size: 0.95em;
+    font-weight: 600;
+}
+
+.check-suits {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.check-suit-badge {
+    font-size: 1.3em;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.07);
+}
+
+.check-suit-badge.suit-heart,
+.check-suit-badge.suit-diamond {
+    color: #e05050;
+}
+
+.check-tn {
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+}
+
+.check-tn-label {
+    font-size: 0.8em;
+    opacity: 0.7;
+}
+
+.check-tn-value {
+    font-size: 1.1em;
+    font-weight: 700;
+}
+
+.check-bounty .bounty-available {
+    font-size: 0.75em;
+    opacity: 0.65;
+}
+
+/* 状況修正(手動)のスピナー行(2026-07-14): ラベル+スピナーを1行に */
+.check-manual-mod {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.check-manual-mod > label {
+    font-size: 0.8em;
+    opacity: 0.7;
+}
+
+.check-manual-mod .number-input-spinner {
+    flex: 0 0 auto;
+}
+
+/* スタン/説得の宣言トグル(2026-07-15): 攻撃の判定のみ・既定オフのインラインチェック */
+.check-stun-toggle {
+    display: flex;
+    justify-content: center;
+}
+
+.tnx-check-inline-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.82em;
+    cursor: pointer;
+}
+
+.check-hint {
+    font-size: 0.78em;
+    opacity: 0.7;
+    font-style: italic;
+    margin: 0;
+}
+
+.check-dialog-footer {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 4px;
+}
+
+.check-dialog-footer .tnx-btn {
+    text-align: left;
+}
+
+.check-dialog-footer .tnx-btn.active {
+    background: rgba(255, 140, 0, 0.25);
+    border-color: rgba(255, 140, 0, 0.6);
+    color: #ffaa44;
+}
+
+/* ── チャットカードの統一規格 ──────────────────────────────────────────
+   2026-09-05 ユーザー指示「そもそもチャットカードの形式を完全に統一規格にしてください」。
+   **全てのチャットカードはこの骨格の中に段を積む**。器 .tnx-card / 見出し .tnx-card__head
+   (種別タグ＋名前) / 本文 .tnx-card__body。段は機能で分かれる:
+     .tnx-card__field  ラベル＝値の1行(内訳・状態・数値。変種 --total/--wrap/--tn)
+     .tnx-card__fold   畳める段(効果文・解説の長文も、判定ボーナスの内訳も同じ作法。常に閉じて置く)
+     .tnx-card__text   カード本体の長文(テキスト・ハンドアウト。畳まない)
+     .tnx-card__result 結果の行(成否・ダメージ)
+   マークアップは templates/chat/parts/card*.hbs の部品(別名パーシャル tnxCard 他)だけで組む。 */
+
+.tnx-card,
+.tnx-check-result,
+.tnx-check-request {
+    border-radius: 4px;
+    border: 1px solid var(--tnx2-border-active);
+    background: var(--tnx2-bg-2);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+/* 見出し: 名前(技能名・アイテム名・配布物名) | 種別タグ(右寄せ＝元の判定カードの配置)。
+   **1行に収める**——タグが次の行へ回るのは見出しとしておかしい(2026-09-06 ユーザー指摘)。
+   タグは幅に上限があり、長い種別名は横に縮めて収まるので、名前の取り分は常に残る */
+.tnx-card__head,
+.cr-head,
+.cr-req-header {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    background: var(--tnx2-bg-1);
+    border-bottom: 1px solid var(--tnx2-border-subtle);
+}
+
+/* 種別のチップは折り返さない(長い名前に押されて「SCE / NE 2」と割れるため) */
+/* 種別タグ: 元からある判定カードのタグ(.cr-type-tag)の意匠のまま——**塗りつぶしにしない**。
+   塗りつぶすと本文色を敷く安全網(.chat-message .message-content [class*="tnx-"])に負けて
+   「明るい地に白文字」になり読めない(2026-09-05 ユーザー指摘)。文字色は安全網より詳細度を上げて置く */
+.chat-message .message-content .tnx-card__tag,
+.chat-message .message-content .cr-type-tag,
+.chat-message .message-content .cr-req-type-tag {
+    flex: 0 0 auto;
+    margin-left: auto; /* 常に行の右端(過去ログの「名前→タグ」も同じ位置に来る) */
+    white-space: nowrap;
+    font-size: 0.72em;
+    font-weight: 600;
+    color: var(--tnx2-text-accent);
+    background: var(--tnx2-accent-glow-sm);
+    border: 1px solid var(--tnx2-accent-dim);
+    border-radius: 2px;
+    padding: 1px 5px;
+}
+
+/* タグの幅は内容なり、ただし**上限**を置く(2026-09-06 ユーザー指示)。上限を超える種別名は
+   横に縮めて収める(fitCardTags)。上限は**一番長い種別名「アーティフィシャルボディ」(12文字)を
+   縮めても潰れて見えない幅**——12文字がそのまま収まる幅(13.2em)では長すぎて名前を押し出す。
+   実測: 8em＝81px で 12文字は 0.57 倍。ここまでは条件付き書体のように読める(隔離実機で見比べ)。
+   幅はタグの文字サイズ基準(1em = タグの1文字ぶん)。border-box なので枠と内側余白を含む */
+.chat-message .message-content .tnx-card__tag {
+    max-width: 8em;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+/* 中身は**縮めない**(flex で潰されると自然幅が測れず、縮む代わりに切り取られる)。
+   幅を超える分は fitCardTags が scaleX で縮める */
+.tnx-card__tag-text {
+    flex: 0 0 auto;
+    display: inline-block;
+    white-space: nowrap;
+    transform-origin: center center;
+}
+
+/* 名前はカードの主役として出す */
+.tnx-card__title,
+.cr-skill-name,
+.cr-req-title {
+    flex: 1 1 auto;
+    /* タグは固定幅なので、名前は残りをそのまま使う(長ければ名前の側で折り返す) */
+    min-width: 0;
+    font-size: 1.05em;
+    font-weight: 700;
+    color: var(--tnx2-text-primary);
+}
+
+/* 長文(効果文)を持つカードは**見出しそのものが開閉の起点**(details/summary)。
+   解説カードが以前から採っていた作法で、畳むための見出しを別に足さない
+   (2026-09-05 ユーザー指摘「カードのヘッダーそのものが見出しで、折り畳み、展開もそこが起点」) */
+.tnx-card__disclose > .tnx-card__head {
+    cursor: pointer;
+    list-style: none;
+}
+
+.tnx-card__disclose > .tnx-card__head::-webkit-details-marker {
+    display: none;
+}
+
+.tnx-card__disclose > .tnx-card__head::before {
+    content: "▶"; /* 開閉の三角 */
+    flex: 0 0 auto;
+    font-size: 0.7em;
+    color: var(--tnx2-text-secondary);
+    transition: transform 0.12s ease;
+}
+
+.tnx-card__disclose[open] > .tnx-card__head::before {
+    transform: rotate(90deg);
+}
+
+/* 畳まれていた長文。本文と同じ内側余白に揃え、下の段と罫線で切る */
+.tnx-card__prose {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--tnx2-border-subtle);
+}
+
+/* 段を1つも持たないカード(効果文だけの解説カード)では本文の帯を出さない */
+.tnx-card__body:empty {
+    display: none;
+}
+
+/* 本文。段の間隔はここで一律に決める(段の側で余白を持たない) */
+.tnx-card__body,
+.cr-req-body {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px 12px;
+}
+
+/* カード行: スートシンボル | カード名 | バッジ群 */
+.cr-card-row {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--tnx2-border-subtle);
+}
+
+.cr-suit {
+    font-size: 1.65em;
+    font-weight: 700;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
+.cr-suit.suit-heart,
+.cr-suit.suit-diamond {
+    color: #e05050;
+}
+
+.cr-suit.suit-spade,
+.cr-suit.suit-club {
+    color: var(--tnx2-text-primary);
+}
+
+.cr-card-name {
+    font-size: 0.9em;
+    color: var(--tnx2-text-secondary);
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cr-badges {
+    display: flex;
+    gap: 3px;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.cr-badge {
+    display: inline-block;
+    font-size: 0.68em;
+    padding: 1px 5px;
+    border-radius: 2px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.cr-badge--deck     { background: rgba(100, 100, 200, 0.35); color: #aaaaee; }
+.cr-badge--trump    { background: rgba(200, 120, 0,   0.40); color: #ffbb44; }
+.cr-badge--mismatch { background: rgba(200,  50, 50,  0.35); color: #ff8888; }
+.cr-badge--fixed21  { background: rgba(200, 200, 50,  0.30); color: #eeee60; }
+.cr-badge--fixed    { background: rgba(80,  170, 200, 0.30); color: #7fd4ee; }
+.cr-badge--sub      { background: rgba(150, 110, 220, 0.30); color: #c9a6ff; }
+.cr-badge--recheck  { background: rgba(80,  200, 130, 0.30); color: #7fe8ac; }
+
+/* ── 再判定の達成値装飾(結果/攻撃カード共通・2026-07-14 ボタン廃止=数字クリックへ集約) ──
+   再判定可能(allowRecheck・未再判定)のカードは常設装飾、再判定付与モード中は全カードに破線装飾 */
+.tnx-recheck-ready,
+.tnx-recheck-grant-pending .tnx-recheck-target {
+    cursor: pointer;
+    border-radius: 4px;
+    outline: 1px dashed rgb(127 232 172 / 70%);
+    outline-offset: 2px;
+}
+
+.tnx-recheck-ready:hover,
+.tnx-recheck-grant-pending .tnx-recheck-target:hover {
+    background: rgb(80 200 130 / 25%);
+}
+
+/* カバー: 待ち受け中に、攻撃カードの命中対象の行をクリックしてカバーできる(2026-07-16・再判定装飾と同じ語彙) */
+.tnx-recheck-grant-pending .tnx-attack-coverable {
+    cursor: pointer;
+    border-radius: 4px;
+    outline: 1px dashed rgb(127 232 172 / 70%);
+    outline-offset: 2px;
+}
+.tnx-recheck-grant-pending .tnx-attack-coverable:hover {
+    background: rgb(80 200 130 / 25%);
+}
+
+/* 段のまとまり(計算内訳など)。余白は本文が持つのでここでは間隔だけ */
+.tnx-card__section,
+.cr-calc-section {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.tnx-card__field,
+.cr-calc-row,
+.cr-req-field {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 1px 0;
+}
+
+.tnx-card__field-label,
+.cr-calc-label,
+.cr-req-field__label {
+    font-size: 0.9em;
+    color: var(--tnx2-text-secondary);
+    /* 短いラベル(攻撃/目標値 等)は折り返さず横に保ち、長い値側を折り返させる(2026-07-15) */
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.tnx-card__field-value,
+.cr-calc-val,
+.cr-req-field__value {
+    font-size: 1em;
+    font-family: var(--tnx2-font-mono);
+    color: var(--tnx2-text-primary);
+    text-align: right;
+    min-width: 2.5em;
+    /* ラベルを潰さず、長い内容(攻撃者→対象名 等)はこちらで折り返す */
+    overflow-wrap: anywhere;
+    padding-left: 5px;
+}
+
+/* 達成値合計行 */
+.tnx-card__field--total,
+.cr-total-row {
+    margin-top: 5px;
+    padding-top: 7px;
+    border-top: 1px solid var(--tnx2-border-subtle);
+    align-items: center;
+}
+
+/* 可変長のラベル(供給元名＋対象条件の理由 等)を持つ行だけ折り返す(2026-09-01)。
+   基底の nowrap/flex-shrink:0 を打ち消して見切れを防ぐ(合計行の例外と同じ扱い) */
+.tnx-card__field--wrap .tnx-card__field-label,
+.cr-calc-row--wrap .cr-calc-label,
+.tnx-card__field--wrap .cr-req-field__label {
+    flex-shrink: 1;
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.tnx-card__field--total .tnx-card__field-label,
+.cr-total-row .cr-calc-label,
+.tnx-card__field--total .cr-req-field__label {
+    font-size: 0.95em;
+    font-weight: 600;
+    color: var(--tnx2-text-primary);
+    /* 合計行だけは例外: 対象名込みの長いラベルを折り返させ、右の数値を潰さない(2026-07-15)。
+       基底の nowrap/flex-shrink:0 を打ち消す */
+    flex-shrink: 1;
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.tnx-card__field-value--total,
+.cr-total-num {
+    font-size: 1.8em;
+    font-weight: 700;
+    font-family: var(--tnx2-font-mono);
+    color: var(--tnx2-text-accent);
+    text-align: right;
+    line-height: 1;
+    /* 合計値は一続きの数字として保つ(狭いカードでの縦折り返しを防ぐ・2026-07-15) */
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* 総計行の単位表記(「1 段階」等): 数字は大きく・単位は控えめに(移動段階の強調表示・2026-07-19) */
+.tnx-card__field-value--total .tnx-card__field-unit,
+.cr-total-num .cr-total-unit {
+    font-size: 0.5em;
+    font-weight: 600;
+}
+
+/* 判定ボーナス行＝開閉トグル (▶判定ボーナス … +N、開くとエフェクト名一覧) */
+.tnx-card__fold-summary,
+.cr-bonus-summary {
+    cursor: pointer;
+    list-style: none;
+}
+
+.tnx-card__fold-summary::-webkit-details-marker,
+.cr-bonus-summary::-webkit-details-marker {
+    display: none;
+}
+
+/* ▶ は見出しの行そのものに付ける(ラベルを持たない畳める段でも出る)。
+   行は「ラベル｜値」で両端に開くので、▶ とラベルは左でくっつける(下の margin-right: auto) */
+.tnx-card__fold-summary .tnx-card__field-label,
+.cr-bonus-summary .cr-calc-label {
+    margin-right: auto;
+}
+
+.tnx-card__fold-summary::before,
+.cr-bonus-summary::before {
+    content: "\25B6"; /* ▶ */
+    display: inline-block;
+    margin-right: 4px;
+    font-size: 0.7em;
+    color: var(--tnx2-text-secondary);
+    transition: transform 0.12s ease;
+}
+
+.tnx-card__fold[open] .tnx-card__fold-summary::before,
+.cr-bonus[open] .cr-bonus-summary::before {
+    transform: rotate(90deg);
+}
+
+.tnx-card__fold-list,
+.cr-bonus-list {
+    list-style: none;
+    margin: 3px 0 0;
+    padding: 4px 6px;
+    border-radius: 4px;
+    font-size: 0.85em;
+    background: var(--tnx2-bg-subtle, rgba(0, 0, 0, 0.12));
+}
+
+.tnx-card__fold-list li,
+.cr-bonus-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+    padding: 1px 0;
+}
+
+.tnx-card__fold-name,
+.cr-bonus-name {
+    color: var(--tnx2-text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tnx-card__fold-num,
+.cr-bonus-num {
+    font-family: var(--tnx2-font-mono);
+    color: var(--tnx2-text-primary);
+}
+
+/* 結果フッター (成功 / 失敗 / ファンブル) */
+.tnx-card__result,
+.cr-result {
+    display: flex;
+    /* 長い注記(強制失敗の理由等)が付いても成否の語を文字割れさせず、注記ごと次行へ落とす */
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 10px;
+    font-size: 1.05em;
+    font-weight: 700;
+}
+
+.tnx-card__result--success,
+.cr-result--success {
+    background: rgba(50, 180, 80, 0.20);
+    color: #60e880;
+}
+
+/* 帰結の行: 成功で自動適用された帰結(登場・入手・情報開示)を卓に残す。
+   2026-09-05 まで登場/購入/情報で3つの名前に割れていたものを1つにした */
+.tnx-card__outcome,
+.cr-flow-outcome,
+.cr-appearance-outcome,
+.cr-info-outcome {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    color: #60e880;
+    font-weight: 700;
+}
+
+.tnx-card__result--failure,
+.cr-result--failure {
+    background: rgba(200, 50, 50, 0.20);
+    color: #e86060;
+}
+
+.tnx-card__result--fumble,
+.cr-result--fumble {
+    background: rgba(180, 0, 0, 0.32);
+    color: #ff6060;
+}
+
+.tnx-card__result--info,
+.cr-result--info {
+    background: rgba(120, 150, 200, 0.18);
+    color: #a8c4ee;
+}
+
+/* 状態の解決/受付カード(治療・カード決定ドロー。condition-outcome/condition-prompt.hbs) */
+.tnx-condition-card .tnx-card__result--damage,
+.tnx-condition-card .cr-result--damage {
+    background: rgba(200, 50, 50, 0.20);
+    color: #e86060;
+}
+.tnx-condition-body {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px 10px;
+}
+.tnx-condition-note {
+    margin: 0;
+    font-size: 0.88em;
+    color: var(--tnx2-text-secondary);
+}
+
+.cr-mismatch-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    font-size: 0.95em;
+    font-weight: 700;
+    color: #e86060;
+}
+
+.tnx-card__result-note,
+.cr-tn {
+    margin-left: auto;
+    font-size: 0.82em;
+    font-weight: 400;
+    color: var(--tnx2-text-secondary);
+    white-space: nowrap; /* 「差分値 +3」等を文字割れさせない(狭いカード対策) */
+}
+
+.tnx-card-ghost {
+    position: absolute;
+    top: -1000px;
+    left: -1000px;
+    z-index: -1;
+}
+
+/* カードプール専用 */
+.cardpool-sheet .deck-display {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 100%;
+}
+
+.cardpool-sheet .deck-info { font-size: 1.2em; font-weight: bold; }
+
+.cardpool-sheet .deck-actions-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    justify-content: center;
+}
+
+.cardpool-sheet .discard-operations-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    align-items: center;
+    justify-items: center;
+    height: 100%;
+    padding-top: 10px;
+}
+
+.cardpool-sheet .discard-display {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.cardpool-sheet .discard-info { font-size: 1.2em; font-weight: bold; }
+
+.cardpool-sheet .scene-operations-grid {
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+    height: 100%;
+}
+
+.cardpool-sheet .scene-card-header {
+    text-align: center;
+    border-bottom: 1px solid var(--tnx2-border-glow);
+    margin-bottom: 15px;
+}
+
+.cardpool-sheet .scene-card-header h2 {
+    margin: 0;
+    font-size: 1.5em;
+    color: var(--tnx2-text-accent);
+}
+
+.cardpool-sheet .scene-card-content {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 20px;
+    align-items: flex-start;
+    flex-grow: 1;
+}
+
+.cardpool-sheet .scene-card-image-wrapper {
+    display: flex;
+    justify-content: center;
+}
+
+.cardpool-sheet .scene-card-details {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.cardpool-sheet .scene-card-details .detail-block h3 {
+    font-size: 1.2em;
+    font-weight: bold;
+    color: var(--tnx2-accent);
+    margin: 0 0 5px 0;
+    border-bottom: 1px solid var(--tnx2-border-subtle);
+    padding-bottom: 3px;
+}
+
+.cardpool-sheet .scene-card-details .detail-block p {
+    margin: 0;
+    line-height: 1.6;
+    color: var(--tnx2-text-secondary);
+}
+
+.manual-text p {
+    margin: 0 0 10px 0;
+    color: var(--tnx2-text-muted);
+    line-height: 1.6;
+}
+
+.manual-text p:last-child { margin-bottom: 0; }

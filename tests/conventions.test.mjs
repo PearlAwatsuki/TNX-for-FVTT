@@ -239,3 +239,21 @@ describe("規約: 共通の置き場を迂回しない(ラチェット=増やさ
     expect(offenders).toEqual([]);
   });
 });
+
+// css/tnx2.css は 11,788 行の単一ファイルで、目当ての節へ辿り着くだけで一苦労だった。
+// 2026-09-07 に役割で 9 本へ分けたが、CSS は**後ろのファイルほど後勝ち**するので、
+// system.json の styles の並びがそのまま見た目を決める。登録漏れ・並びの崩れは実機で
+// しか気づけない(テストも lint も CSS の読み込み順を見ない)ため、ここで固定する。
+describe("スタイルシートの登録", () => {
+  const styles = JSON.parse(readFileSync(join(root, "system.json"), "utf8")).styles;
+  const files = readdirSync(join(root, "css")).filter(n => n.endsWith(".css")).sort();
+
+  it("css/ の全ファイルが system.json に登録されている(登録漏れ=無反映)", () => {
+    expect([...styles].sort()).toEqual(files.map(n => `css/${n}`));
+  });
+
+  it("styles の並びが連番の昇順(カスケードの後勝ちを名前で表す)", () => {
+    expect(styles).toEqual([...styles].sort());
+    expect(styles.every(p => /^css\/\d\d-[a-z-]+\.css$/.test(p))).toBe(true);
+  });
+});

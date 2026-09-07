@@ -1,0 +1,973 @@
+/**
+ * アウトフィットシートとキャストシートのアウトフィットタブ
+ *
+ * css/tnx2.css(11,788 行)を役割で分けたもの(2026-09-07)。**読み込み順に意味がある**ため
+ * ファイル名に連番を付け、system.json の styles も同じ順に並べる。後ろのファイルほど
+ * 後勝ちする——順序を変えると見た目が変わる。
+ */
+
+/* ================================================================
+   35. アイテムシート: アウトフィット
+   ================================================================ */
+
+/* ヘッダーのカテゴリ行 (大分類→小分類の連動ドロップダウン / 閲覧ラベル) */
+.tokyo-nova.sheet.item.outfit .outfit-category {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-top: 4px;
+}
+
+.tokyo-nova.sheet.item.outfit .outfit-category select {
+    flex: 1;
+    min-width: 0;
+}
+
+.tokyo-nova.sheet.item.outfit .outfit-category-label {
+    color: var(--tnx2-text-secondary);
+    font-size: 0.9em;
+}
+
+/* 固定分類の disabled プルダウン(2026-08-31): 2行目以降と構造を揃えるための表示。
+   意匠は既存の disabled select 規約(opacity 0.5・not-allowed)に従う */
+.tokyo-nova.sheet.item.outfit .outfit-category select:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* 複数分類(フェーズ16-1): 1行目右端のチェックボックスと副分類行の追加/削除ボタン。
+   右端要素は同幅で縦に揃える(チェック⇔ボタンが行違いで並ぶため) */
+.tokyo-nova.sheet.item.outfit .outfit-category-multi-toggle {
+    /* チェックボックスの実寸(min-content)が基準幅を押し広げないよう、実寸に合わせた同幅で
+       ボタン列(下行)と縦を揃える */
+    flex: 0 0 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+}
+
+.tokyo-nova.sheet.item.outfit .outfit-category--additional {
+    margin-top: 2px;
+}
+
+.tokyo-nova.sheet.item.outfit .outfit-category-row-btn {
+    flex: 0 0 26px;
+    text-align: center;
+    color: var(--tnx2-text-secondary);
+}
+
+.tokyo-nova.sheet.item.outfit .outfit-category-row-btn:hover {
+    color: var(--tnx2-text-primary);
+}
+
+/* アイテム名 + 個数(×n)の行 */
+.tokyo-nova.sheet.item.outfit .charname-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.tokyo-nova.sheet.item.outfit .charname-row .charname { flex: 1; min-width: 0; }
+
+.tokyo-nova.sheet.item.outfit .outfit-quantity {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--tnx2-text-primary);
+    white-space: nowrap;
+}
+
+.tokyo-nova.sheet.item.outfit .outfit-quantity input[type="number"] {
+    width: 3.5em;
+    text-align: center;
+}
+
+/* 射程の min～max 区切り */
+.tokyo-nova.sheet.item.outfit .range-separator {
+    flex: 0 0 auto;
+    color: var(--tnx2-text-muted);
+}
+
+/* 状態・性質フラグ: 2 カラムのコンパクトなチェックリスト */
+.tokyo-nova.sheet.item.outfit .outfit-flags {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px 16px;
+}
+
+.tokyo-nova.sheet.item.outfit .outfit-flag {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 0.9em;
+    color: var(--tnx2-text-secondary);
+}
+
+.tokyo-nova.sheet.item.outfit .outfit-flag input[type="checkbox"] {
+    margin: 0;
+    flex: 0 0 auto;
+}
+
+.tokyo-nova.sheet.item.outfit .outfit-flag:has(input:checked) span {
+    color: var(--tnx2-text-primary);
+}
+
+/* ウィンドウヘッダーの状態トグル(準備済み/携帯中/プレアクト購入)。
+   D&D 5e の装備済みトグル風。閲覧モードでも操作できる */
+.tokyo-nova.sheet.item.outfit .window-header .outfit-header-toggles {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex: 0 0 auto;
+}
+
+.tokyo-nova.sheet.item.outfit .outfit-flag-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 100%;
+    color: var(--tnx2-text-muted);
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: color       var(--tnx2-transition-fast),
+                text-shadow var(--tnx2-transition-fast);
+}
+
+.tokyo-nova.sheet.item.outfit .outfit-flag-toggle:hover {
+    color: var(--tnx2-text-secondary);
+}
+
+.tokyo-nova.sheet.item.outfit .outfit-flag-toggle.active {
+    color: var(--tnx2-accent);
+    text-shadow: 0 0 8px var(--tnx2-accent-glow);
+}
+
+.tokyo-nova.sheet.item.outfit .outfit-flag-toggle.disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+/* 住宅施設: 住宅エリアから供給された入力不可の値 */
+.tokyo-nova.sheet.item.outfit .linked-value {
+    flex: 1;
+    min-width: 0;
+    color: var(--tnx2-text-secondary);
+    font-size: 0.9em;
+}
+
+/* ヘッダーの住宅エリアバッジ */
+.tokyo-nova.sheet.item.outfit .outfit-area-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 8px;
+    padding: 1px 8px;
+    border-radius: var(--tnx2-radius);
+    background: var(--tnx2-bg-3);
+    color: var(--tnx2-text-secondary);
+    font-size: 0.85em;
+    white-space: nowrap;
+}
+
+/* コンバインプレビュー */
+.tokyo-nova.sheet.item.outfit .combine-preview {
+    margin-top: 8px;
+    padding: 8px;
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+    background: var(--tnx2-bg-2);
+}
+
+.tokyo-nova.sheet.item.outfit .combine-preview__title {
+    margin-bottom: 6px;
+    font-size: 0.85em;
+    font-weight: 700;
+    color: var(--tnx2-accent);
+}
+
+/* ----------------------------------------------------------------
+   コンバイナー: 元アイテム行のインラインUI
+   ---------------------------------------------------------------- */
+
+/* 見た目選択の目アイコン */
+.tokyo-nova.sheet.item.outfit .combine-appearance-eye {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    cursor: pointer;
+    padding: 2px 4px;
+}
+
+.tokyo-nova.sheet.item.outfit .combine-appearance-eye input[type="radio"] {
+    display: none;
+}
+
+.tokyo-nova.sheet.item.outfit .combine-appearance-eye i {
+    font-size: var(--font-size-14);
+    opacity: 0.25;
+    transition: opacity 0.15s, color 0.15s;
+}
+
+.tokyo-nova.sheet.item.outfit .combine-appearance-eye:has(input:checked) i {
+    opacity: 1;
+    color: var(--tnx2-accent);
+}
+
+.tokyo-nova.sheet.item.outfit .combine-appearance-eye--empty {
+    pointer-events: none;
+}
+
+.tokyo-nova.sheet.item.outfit .combine-appearance-eye--empty i {
+    opacity: 0.15;
+}
+
+/* view-mode: 選択状態を read-only 感に抑制する */
+.tokyo-nova.sheet.item.outfit.view-mode .combine-appearance-eye {
+    cursor: default;
+}
+.tokyo-nova.sheet.item.outfit.view-mode .combine-appearance-eye i {
+    filter: grayscale(100%);
+    transition: none;
+}
+.tokyo-nova.sheet.item.outfit.view-mode .combine-appearance-eye:has(input:checked) i {
+    opacity: 0.5;
+}
+
+/* コンバイン元行: form-fields/split-fields を外し専用コンテナで管理 */
+.tokyo-nova.sheet.item.outfit .combine-source-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.tokyo-nova.sheet.item.outfit .combine-source-row .combine-source-linked,
+.tokyo-nova.sheet.item.outfit .combine-source-row .tnx-import-box {
+    flex: 1;
+    min-width: 0;
+}
+
+.tokyo-nova.sheet.item.outfit .combine-source-row .combine-source-linked {
+    height: auto;
+    padding-top: 8px;
+    padding-bottom: 8px;
+}
+
+.tokyo-nova.sheet.item.outfit .housing-area-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.tokyo-nova.sheet.item.outfit .housing-area-row .housing-area-linked,
+.tokyo-nova.sheet.item.outfit .housing-area-row .tnx-import-box {
+    flex: 1;
+    min-width: 0;
+}
+
+.tokyo-nova.sheet.item.outfit .housing-area-row .housing-area-linked {
+    height: auto;
+    padding-top: 8px;
+    padding-bottom: 8px;
+}
+
+/* ドロップモード時は select をミュートカラーで表示(view-mode と同等の視覚) */
+.tokyo-nova.sheet.item.outfit select[name="system.housingArea"]:disabled {
+    background: var(--tnx2-bg-2);
+    color: var(--tnx2-text-muted);
+    border: 1px solid var(--tnx2-border-subtle);
+    cursor: not-allowed;
+}
+
+/* パラメータ選択セクション */
+.tokyo-nova.sheet.item.outfit .combine-param-section {
+    margin-top: 8px;
+    padding: 6px 8px;
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+    background: var(--tnx2-bg-2);
+}
+
+.tokyo-nova.sheet.item.outfit .combine-param-section__title {
+    margin-bottom: 4px;
+    font-size: 0.8em;
+    font-weight: 700;
+    color: var(--tnx2-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* パラメータ名ラベルとラジオ部を横並びにする（.form-group への詳細度競合を解消） */
+.tokyo-nova.sheet.item.outfit .combine-param-section .form-group.usage-limit-group {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+/* パラメータ選択ラジオ: usage-field 内の number input 60px をリセット */
+.tokyo-nova.sheet.item.outfit .combine-param-section .usage-field input[type="radio"] {
+    width: auto;
+    margin: 4px auto 0;
+    accent-color: var(--tnx2-accent);
+    cursor: pointer;
+}
+
+/* ================================================================
+   34. キャストシート アウトフィットタブ
+   ================================================================ */
+
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-groups-container {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 4px;
+}
+
+/* グループ間の区切り */
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-group {
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius-sm);
+    overflow: hidden;
+    background: var(--tnx2-bg-2);
+}
+
+/* ヘッダー行(カラムラベル兼グループ名) */
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-row--header {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 6px;
+    background: var(--tnx2-bg-3);
+    border-bottom: 1px solid var(--tnx2-border-active);
+    font-size: 0.9em;
+    font-weight: bold;
+    color: var(--tnx2-text-secondary);
+    cursor: default;
+}
+
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-row--header:hover {
+    background: var(--tnx2-bg-3);
+}
+
+/* アイテム行 */
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-row {
+    border-bottom: 1px solid var(--tnx2-border-subtle);
+    font-size: 0.9em;
+    cursor: context-menu;
+    transition: background var(--tnx2-transition-fast);
+}
+
+.tokyo-nova.sheet.actor.edit-mode .tab[data-tab="outfits"] .outfit-row:not(.outfit-row--header):not(.outfit-row--option) {
+    cursor: grab;
+}
+
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-row:last-child {
+    border-bottom: none;
+}
+
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-row:not(.outfit-row--header):hover {
+    background: var(--tnx2-bg-hover);
+}
+
+/* 故障/破壊(2026-07-18): 故障=名前を赤+取消線・破壊=名前をグレーアウト+取消線。ロール不可 */
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-col--name a.outfit-name--malfunction {
+    color: var(--tnx2-danger, #e74c3c);
+    text-decoration: line-through;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-col--name a.outfit-name--destroyed {
+    color: var(--tnx2-text-muted, #888);
+    text-decoration: line-through;
+}
+
+/* 案「回路トレース＋スロットゲージ＋装着ノード」(組み合わせ): 表を貫く発光縦トレース＋各オプション
+   への横ブランチ、その先端に塗りつぶしの菱形「装着ノード」(端子=一工夫)。ホスト行にスロット使用
+   ゲージ、オプションに占有スロット種別タグ。未準備は独立行で通常表示。 */
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-row--option > .outfit-row-main {
+    position: relative;
+    background: var(--tnx2-bg-2);
+}
+/* 縦トレース(表を貫く): 行上端→中央。最後以外は下端まで続け次行へ繋ぐ */
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-row--option > .outfit-row-main::before {
+    content: "";
+    position: absolute;
+    left: 8px;
+    top: 0;
+    bottom: 50%;
+    width: 2px;
+    background: var(--tnx2-accent, #6fb3d2);
+    box-shadow: 0 0 4px var(--tnx2-accent-glow-sm, rgba(0, 200, 224, 0.5));
+}
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-row--option:not(.outfit-row--last-option) > .outfit-row-main::before {
+    bottom: 0;
+}
+/* 分かれ目(縦トレース→横ブランチ)＝ひし形。行本体(overflow しない)側に置き、name セルの切れを防ぐ */
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-row--option > .outfit-row-main::after {
+    content: "";
+    position: absolute;
+    left: 5px;
+    top: 50%;
+    width: 7px;
+    height: 7px;
+    box-sizing: border-box;
+    transform: translateY(-50%) rotate(45deg);
+    background: var(--tnx2-bg-2); /* 行背景色で中を塗り、裏を通る縦トレース線を隠す(枠線だけ＝白抜きの見た目) */
+    border: 1px solid var(--tnx2-accent, #6fb3d2);
+    box-shadow: 0 0 5px var(--tnx2-accent-glow-sm, rgba(0, 200, 224, 0.9));
+}
+/* ホストのスロット使用ゲージ(種別ごと): スラントしたピップ＋使用/容量。種別名はツールチップ。
+   --c で色分け: normal(ス=武器/IANUS/ポケットロン等)=シアン、ラベル付き(意識・soft/hard)=マゼンタ。 */
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-gauge {
+    --c: var(--tnx2-accent, #6fb3d2);
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    margin-left: 16px; /* ゲージ間は広く(ピップ間 gap や数字との隙間とはっきり差をつける) */
+    line-height: 1;
+    vertical-align: middle;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-gauge .tnx-pip {
+    flex: 0 0 auto;
+    box-sizing: border-box;
+    width: 7px;
+    height: 11px;
+    border: 1px solid var(--c);
+    transform: skewX(-14deg);
+    opacity: 0.5;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-gauge .tnx-pip.on {
+    background: var(--c);
+    box-shadow: 0 0 3px var(--c);
+    opacity: 1;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-gauge .tnx-pip.over {
+    border-color: var(--tnx2-danger, #c0392b);
+    background: var(--tnx2-danger, #c0392b);
+    opacity: 1;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-gauge .tnx-pip-count {
+    margin-left: 2px; /* 数字とピップは詰める(ゲージ間 16px とはっきり差を付ける) */
+    font-size: 0.86em;
+    font-weight: 700;
+    line-height: 11px; /* ピップと同じ箱高さ(11px)にして単一行を縦中央化。align-items に頼らず確実に揃える */
+    letter-spacing: 0.02em;
+    color: var(--c);
+    opacity: 0.9;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-gauge.is-over .tnx-pip-count {
+    color: var(--tnx2-danger-text, #e74c3c);
+    opacity: 1;
+}
+/* 名前/ゲージ/タグの縦位置を中央で揃える(ガタつき防止) */
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-col--name > .squeeze-text,
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-name-line > .squeeze-text {
+    vertical-align: middle;
+}
+
+/* ゲージ持ちの行は名前とゲージの二段(2026-08-31 ユーザー提案=見切れの構造的解消)。
+   ゲージ行は折り返し可=容量がどれだけ増えても列内に収まる(見切れ禁止の一般則) */
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-col--name-tiered {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+}
+
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-name-line {
+    min-width: 0;
+}
+
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-gauge-line {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 3px 16px;
+    white-space: normal;
+}
+
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-gauge-line .outfit-slot-gauge {
+    margin-left: 0; /* ゲージ間隔は行コンテナの gap が担う */
+}
+/* 住宅エリアバッジ(ピル)。色は種別ごと --c */
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-area-badge {
+    --c: var(--tnx2-accent, #6fb3d2);
+    margin-left: 10px;
+    padding: 1px 7px;
+    font-size: 0.82em;
+    line-height: 1.5;
+    color: var(--c);
+    border: 1px solid var(--c);
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.04);
+    white-space: nowrap;
+    vertical-align: middle;
+    opacity: 0.92;
+}
+/* スロット種別ごとのゲージ色: normal=シアン/software=緑/hardware=マゼンタ/
+   表層意識=赤紫/深層意識=藤色/無意識=藍色/アイテム名(便宜スロット)=琥珀 */
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-gauge--normal {
+    --c: var(--tnx2-accent, #6fb3d2);
+}
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-gauge--software {
+    --c: #46d160;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-gauge--hardware {
+    --c: #ff3da1;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-gauge--surface {
+    --c: #a076e4; /* 表層意識=藤色(彩度もう少し上げ) */
+}
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-gauge--deep {
+    --c: #6030ff; /* 深層意識=青紫(明度up) */
+}
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-gauge--unconscious {
+    --c: #3b26f5; /* 無意識=藍/紺(明度up) */
+}
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-slot-gauge--outfitName {
+    --c: #e0a94f; /* アイテム名(便宜スロット・スロットなしホストへの名前指定)=琥珀 */
+}
+
+/* 戦闘タブ(10-5/10-6・2026-07-02 確定仕様)。
+   CS=公式プロファイルシートの CS ボックス様式(「CS」+「コンバットスピード」の2段ラベル+値)。
+   カット進行中(=CSカレント参照中)はボックスがグローで発光する(チップでなく光で状態を示す)。
+   編集モードはボックス内が「決定の連鎖」(ベース算出+修正 →CSを決定→ CS →自動セット→ カレント)に変形。
+   武器=生身ライン(攻撃用/パリー用の書き換え元)・防御力=種別合計・タイミング別再表示。 */
+
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .cs-box {
+    display: inline-flex;
+    flex-direction: column;
+    min-width: 240px;
+    max-width: 100%;
+    vertical-align: top; /* CS と AR のボックスが横並びのとき上端で揃える */
+    background: var(--tnx2-bg-2);
+    border: 1px solid var(--tnx2-border-active);
+    border-radius: var(--tnx2-radius);
+    padding: 10px 16px;
+    margin-bottom: 16px;
+    transition: border-color var(--tnx2-transition-mid), box-shadow var(--tnx2-transition-mid);
+}
+/* AR ボックス(cs-box の意匠を共有する修飾)。CS の右に並び、幅は控えめ */
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .cs-box--ar {
+    min-width: 180px;
+    margin-left: 12px;
+}
+/* カット進行中(CSカレント参照中)はグローで示す */
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .cs-box--cut {
+    border-color: var(--tnx2-accent);
+    box-shadow: 0 0 10px var(--tnx2-accent-glow),
+                inset 0 0 8px var(--tnx2-accent-glow-sm);
+}
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .cs-box__title {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    border-bottom: 1px solid var(--tnx2-border-subtle);
+    padding-bottom: 4px;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .cs-box__abbr {
+    font-family: var(--tnx2-font-mono);
+    font-size: 1.25em;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: var(--tnx2-text-accent);
+}
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .cs-box__name {
+    font-size: 0.72em;
+    letter-spacing: 0.14em;
+    color: var(--tnx2-text-secondary);
+}
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .cs-box__value-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    gap: 6px;
+    padding: 6px 0 2px;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .cs-box__value {
+    font-family: var(--tnx2-font-mono);
+    font-size: 2.1em;
+    font-weight: 700;
+    line-height: 1.1;
+    color: var(--tnx2-text-primary);
+}
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .cs-box__ignorable {
+    font-family: var(--tnx2-font-mono);
+    font-size: 1.05em;
+    color: var(--tnx2-text-muted);
+}
+/* AR のカット進行外表示「—」(付与型のためカット進行外は値を持たない) */
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .cs-box__value--none {
+    color: var(--tnx2-text-muted);
+}
+
+/* 編集モード: 決定の連鎖(縦積み)。3層は同格でなく ベース→決定→CS→自動セット→カレント の流れ */
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .cs-cascade {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding-top: 8px;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .cs-cascade__row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .cs-cascade__row > label {
+    font-size: 0.78em;
+    color: var(--tnx2-text-secondary);
+    white-space: nowrap;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .cs-cascade__row > input[type="number"] {
+    width: 48px;
+    text-align: center;
+    font-family: var(--tnx2-font-mono);
+    color: var(--tnx2-text-secondary);
+}
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .cs-cascade__op {
+    color: var(--tnx2-text-muted);
+    font-size: 0.85em;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .cs-cascade__link {
+    display: flex;
+    justify-content: center;
+    padding: 2px 0;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .cs-cascade__note {
+    font-size: 0.75em;
+    color: var(--tnx2-text-muted);
+}
+/* CS と CSカレントは1つのグリッドで列を共有する: スピナー列(中央)をボックスの中心軸に置き、
+   ラベルはその左に付く(1fr | スピナー | 1fr の3列で中央列が常に中心軸に乗る)。
+   両行のスピナーは同じ中央列なので縦位置は構造的に一致する。
+   間の注記(カット開始で自動セット)は全列ぶち抜きで中央。
+   (CSベースの行は式全体でひとかたまりのため、このグリッドに参加させない) */
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .cs-cascade__aligned {
+    display: grid;
+    grid-template-columns: 1fr max-content 1fr;
+    align-items: center;
+    column-gap: 8px;
+    row-gap: 4px;
+    width: 100%;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .cs-cascade__aligned > label {
+    grid-column: 1;
+    justify-self: end;
+    font-size: 0.78em;
+    color: var(--tnx2-text-secondary);
+    white-space: nowrap;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .cs-cascade__aligned > .number-input-spinner {
+    grid-column: 2;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .cs-cascade__aligned-note {
+    grid-column: 1 / -1;
+    justify-self: center;
+    padding: 2px 0;
+}
+
+/* 生身ライン(攻撃/パリーで参照している生身) */
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .combat-refs {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-bottom: 14px;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .combat-ref-line {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    padding: 3px 6px;
+    border-bottom: 1px solid var(--tnx2-border-subtle);
+    max-width: 420px;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .combat-ref-line__kind {
+    flex: 0 0 64px;
+    font-family: var(--tnx2-font-mono);
+    font-size: 0.78em;
+    letter-spacing: 0.06em;
+    color: var(--tnx2-text-secondary);
+}
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .combat-ref-line__name {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .combat-ref-line__value {
+    margin-left: auto;
+    font-family: var(--tnx2-font-mono);
+    font-weight: 700;
+    color: var(--tnx2-text-accent);
+    white-space: nowrap;
+}
+/* 編集モード: 書き換え元の選択(攻撃で使用/パリーで使用) */
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .combat-ref-edit {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    padding: 6px;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .combat-ref-edit__field {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .combat-ref-edit__field > label {
+    font-size: 0.78em;
+    color: var(--tnx2-text-muted);
+    white-space: nowrap;
+}
+
+/* 防御力(種別ごとの合計) */
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .combat-def-line {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    padding: 3px 6px;
+    margin-bottom: 14px;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .combat-def-line__label {
+    font-family: var(--tnx2-font-mono);
+    font-size: 0.78em;
+    letter-spacing: 0.06em;
+    color: var(--tnx2-text-secondary);
+}
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .combat-def-line__value {
+    font-family: var(--tnx2-font-mono);
+    font-size: 1.25em;
+    font-weight: 700;
+    color: var(--tnx2-text-primary);
+}
+
+/* タイミングごとの使用技能・アウトフィット */
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .combat-timings {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .combat-timing-group__label {
+    font-family: var(--tnx2-font-mono);
+    font-size: 0.78em;
+    letter-spacing: 0.08em;
+    color: var(--tnx2-text-accent);
+    border-bottom: 1px dashed var(--tnx2-border-active);
+    padding-bottom: 2px;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .combat-timing-group--empty {
+    opacity: 0.45;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .combat-timing-group__entries {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 5px;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .combat-timing-chip {
+    font-size: 0.85em;
+    padding: 2px 10px;
+    border: 1px solid var(--tnx2-border-active);
+    border-radius: 2px;
+    background: var(--tnx2-bg-2);
+    color: var(--tnx2-text-primary);
+    transition: color var(--tnx2-transition-fast), border-color var(--tnx2-transition-fast);
+}
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .combat-timing-chip:hover {
+    color: var(--tnx2-text-accent);
+    border-color: var(--tnx2-accent);
+}
+/* 操縦移動の合成アクション(2026-07-09): 再表示チップと区別してアクセント境界にする。 */
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .combat-timing-chip--move {
+    border-color: var(--tnx2-accent);
+    color: var(--tnx2-text-accent);
+}
+/* 住宅エリアのセキュリティ・ランクバッジ(10-4)。ランク名の色で色分け・なしはミュート。 */
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-area-badge--red {
+    --c: #ff5a5a;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-area-badge--yellow {
+    --c: #ffe24d; /* イエロー=明るいレモン色 */
+}
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-area-badge--green {
+    --c: #46d160;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-area-badge--white {
+    --c: #d8e2ec;
+}
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-area-badge--sanctuary {
+    --c: #e6b422; /* サンクチュアリ=特別格(メタリックゴールド・イエローと差別化) */
+}
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-area-badge--none {
+    --c: var(--tnx2-text-secondary, #7a90a8);
+}
+
+/* 行本体(flex行) */
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-row-main {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 6px;
+    min-height: 50px;
+}
+
+/* 説明パネル */
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-desc-panel {
+    padding: 4px 32px 6px;
+    font-size: 0.9em;
+    color: var(--tnx2-text-secondary);
+    background: var(--tnx2-bg-2);
+    border-top: 1px solid var(--tnx2-border-subtle);
+}
+
+/* 列幅定義 */
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-col--img {
+    flex: 0 0 22px;
+}
+
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-col--img img {
+    display: block;
+    width: 20px;
+    height: 20px;
+    object-fit: cover;
+    border-radius: 2px;
+}
+
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-col--name {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.9em;
+    white-space: nowrap;
+    overflow: hidden;
+    font-stretch: condensed;
+    letter-spacing: -0.04em;
+}
+
+/* 横ブランチ先端の装着ノード(端子=一工夫)＋インデント。名前/ゲージ/タグは縦中央で揃える */
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-row--option .outfit-col--name {
+    position: relative;
+    padding-left: 28px;
+}
+/* アイテム名横の端子＝丸ポチ */
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-row--option .outfit-col--name::before {
+    content: "";
+    position: absolute;
+    left: 13px;
+    top: 50%;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    transform: translateY(-50%);
+    background: var(--tnx2-accent, #6fb3d2);
+    box-shadow: 0 0 5px var(--tnx2-accent-glow-sm, rgba(0, 200, 224, 0.7));
+}
+/* 横ブランチ: トレース→アイテム名横の端子(丸ポチ)へ。name セル内なので左側は切れない */
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-row--option .outfit-col--name::after {
+    content: "";
+    position: absolute;
+    left: 2px;
+    top: calc(50% - 1px);
+    width: 11px;
+    height: 2px;
+    background: var(--tnx2-accent, #6fb3d2);
+    box-shadow: 0 0 4px var(--tnx2-accent-glow-sm, rgba(0, 200, 224, 0.5));
+}
+
+/* パラメータ列: 共通 */
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] [class^="outfit-col--"]:not(.outfit-col--img):not(.outfit-col--name):not(.outfit-col--flags):not(.outfit-col--actions) {
+    flex: 0 0 auto;
+    min-width: 0; /* min-width:auto(既定)だと内容でセルが伸びる。固定幅を保つ */
+    overflow: hidden;
+    /* 中央寄せは flex で行う。text-align:center だと、はみ出した squeeze-text のレイアウト箱の
+       中心がセル中央からずれ、scaleX(原点中央)が「セル中央スタート」になってしまうため。
+       flex は箱を必ずセル中央に置く(両側オーバーフロー)ので、縮小後も中央に収まる。 */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 0.9em;
+    white-space: nowrap;
+    font-stretch: condensed;
+    letter-spacing: -0.04em;
+    color: var(--tnx2-text-secondary);
+}
+/* 縮小要素は縮まず自然幅を保ち、flex 中央寄せで両側に均等オーバーフロー→scaleX 原点中央が効く */
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] [class^="outfit-col--"]:not(.outfit-col--img):not(.outfit-col--name):not(.outfit-col--flags):not(.outfit-col--actions) .squeeze-text {
+    flex: 0 0 auto;
+}
+
+/* 個別列幅 */
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-col--hide       { width: 68px; }
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-col--attack      { width: 58px; }
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-col--guard       { width: 36px; }
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-col--range       { width: 54px; }
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-col--hack        { width: 36px; }
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-col--defence     { width: 72px; }
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-col--control     { width: 32px; }
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-col--slot        { width: 30px; }
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-col--soft        { width: 30px; }
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-col--cycle       { width: 30px; }
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-col--hard        { width: 30px; }
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-col--cs          { width: 36px; }
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-col--sf          { width: 32px; }
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-col--passenger   { width: 36px; }
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-col--appearance  { width: 30px; }
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-col--security    { width: 68px; }
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-col--part        { width: 60px; }
+
+/* フラグ列(携帯/準備ボタン) */
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-col--flags {
+    flex: 0 0 30px;
+    display: flex;
+    justify-content: center;
+    gap: 4px;
+}
+
+/* アクション列(展開+メニュー) */
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-col--actions {
+    flex: 0 0 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+}
+
+/* 携帯/準備フラグボタン */
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-flag-btn {
+    padding: 0;
+    border: 1px solid transparent;
+    outline: none;
+    box-shadow: none;
+    background: transparent;
+    color: var(--tnx2-text-muted);
+    font-size: 0.9em;
+    cursor: pointer;
+    transition: color       var(--tnx2-transition-fast),
+                text-shadow var(--tnx2-transition-fast);
+}
+
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-flag-btn:focus,
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-flag-btn:active {
+    box-shadow: none;
+    outline: none;
+}
+
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-flag-btn:hover {
+    color: var(--tnx2-text-secondary);
+}
+
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-flag-btn.active {
+    color: var(--tnx2-accent);
+    text-shadow: 0 0 8px var(--tnx2-accent-glow);
+}
+
+.tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-flag-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}

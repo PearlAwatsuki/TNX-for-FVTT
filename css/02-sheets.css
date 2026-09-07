@@ -1,0 +1,2371 @@
+/**
+ * キャストシートとアイテムシート(能力値・技能・スタイル技能・フォーム)
+ *
+ * css/tnx2.css(11,788 行)を役割で分けたもの(2026-09-07)。**読み込み順に意味がある**ため
+ * ファイル名に連番を付け、system.json の styles も同じ順に並べる。後ろのファイルほど
+ * 後勝ちする——順序を変えると見た目が変わる。
+ */
+
+/* ----------------------------------------------------------------
+   13. キャストシート: 詳細タブ
+   ---------------------------------------------------------------- */
+
+.tokyo-nova.sheet.actor .tab.profile .tnx-editor-section {
+    margin-top: 20px;
+}
+.tokyo-nova.sheet.actor .tab.profile .profile-lifepath-section {
+    margin-bottom: 12px;
+}
+.tokyo-nova.sheet.actor .tab.profile .lifepath-slots {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+/* カード */
+.tokyo-nova.sheet.actor .tab.profile .lifepath-card {
+    border: 1px solid var(--tnx2-border-subtle);
+    border-left: 3px solid var(--tnx2-accent-dim);
+    border-radius: var(--tnx2-radius);
+    padding: 7px 10px;
+    background: var(--tnx2-bg-2);
+}
+.tokyo-nova.sheet.actor .tab.profile .lifepath-card--empty {
+    border-left-color: var(--tnx2-border-active);
+    opacity: 0.6;
+}
+/* ヘッダー行 */
+.tokyo-nova.sheet.actor .tab.profile .lifepath-card-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 26px;
+}
+/* 種別バッジ */
+.tokyo-nova.sheet.actor .tab.profile .lifepath-type-badge {
+    flex: 0 0 auto;
+    font-size: 0.72em;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--tnx2-text-accent);
+    background: var(--tnx2-accent-glow-sm);
+    border: 1px solid var(--tnx2-accent-dim);
+    border-radius: var(--tnx2-radius);
+    padding: 1px 6px;
+    white-space: nowrap;
+}
+/* 閲覧モード: クリック可能なアイテム名 */
+.tokyo-nova.sheet.actor .tab.profile a.lifepath-card-name {
+    flex: 1;
+    min-width: 0;
+    font-weight: 600;
+    color: var(--tnx2-text-primary);
+    cursor: pointer;
+    text-decoration: none;
+    transition: color var(--tnx2-transition-fast);
+}
+.tokyo-nova.sheet.actor .tab.profile a.lifepath-card-name:hover {
+    color: var(--tnx2-text-accent);
+}
+/* 未設定プレースホルダー */
+.tokyo-nova.sheet.actor .tab.profile .lifepath-card-name--empty {
+    flex: 1;
+    color: var(--tnx2-text-muted);
+    font-style: italic;
+}
+/* description 表示 */
+.tokyo-nova.sheet.actor .tab.profile .lifepath-card-desc {
+    margin-top: 5px;
+    padding-top: 5px;
+    border-top: 1px solid var(--tnx2-border-subtle);
+    color: var(--tnx2-text-secondary);
+    font-size: 0.85em;
+    line-height: 1.55;
+    word-break: break-word;
+    overflow-wrap: break-word;
+}
+.tokyo-nova.sheet.actor .tab.profile .lifepath-card-desc p {
+    margin: 0 0 0.3em;
+}
+.tokyo-nova.sheet.actor .tab.profile .lifepath-card-desc p:last-child {
+    margin-bottom: 0;
+}
+/* 編集モード: ドロップ枠・アイテムボタン */
+.tokyo-nova.sheet.actor .tab.profile .lifepath-import-box {
+    flex: 1;
+}
+.tokyo-nova.sheet.actor .tab.profile .lifepath-item-btn {
+    flex: 1;
+    min-width: 0;
+}
+/* 削除ボタン */
+.tokyo-nova.sheet.actor .tab.profile .lifepath-delete-btn {
+    flex: 0 0 auto;
+    color: var(--tnx2-text-muted);
+    cursor: pointer;
+    padding: 2px 4px;
+}
+.tokyo-nova.sheet.actor .tab.profile .lifepath-delete-btn:hover {
+    color: var(--tnx2-danger, #e74c3c);
+}
+.tokyo-nova.sheet.actor .tab.profile .tnx-editor-view-content {
+    color: var(--tnx2-text-secondary);
+    padding: 8px 10px;
+    min-height: 350px;
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+    box-shadow: inset 0 0 6px rgba(0, 200, 255, 0.08);
+}
+.tokyo-nova.sheet.actor .tab.profile .tnx-editor-section__content prose-mirror {
+    height: 500px;
+}
+
+/* ----------------------------------------------------------------
+   14. キャストシート: バッドステータスグリッド
+   ---------------------------------------------------------------- */
+
+.tokyo-nova.sheet.actor .tnx-bs-container {
+    padding: 8px 0;
+}
+.tokyo-nova.sheet.actor .tnx-bs-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 6px;
+}
+.tokyo-nova.sheet.actor .tnx-bs-btn {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    height: 36px;
+    min-height: unset;
+    /* グリッドアイテムの最小幅を 0 に: 1fr トラックが内容(min-content)で押し広げられず全セル等幅に
+       固定される(衰弱の長い効果値等)。あふれた文字列は squeeze-text の縮小が全文を収める */
+    min-width: 0;
+    background: var(--tnx2-bg-2);
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+    cursor: pointer;
+    position: relative;
+    transition: background   var(--tnx2-transition-fast),
+                border-color var(--tnx2-transition-fast);
+}
+.tokyo-nova.sheet.actor .tnx-bs-icon {
+    flex: 0 0 22px;
+    width: 22px;
+    height: 22px;
+    object-fit: contain;
+    border: none;
+}
+/* 効果名+効果値の一まとまりを残り幅の中央に置く(2026-07-18)。text-align でなく flex 中央寄せ
+   =はみ出した squeeze-text の scaleX(原点中央)が中央で効く(アウトフィット表のパラメータ列と
+   同じ手法)。入りきらない場合は squeeze-text で縮小 */
+.tokyo-nova.sheet.actor .tnx-bs-text-wrap {
+    display: flex;
+    flex: 1 1 0;
+    min-width: 0;
+    overflow: hidden;
+    justify-content: center;
+    align-items: center;
+}
+.tokyo-nova.sheet.actor .tnx-bs-text {
+    flex: 0 0 auto;
+    line-height: 1.2;
+}
+.tokyo-nova.sheet.actor .tnx-bs-label {
+    font-size: 0.88em;
+    font-family: var(--tnx2-font-mono);
+    color: var(--tnx2-text-secondary);
+}
+/* 効果値/チャート値の強調(2026-07-18 ユーザー確定: 大きめ・淡色・グロー)。順序はテンプレート側:
+   BS=「効果名n」・ダメージ=「nチャート名」 */
+.tokyo-nova.sheet.actor .tnx-bs-value {
+    font-size: 1.2em;
+    font-family: var(--tnx2-font-mono);
+    font-weight: 700;
+    color: #99e6f2; /* アクセント(#00c8e0)の淡色 */
+    text-shadow: 0 0 4px rgba(0, 200, 224, 0.8), 0 0 10px rgba(0, 200, 224, 0.45);
+}
+/* 数字と効果名の間隔(前置=ダメージ・後置=BS の両順序に対応) */
+.tokyo-nova.sheet.actor .tnx-bs-value:first-child { margin-right: 4px; }
+.tokyo-nova.sheet.actor .tnx-bs-value:last-child  { margin-left: 4px; }
+
+/* 編集モード: ホバーで削除インジケーター */
+.tokyo-nova.sheet.actor .tnx-bs-btn--edit:hover {
+    background: rgba(220, 60, 60, 0.15);
+    border-color: rgba(220, 60, 60, 0.6);
+}
+.tokyo-nova.sheet.actor .tnx-bs-btn--edit:hover .tnx-bs-label {
+    color: var(--tnx2-text-primary);
+}
+.tokyo-nova.sheet.actor .tnx-bs-remove {
+    font-size: 0.65em;
+    color: rgba(220, 60, 60, 0.7);
+    position: absolute;
+    top: 3px;
+    right: 4px;
+}
+
+/* 閲覧モード: ホバーでアクセント強調 */
+.tokyo-nova.sheet.actor .tnx-bs-btn--view:hover {
+    background: var(--tnx2-bg-hover);
+    border-color: var(--tnx2-border-active);
+}
+
+/* 無視ゲート(ignore.*): 効果を発揮していない BS はバッヂを残しつつ取り消し線＋淡色で示す */
+.tokyo-nova.sheet.actor .tnx-bs-btn--ignored {
+    opacity: 0.55;
+}
+.tokyo-nova.sheet.actor .tnx-bs-btn--ignored .tnx-bs-text {
+    text-decoration: line-through;
+}
+
+/* 空状態 */
+.tokyo-nova.sheet.actor .tnx-bs-empty {
+    grid-column: 1 / -1;
+    font-size: 0.82em;
+    color: var(--tnx2-text-muted);
+    padding: 6px 0;
+}
+
+/* ----------------------------------------------------------------
+   14. キャストシート: パーソナルデータ / ヘッダーラベル英語化
+   ---------------------------------------------------------------- */
+
+/* ── グリッド基本 ───────────────────────────────────────────────── */
+.tokyo-nova.sheet.actor .personal-data-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+}
+
+.tokyo-nova.sheet.actor .personal-data-item {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 6px 8px;
+    min-width: 0;
+    border-bottom: 1px solid var(--tnx2-border-subtle);
+}
+.tokyo-nova.sheet.actor .personal-data-item:nth-child(odd) {
+    border-right: 1px solid var(--tnx2-border-subtle);
+}
+.tokyo-nova.sheet.actor .personal-data-item:nth-last-child(-n+2) {
+    border-bottom: none;
+}
+
+/* ── 閲覧モード: データパネル化 ──────────────────────────────────── */
+
+/* グリッドコンテナ: カード枠 */
+.tokyo-nova.sheet.actor:not(.edit-mode) .personal-data-grid {
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+    overflow: hidden;
+    background: var(--tnx2-bg-2);
+}
+
+/* 各アイテム: 横並び (ラベル | 値) */
+.tokyo-nova.sheet.actor:not(.edit-mode) .personal-data-item {
+    flex-direction: row;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 8px;
+    min-height: 26px;
+}
+
+/* ラベル: JP テキストを隠して EN を疑似要素で表示
+   NOTE: 親 font-size: 0 のとき em 単位は 0px になるため px 固定で指定する */
+.tokyo-nova.sheet.actor:not(.edit-mode) .personal-data-item label {
+    flex: 0 0 46px;
+    font-size: 0;
+    text-align: left;
+    padding-right: 0;
+    line-height: 1;
+    white-space: nowrap;
+}
+.tokyo-nova.sheet.actor:not(.edit-mode) .personal-data-item label[data-en]::before {
+    content: attr(data-en);
+    font-family: var(--tnx2-font-mono);
+    font-size: 10px; /* px 固定: em は親 font-size: 0 を継承して消えるため */
+    font-weight: 400;
+    letter-spacing: 0.04em;
+    color: var(--tnx2-text-secondary);
+    display: inline;
+}
+
+/* 入力値: 透明・モノスペース・主テキスト色 */
+.tokyo-nova.sheet.actor:not(.edit-mode) .personal-data-item input[type="text"] {
+    flex: 1;
+    background: transparent;
+    border: none;
+    padding: 0;
+    font-family: var(--tnx2-font-mono);
+    font-size: 0.92em;
+    font-weight: 500;
+    color: var(--tnx2-text-primary);
+    cursor: default;
+    line-height: 1.3;
+    min-height: 0;
+    height: auto;
+    width: auto;
+}
+.tokyo-nova.sheet.actor:not(.edit-mode) .personal-data-item input[type="text"]:focus {
+    outline: none;
+    box-shadow: none;
+}
+
+/* ── 編集モード: 通常レイアウト ──────────────────────────────────── */
+.tokyo-nova.sheet.actor.edit-mode .personal-data-item {
+    flex-direction: column;
+}
+.tokyo-nova.sheet.actor.edit-mode .personal-data-item label {
+    font-size: 0.85em;
+    color: var(--tnx2-text-secondary);
+    font-family: inherit;
+}
+.tokyo-nova.sheet.actor.edit-mode .personal-data-item input[type="text"] {
+    width: 100%;
+    padding: 3px 5px;
+    font-size: 0.9em;
+}
+
+/* ── 報酬点エリア ────────────────────────────────────────────────── */
+.tokyo-nova.sheet.actor .sidebar-bounty-group {
+    padding: 6px 8px 4px;
+    border-top: 1px solid var(--tnx2-border-subtle);
+}
+
+/* トループの種別・人数/エニグマポイント(フェーズ11-4)。報酬点ボックスの意匠(bounty-* クラス)を
+   共有。入力は報酬点同様の平入力(スピナーなし・サイドバー幅対策) */
+.tokyo-nova.sheet.actor .sidebar-heads-group .heads-max {
+    font-family: var(--tnx2-font-mono);
+    color: var(--tnx2-text-muted);
+}
+.tokyo-nova.sheet.actor .sidebar-heads-group .bounty-edit-row + .bounty-edit-row {
+    margin-top: 4px;
+}
+.tokyo-nova.sheet.actor .sidebar-heads-group select,
+.tokyo-nova.sheet.actor .sidebar-heads-group input[type="text"] {
+    flex: 1;
+    min-width: 0;
+}
+/* 種別・分身元の行はフィールド上ラベルが無いため中央揃え(報酬点のラベル位置合わせを打ち消す) */
+.tokyo-nova.sheet.actor .sidebar-heads-group .bounty-edit-row--plain {
+    align-items: center;
+}
+.tokyo-nova.sheet.actor .sidebar-heads-group .bounty-edit-row--plain .bounty-section-label {
+    padding-top: 0;
+}
+/* 「ワークスを設定」フラグ行 */
+.tokyo-nova.sheet.actor .sidebar-heads-group .works-flag-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 4px;
+    font-size: 0.85em;
+    color: var(--tnx2-text-secondary);
+}
+
+/* エキストラシート: 技能セクションと説明セクションの間隔(フェーズ11-5) */
+.tokyo-nova.sheet.actor.extra .tnx-editor-section {
+    margin-top: 16px;
+}
+
+/* エキストラ: シートがキャスト(920px)より狭いため、技能二列の列間を詰めて1列分の幅を確保する */
+.tokyo-nova.sheet.actor.extra .skills-list-view {
+    gap: 24px;
+}
+
+/* 編集モード: 報酬点ラベル + 初期値 + 修正値 */
+.tokyo-nova.sheet.actor .bounty-edit-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.tokyo-nova.sheet.actor .bounty-section-label {
+    font-size: 1em;
+    color: var(--tnx2-text-secondary);
+    white-space: nowrap;
+    flex: 0 0 auto;
+    padding-top: calc(0.82em + 4px + 2px);
+}
+.tokyo-nova.sheet.actor .bounty-field {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+}
+.tokyo-nova.sheet.actor .bounty-field label {
+    font-size: 0.82em;
+    color: var(--tnx2-text-muted);
+}
+.tokyo-nova.sheet.actor .bounty-field input {
+    width: 50px;
+    text-align: center;
+}
+/* 初期値（読み取り専用）: 枠なし・ミュート色で編集不可を明示 */
+.tokyo-nova.sheet.actor .bounty-field input:disabled {
+    border: none;
+    background: transparent;
+    color: var(--tnx2-text-muted);
+    box-shadow: none;
+    cursor: default;
+    opacity: 1;
+}
+.tokyo-nova.sheet.actor .bounty-separator {
+    font-size: 1.2em;
+    color: var(--tnx2-text-muted);
+    padding-top: calc(0.82em + 4px);
+}
+
+/* 閲覧モード: データパネル風 縦積み */
+.tokyo-nova.sheet.actor .bounty-view-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 0;
+}
+.tokyo-nova.sheet.actor .bounty-view-content {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    padding: 4px 8px;
+    border-left: 2px solid var(--tnx2-accent-dim);
+}
+.tokyo-nova.sheet.actor .bounty-view-label {
+    font-family: var(--tnx2-font-mono);
+    font-size: 1em;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--tnx2-text-secondary);
+}
+.tokyo-nova.sheet.actor .bounty-total-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.tokyo-nova.sheet.actor .bounty-coin-icon {
+    font-size: 1.1em;
+    color: var(--tnx2-text-accent);
+    opacity: 0.7;
+    flex-shrink: 0;
+}
+.tokyo-nova.sheet.actor .bounty-total {
+    font-family: var(--tnx2-font-mono);
+    font-size: 2em;
+    line-height: 1;
+    letter-spacing: 0.05em;
+    color: var(--tnx2-text-accent);
+    text-shadow: 0 0 10px var(--tnx2-accent-glow-sm);
+    flex: 1;
+    text-align: right;
+}
+.tokyo-nova.sheet.actor .bounty-adjust-btns {
+    display: flex;
+    gap: 4px;
+    padding: 0 8px;
+    opacity: 0;
+    transition: opacity 0.15s;
+    pointer-events: none;
+}
+.tokyo-nova.sheet.actor .bounty-view-panel:hover .bounty-adjust-btns {
+    opacity: 1;
+    pointer-events: auto;
+}
+.tokyo-nova.sheet.actor .bounty-adjust-btn {
+    flex: 1;
+    padding: 1px 0;
+    background: var(--tnx2-bg-mid, rgba(255,255,255,0.06));
+    border: 1px solid var(--tnx2-accent-dim);
+    border-radius: 3px;
+    color: var(--tnx2-text-secondary);
+    font-size: 0.9em;
+    line-height: 1.4;
+    cursor: pointer;
+}
+.tokyo-nova.sheet.actor .bounty-adjust-btn:hover:not(:disabled) {
+    background: var(--tnx2-accent-dim);
+    color: var(--tnx2-text-accent);
+}
+.tokyo-nova.sheet.actor .bounty-adjust-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+.tokyo-nova.sheet.actor .bounty-recalc-btn {
+    width: 100%;
+    margin-top: 6px;
+    padding: 2px 0;
+    font-size: 0.82em;
+    color: var(--tnx2-text-muted);
+    background: transparent;
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: 3px;
+    cursor: pointer;
+}
+.tokyo-nova.sheet.actor .bounty-recalc-btn:hover {
+    background: var(--tnx2-accent-dim);
+    color: var(--tnx2-text-accent);
+    border-color: var(--tnx2-accent-dim);
+}
+
+/* ── ヘッダー: STYLE / ID / WORKS 英語ラベル (閲覧モード) ─────────── */
+/* tnx.css の .profile-header .middle-header-section .view-mode-label { font-size: 1.1em }
+   は specificity 0,5,0。それを上回るため 0,6,0 のセレクターを使用する。
+   また ::before の font-size は px 固定 (em は親 font-size: 0 を継承して消えるため)。 */
+
+.tokyo-nova.sheet.actor .profile-header .middle-header-section .view-mode-rank .view-mode-label,
+.tokyo-nova.sheet.actor .profile-header .middle-header-section .view-mode-affiliation .view-mode-label,
+.tokyo-nova.sheet.actor .profile-header .middle-header-section .view-mode-style-summary .view-mode-label {
+    font-size: 0;
+    color: transparent;
+}
+
+/* トループレベル枠(市民ランク枠の共有)はミニラベルを LV にする(フェーズ11-4) */
+.tokyo-nova.sheet.actor .profile-header .middle-header-section .troop-level-block .view-mode-rank .view-mode-label::before {
+    content: "LV";
+}
+.tokyo-nova.sheet.actor .profile-header .middle-header-section .view-mode-rank .view-mode-label::before {
+    content: "ID";
+    font-family: var(--tnx2-font-mono);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--tnx2-text-secondary);
+}
+.tokyo-nova.sheet.actor .profile-header .middle-header-section .view-mode-rank .view-mode-label::after {
+    content: ":";
+    font-family: var(--tnx2-font-mono);
+    font-size: 13px;
+    color: var(--tnx2-text-secondary);
+    display: inline-block;
+    margin-right: 8px;
+}
+
+.tokyo-nova.sheet.actor .profile-header .middle-header-section .view-mode-affiliation .view-mode-label::before {
+    content: "WORKS";
+    font-family: var(--tnx2-font-mono);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--tnx2-text-secondary);
+}
+.tokyo-nova.sheet.actor .profile-header .middle-header-section .view-mode-affiliation .view-mode-label::after {
+    content: ":";
+    font-family: var(--tnx2-font-mono);
+    font-size: 13px;
+    color: var(--tnx2-text-secondary);
+    display: inline-block;
+    margin-right: 8px;
+}
+
+/* 折ってはいけない塊(［状態タグ］《ルール用語》「名前」)。カードは幅が狭く日本語はどこでも折れるため、
+   囲みで閉じた語だけ nowrap にする(chat-text.mjs の keepTogether が付ける・2026-09-05) */
+.tnx-nobr {
+    white-space: nowrap;
+}
+
+/* 防いだ対象の行(神業・通常のダメージカード)。行の形は生きている対象と同じで、値だけ控えめにする */
+.tnx-card__field--prevented .tnx-card__field-value,
+.cr-calc-row--prevented .cr-calc-val,
+.tnx-card__field--prevented .cr-req-field__value {
+    color: var(--tnx2-text-muted);
+}
+
+/* 対象名(ラベル)は行の 60% までなら折らない——値(《神業》で防がれた)と幅を取り合って
+   縮められると、短い名前まで途中で折れてしまうため(2026-09-05)。60% を超える長い名前だけ折り返す */
+/* 後段の .tnx-card__field--wrap .tnx-card__field-label(flex-shrink:1)より強くするため2クラスで書く */
+.tnx-card__field--prevented.tnx-card__field--wrap .tnx-card__field-label,
+/* 後段の .cr-calc-row--wrap .cr-calc-label(flex-shrink:1)より強くするため2クラスで書く */
+.cr-calc-row--prevented.cr-calc-row--wrap .cr-calc-label,
+/* 後段の .tnx-card__field--wrap .cr-req-field__label(flex-shrink:1)より強くするため2クラスで書く */
+.tnx-card__field--prevented.tnx-card__field--wrap .cr-req-field__label {
+    flex-shrink: 0;
+    max-width: 60%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+/* 成否行(.tnx-card__result)は flex(語間 gap つき)なので、本文は1要素にまとめる——塊の span が
+   そのまま flex アイテムになると語間が空く(2026-09-05) */
+.tnx-card__result-text,
+.tnx-card__outcome-text,
+.cr-result__text {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+/* 他の神業として使う(17-5)の選択肢: 1行＝[区分の技能][参照先の神業][削除]。〈フォルム〉の対応表の
+   ように十数件並んでも一覧できるよう1行1選択肢にする(2026-09-05 是正) */
+.tokyo-nova.sheet.item .tnx-asother-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.tokyo-nova.sheet.item .tnx-asother-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.tokyo-nova.sheet.item .tnx-asother-row > .tnx-linked-btn,
+.tokyo-nova.sheet.item .tnx-asother-row > .tnx-import-box {
+    flex: 1 1 0;
+    min-width: 0;
+    margin: 0;
+}
+
+/* 神業版のダメージカード: 防がれた/打ち消された結果は取り消し線で「起きなかった」ことを示す(2026-09-05) */
+.tnx-damage-card .tnx-card__field--voided .tnx-card__field-value,
+.tnx-damage-card .cr-calc-row--voided .cr-calc-val,
+.tnx-damage-card .tnx-card__field--voided .cr-req-field__value {
+    text-decoration: line-through;
+    color: var(--tnx2-text-muted);
+}
+
+/* 宿主(17-6・カゲムシャ)は所属ブロックの器を共有し、ミニラベルだけ HOST にする */
+.tokyo-nova.sheet.actor .profile-header .middle-header-section .host-block .view-mode-affiliation .view-mode-label::before {
+    content: "HOST";
+}
+
+.tokyo-nova.sheet.actor .profile-header .middle-header-section .view-mode-style-summary .view-mode-label::before {
+    content: "STYLE";
+    font-family: var(--tnx2-font-mono);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--tnx2-text-secondary);
+}
+.tokyo-nova.sheet.actor .profile-header .middle-header-section .view-mode-style-summary .view-mode-label::after {
+    content: ":";
+    font-family: var(--tnx2-font-mono);
+    font-size: 13px;
+    color: var(--tnx2-text-secondary);
+    display: inline-block;
+    margin-right: 8px;
+}
+
+/* ================================================================
+   15. アイテムシート共通
+   ================================================================ */
+
+/* ── ヘッダー ──────────────────────────────────────────────────── */
+.tokyo-nova.sheet.item .sheet-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--tnx2-border-active);
+    background: var(--tnx2-bg-2);
+    flex-shrink: 0;
+}
+.tokyo-nova.sheet.item .sheet-header .profile-img {
+    flex: 0 0 56px;
+    width: 56px;
+    height: 56px;
+    border: 1px solid var(--tnx2-border-active);
+    border-radius: var(--tnx2-radius);
+    object-fit: cover;
+    cursor: pointer;
+}
+.tokyo-nova.sheet.item .sheet-header .header-fields {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+/* 名前入力 */
+.tokyo-nova.sheet.item .sheet-header .charname,
+.tokyo-nova.sheet.item .sheet-header .charname-container {
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.tokyo-nova.sheet.item .sheet-header .charname input,
+.tokyo-nova.sheet.item .sheet-header .itemname-input,
+.tokyo-nova.sheet.item .sheet-header .charname-view-input {
+    width: 100%;
+    height: 32px;
+    margin: 0;
+    padding: 4px 8px;
+    font-size: 14px;
+    font-weight: 700;
+    /* 行高=内容領域の高さ(32-境界2-上下パディング8=22px)=縦中央寄せの丸めを排除。
+       閲覧モードも同じ input 部品+この同一ルールで描画するため、エンジンの実装差に
+       関わらずモード間で文字位置が構造的に一致する(2026-08-26) */
+    line-height: 22px;
+    color: var(--tnx2-text-primary);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--tnx2-radius);
+    box-sizing: border-box;
+    transition: border-color var(--tnx2-transition-fast),
+                background   var(--tnx2-transition-fast);
+}
+.tokyo-nova.sheet.item .sheet-header .charname input:focus,
+.tokyo-nova.sheet.item .sheet-header .itemname-input:focus {
+    background: var(--tnx2-bg-3);
+    border-color: var(--tnx2-accent);
+    outline: none;
+}
+
+/* 英語名入力 (スタイル名下に細く配置) */
+.tokyo-nova.sheet.item .sheet-header .nameen-input {
+    width: 100%;
+    height: 20px;
+    margin: 0;
+    font-size: 14px;
+    font-family: var(--tnx2-font-mono);
+    font-weight: normal;
+    letter-spacing: 0.04em;
+    color: var(--tnx2-text-muted);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--tnx2-radius);
+    transition: border-color var(--tnx2-transition-fast),
+                background   var(--tnx2-transition-fast);
+}
+.tokyo-nova.sheet.item .sheet-header .nameen-input:focus {
+    background: var(--tnx2-bg-3);
+    border-color: var(--tnx2-border-active);
+    outline: none;
+}
+
+/* フリガナ入力: アイテム名より明確に小さく — 絶対 px で h1 継承を断ち切る */
+.tokyo-nova.sheet.item .sheet-header .furigana-input {
+    width: 100%;
+    height: 20px;
+    margin: 0;
+    padding: 1px 8px;
+    font-size: 11px;
+    line-height: 1.4;
+    box-sizing: border-box;
+    /* フリガナはアイテム名と同色(2026-08-31 ユーザー指摘=暗色をやめる) */
+    color: var(--tnx2-text-primary);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--tnx2-radius);
+    transition: border-color var(--tnx2-transition-fast),
+                background   var(--tnx2-transition-fast);
+}
+.tokyo-nova.sheet.item .sheet-header .furigana-input:focus {
+    background: var(--tnx2-bg-3);
+    border-color: var(--tnx2-border-active);
+    outline: none;
+}
+
+/* 閲覧モードの名称表示(マーカー付き)。対応する入力欄とメトリクスを揃え、
+   flex の縦中央揃えで block 時の上寄りを防ぐ */
+/* 閲覧モードの名前は編集と同じ input 部品(.charname-view-input)で描画する(2026-08-26)。
+   操作は受けない(readonly+pointer-events none)=見た目は静的テキストと同じ */
+.tokyo-nova.sheet.item .sheet-header .charname-view-input {
+    pointer-events: none;
+}
+
+.tokyo-nova.sheet.item .sheet-header .furigana-view {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-height: 20px;
+    padding: 1px 8px;
+    font-size: 11px;
+    line-height: 1.4;
+    /* フリガナはアイテム名と同色(2026-08-31 ユーザー指摘) */
+    color: var(--tnx2-text-primary);
+    box-sizing: border-box;
+}
+
+/* ── タブ (actor / item 共通) ───────────────────────────────────── */
+.tokyo-nova.sheet.actor .sheet-tabs,
+.tokyo-nova.sheet.item .sheet-tabs {
+    display: flex;
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--tnx2-border-active);
+    background: var(--tnx2-bg-1);
+}
+.tokyo-nova.sheet.actor .sheet-tabs .item,
+.tokyo-nova.sheet.item .sheet-tabs .item {
+    padding: 6px 12px;
+    font-size: 0.92em;
+    font-family: var(--tnx2-font-mono);
+    letter-spacing: 0.04em;
+    color: var(--tnx2-text-muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    text-shadow: none;
+    transition: color         var(--tnx2-transition-fast),
+                border-color  var(--tnx2-transition-fast);
+}
+.tokyo-nova.sheet.actor .sheet-tabs .item:hover,
+.tokyo-nova.sheet.item .sheet-tabs .item:hover {
+    color: var(--tnx2-text-secondary);
+}
+.tokyo-nova.sheet.actor .sheet-tabs .item.active,
+.tokyo-nova.sheet.item .sheet-tabs .item.active {
+    color: var(--tnx2-accent);
+    border-bottom-color: var(--tnx2-accent);
+    text-shadow: none;
+}
+
+/* ── ボディ ─────────────────────────────────────────────────────── */
+.tokyo-nova.sheet.item .sheet-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 12px;
+}
+
+/* ── フォーム共通 ────────────────────────────────────────────────── */
+.tokyo-nova.sheet.item .form-group input.ability-value {
+    text-align: center;
+    width: 52px;
+    height: auto;
+}
+
+/* number-input-spinner 内の ability-value はスピナーデザインに合わせる */
+.tokyo-nova.sheet.item .form-group .number-input-spinner input.ability-value {
+    flex: 0 0 60px;
+    width: 60px;
+    height: 35px;
+}
+
+/* ================================================================
+   16. アイテムシート: スキル系共通
+   ================================================================ */
+
+/* ── スキルヘッダー (スーツ + レベル) ──────────────────────────── */
+.tokyo-nova.sheet.item .sheet-header.skill-header {
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+/* スーツ選択 */
+.tokyo-nova.sheet.item .suit-selection {
+    display: flex;
+    gap: 3px;
+}
+.tokyo-nova.sheet.item .suit-selection input[type="checkbox"] {
+    display: none;
+}
+.tokyo-nova.sheet.item .suit-selection .suit-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border: none;
+    border-radius: var(--tnx2-radius);
+    color: var(--tnx2-text-muted);
+    cursor: pointer;
+    font-size: 1.2em;
+    transition: color       var(--tnx2-transition-fast),
+                text-shadow var(--tnx2-transition-fast);
+}
+.tokyo-nova.sheet.item .suit-selection .suit-icon:hover {
+    color: var(--tnx2-text-secondary);
+}
+.tokyo-nova.sheet.item .suit-selection input[type="checkbox"]:checked + i {
+    color: var(--tnx2-accent);
+}
+.tokyo-nova.sheet.item .suit-selection input[type="checkbox"]:checked ~ .suit-icon,
+.tokyo-nova.sheet.item .suit-selection input[type="checkbox"]:checked + i {
+    color: var(--tnx2-accent);
+}
+/* label全体のチェック済みスタイル: 枠なし・グロー効果で示す */
+.tokyo-nova.sheet.item .suit-selection .suit-icon:has(input:checked) {
+    color: var(--tnx2-accent);
+    text-shadow: 0 0 8px var(--tnx2-accent-glow);
+}
+.tokyo-nova.sheet.item .suit-selection input[type="checkbox"]:disabled:not(:checked) + i {
+    color: var(--tnx2-text-muted);
+    opacity: 0.5;
+}
+.tokyo-nova.sheet.item .suit-selection input[type="checkbox"]:disabled:checked + i {
+    color: var(--tnx2-accent);
+    opacity: 1;
+    text-shadow: 0 0 8px var(--tnx2-accent-glow);
+}
+
+/* レベル表示 */
+.tokyo-nova.sheet.item .sheet-header .level-display {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+}
+.tokyo-nova.sheet.item .sheet-header .level-display label {
+    font-size: 0.72em;
+    font-family: var(--tnx2-font-mono);
+    color: var(--tnx2-text-muted);
+    letter-spacing: 0.04em;
+}
+.tokyo-nova.sheet.item .sheet-header .level-display input {
+    width: 44px;
+    text-align: center;
+    font-family: var(--tnx2-font-mono);
+    font-size: 1.2em;
+    font-weight: 700;
+    color: var(--tnx2-accent);
+    background: var(--tnx2-bg-3);
+    border: 1px solid var(--tnx2-border-active);
+    border-radius: var(--tnx2-radius);
+    padding: 2px 0;
+}
+
+/* スタイル技能 説明タブ: スキル情報サマリー */
+.style-skill-display {
+    background: var(--tnx2-bg-2);
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+    padding: 10px;
+    margin-bottom: 14px;
+}
+.style-skill-display-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px 12px;
+}
+.style-skill-display-grid .full-width-row {
+    grid-column: 1 / -1;
+}
+
+/* 改造セクション(16-4・説明タブ): 行=内容+出所+削除。出所は履歴表示(淡色) */
+.outfit-modifications .outfit-modification-row {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 2px 0;
+}
+
+.outfit-modifications .outfit-modification-note {
+    color: var(--tnx2-text-secondary);
+    font-size: 0.85em;
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+/* アウトフィット概要(説明タブ): 辞典カードと同じルルブ配置(6分割=1/2・1/3・全幅) */
+.style-skill-display-grid--outfit {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.style-skill-display-grid--outfit > div {
+    grid-column: span 3;
+}
+
+.style-skill-display-grid--outfit > .third-width-cell {
+    grid-column: span 2;
+}
+.style-skill-display-grid > div {
+    display: flex;
+    align-items: baseline;
+    gap: 4px;
+    font-size: 1em;
+    border-bottom: 1px solid var(--tnx2-border-subtle);
+    padding-bottom: 3px;
+}
+.style-skill-display label {
+    font-family: var(--tnx2-font-mono);
+    font-size: 0.82em;
+    color: var(--tnx2-text-secondary);
+    white-space: nowrap;
+    flex-shrink: 0;
+    align-self: flex-start;
+}
+.style-skill-display span {
+    color: var(--tnx2-text-primary);
+    font-size: 0.88em;
+}
+
+/* ================================================================
+   17. アイテムシート: スタイル固有
+   ================================================================ */
+
+/* アビリティグリッド */
+.tokyo-nova.sheet.item .abilities-grid.edit-mode-layout {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 8px;
+}
+.tokyo-nova.sheet.item .ability-block {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 6px 8px;
+    background: var(--tnx2-bg-2);
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+}
+.tokyo-nova.sheet.item .ability-block h3 {
+    font-family: var(--tnx2-font-mono);
+    font-size: 0.88em;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: var(--tnx2-text-secondary);
+    margin: 0;
+    text-transform: uppercase;
+    border: none;
+}
+.tokyo-nova.sheet.item .value-control-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+}
+.tokyo-nova.sheet.item .value-control-wrapper input {
+    width: 40px;
+    text-align: center;
+    font-family: var(--tnx2-font-mono);
+    font-size: 1em;
+    font-weight: 700;
+    color: var(--tnx2-text-primary);
+    padding: 2px 0;
+}
+.tokyo-nova.sheet.item .value-control-wrapper .separator {
+    color: var(--tnx2-text-muted);
+    font-size: 0.9em;
+}
+
+/* ================================================================
+   18. キャストシート: 全体レイアウト
+   ================================================================ */
+
+.tokyo-nova.sheet.actor .window-content {
+    overflow: hidden;
+}
+
+.tokyo-nova.sheet.actor .two-column-layout {
+    display: flex;
+    height: 100%;
+}
+
+.tokyo-nova.sheet.actor .profile-sidebar {
+    flex: 0 0 220px;
+    padding: 10px;
+    border-right: 1px solid var(--tnx2-border-subtle);
+    background: var(--tnx2-bg-2);
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    overflow-y: auto;
+}
+
+.tokyo-nova.sheet.actor .main-content-area {
+    flex: 1 1 auto;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* ── サイドバー内: プロフィール画像 ──────────────────────────── */
+.tokyo-nova.sheet.actor .profile-sidebar .portrait-section .profile-img {
+    max-width: 180px;
+    height: auto;
+    border: 1px solid var(--tnx2-border-active);
+    border-radius: var(--tnx2-radius);
+    display: block;
+    margin: 0 auto;
+}
+
+/* ── サイドバー内: 編集コントロール ──────────────────────────── */
+.tokyo-nova.sheet.actor .profile-sidebar .sidebar-edit-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.tokyo-nova.sheet.actor .profile-sidebar .control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.tokyo-nova.sheet.actor .profile-sidebar .control-group > label {
+    font-weight: bold;
+    color: var(--tnx2-text-muted);
+    font-size: 1.1em;
+    border-bottom: 1px solid var(--tnx2-border-subtle);
+    padding-bottom: 3px;
+    margin-bottom: 2px;
+}
+
+.tokyo-nova.sheet.actor .profile-sidebar .hand-controls.horizontal-buttons {
+    display: flex;
+    gap: 5px;
+    margin-bottom: 10px;
+}
+
+.tokyo-nova.sheet.actor .profile-sidebar .hand-controls.horizontal-buttons .tnx-btn {
+    padding: 0 6px;
+    gap: 4px;
+    font-size: 13px;
+}
+
+.tokyo-nova.sheet.actor .profile-sidebar .hand-cards-display {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+    min-height: 100px;
+}
+
+.tokyo-nova.sheet.actor .profile-sidebar .card-in-hand.interactive {
+    cursor: pointer;
+    border: 2px solid transparent;
+    border-radius: 4px;
+    background: #222;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    transition: transform var(--tnx2-transition-fast), border-color var(--tnx2-transition-fast);
+    width: 95px;
+    height: auto;
+    flex-shrink: 0;
+}
+
+.tokyo-nova.sheet.actor .profile-sidebar .card-in-hand.interactive img {
+    width: 100%;
+    height: auto;
+    display: block;
+    border-radius: var(--tnx2-radius);
+}
+
+.tokyo-nova.sheet.actor .profile-sidebar .card-in-hand.interactive:hover {
+    transform: translateY(-4px) scale(1.05);
+    border-color: var(--tnx2-accent);
+    box-shadow: 0 4px 15px var(--tnx2-accent-glow);
+}
+
+.tokyo-nova.sheet.actor .profile-sidebar .hand-empty-placeholder,
+.tokyo-nova.sheet.actor .no-item-linked-message {
+    width: 100%;
+    text-align: center;
+    font-style: italic;
+    color: var(--tnx2-text-muted);
+    padding: 20px 0;
+}
+
+/* ── プロフィールヘッダー ─────────────────────────────────────── */
+.tokyo-nova.sheet.actor .profile-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 10px;
+    border-bottom: 1px solid var(--tnx2-border-subtle);
+    gap: 10px;
+    position: relative;
+    flex-shrink: 0;
+    background: var(--tnx2-bg-2);
+}
+
+.tokyo-nova.sheet.actor .profile-header .header-content-wrapper {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    gap: 8px;
+}
+
+.tokyo-nova.sheet.actor .profile-header .identity-section .identity-view-mode {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5em;
+    flex-wrap: wrap;
+}
+
+.tokyo-nova.sheet.actor .profile-header .identity-view-mode .quote-mark {
+    font-size: 1.6em;
+    font-weight: bold;
+    color: var(--tnx2-text-accent);
+    line-height: 1;
+}
+
+.tokyo-nova.sheet.actor .profile-header .identity-view-mode .handle-ruby-view rb {
+    font-size: 1.6em;
+    font-weight: bold;
+    color: var(--tnx2-text-accent);
+    margin: 0 0.1em;
+}
+
+.tokyo-nova.sheet.actor .profile-header .identity-view-mode .handle-ruby-view rt {
+    font-size: 0.65em;
+    color: var(--tnx2-text-secondary);
+}
+
+.tokyo-nova.sheet.actor .profile-header .identity-view-mode .char-name-ruby-view rb {
+    font-size: 1.9em;
+    font-weight: bold;
+    color: var(--tnx2-text-accent);
+}
+
+.tokyo-nova.sheet.actor .profile-header .identity-view-mode .char-name-ruby-view rt {
+    font-size: 0.7em;
+    color: var(--tnx2-text-secondary);
+}
+
+.tokyo-nova.sheet.actor .profile-header .identity-edit-mode {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.tokyo-nova.sheet.actor .profile-header .identity-edit-mode .char-name-block-edit,
+.tokyo-nova.sheet.actor .profile-header .identity-edit-mode .handle-block-edit {
+    display: flex;
+    gap: 3px;
+}
+
+.tokyo-nova.sheet.actor .profile-header .identity-edit-mode label {
+    font-size: 0.9em;
+    color: var(--tnx2-text-muted);
+}
+
+.tokyo-nova.sheet.actor .profile-header .identity-edit-mode input[type="text"] {
+    padding: 4px 6px;
+    font-size: 1.1em;
+}
+
+.tokyo-nova.sheet.actor .profile-header .middle-header-section {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    gap: 8px;
+}
+
+.tokyo-nova.sheet.actor .profile-header .rank-affiliation-wrapper {
+    display: flex;
+    align-items: baseline;
+    gap: 30px;
+    flex-grow: 1;
+    flex-wrap: wrap;
+}
+
+.tokyo-nova.sheet.actor .profile-header .view-mode-rank,
+.tokyo-nova.sheet.actor .profile-header .view-mode-affiliation {
+    display: flex;
+    flex-direction: row;
+    align-items: baseline;
+}
+
+.tokyo-nova.sheet.actor .profile-header .middle-header-section .view-mode-label {
+    font-size: 1.1em;
+    color: var(--tnx2-text-secondary);
+}
+
+.tokyo-nova.sheet.actor .profile-header .citizen-rank-block .view-mode-value {
+    font-size: 2em;
+    color: var(--tnx2-accent);
+    font-weight: bold;
+}
+
+.tokyo-nova.sheet.actor .profile-header .affiliation-block .view-mode-value {
+    font-size: 1.3em;
+    font-weight: bold;
+}
+
+.tokyo-nova.sheet.actor .profile-header .edit-mode-rank,
+.tokyo-nova.sheet.actor .profile-header .edit-mode-affiliation {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.tokyo-nova.sheet.actor .profile-header .middle-header-section label {
+    color: var(--tnx2-text-muted);
+    white-space: nowrap;
+}
+
+.tokyo-nova.sheet.actor .profile-header .citizen-rank-block select {
+    min-width: 120px;
+    padding: 4px;
+}
+
+.tokyo-nova.sheet.actor .affiliation-block { width: 280px; }
+
+.tokyo-nova.sheet.actor .edit-mode-affiliation > .tnx-linked-btn,
+.tokyo-nova.sheet.actor .edit-mode-affiliation > .tnx-import-box--inline {
+    flex-grow: 1;
+    min-width: 0;
+}
+
+.tokyo-nova.sheet.actor .profile-header .view-mode-style-summary {
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+}
+
+.tokyo-nova.sheet.actor .profile-header .style-summary-items {
+    font-size: 1.1em;
+    font-weight: bold;
+    display: inline-flex;
+    flex-wrap: wrap;
+}
+
+.tokyo-nova.sheet.actor .profile-header .exp-display-section { text-align: right; }
+
+.tokyo-nova.sheet.actor .profile-header .edit-mode-exp {
+    display: flex;
+    align-items: center;
+    gap: 55px;
+}
+
+.tokyo-nova.sheet.actor .profile-header .exp-display-section .exp-value {
+    font-weight: bold;
+    font-size: 1.2em;
+    color: var(--tnx2-accent);
+}
+
+.tokyo-nova.sheet.actor .profile-header .styles-and-miracle-section {
+    width: 100%;
+    margin-top: 10px;
+}
+
+.tokyo-nova.sheet.actor .profile-header .miracle-buttons-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+}
+
+.tokyo-nova.sheet.actor .profile-header .miracle-action-item {
+    flex: 1;
+    min-width: 160px;
+}
+
+.tokyo-nova.sheet.actor .profile-header button.miracle-use-button {
+    width: 168px;
+    gap: 10px;
+    flex-grow: 1;
+    min-height: 44px;
+    font-size: 0.9em;
+}
+
+.tokyo-nova.sheet.actor .profile-header span.miracle-name__label {
+    text-align: center;
+}
+
+/* ── ヘッダー: アイテムスロット ─────────────────────────────── */
+.tokyo-nova.sheet.actor .edit-mode-styles-miracle-block {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.tokyo-nova.sheet.actor .item-slots-row {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+}
+
+.tokyo-nova.sheet.actor .style-slot,
+.tokyo-nova.sheet.actor .miracle-slot {
+    flex: 1;
+    min-width: 0;
+}
+/* トループはスタイルスロットが1枠のことがある(トループ/エニグマ)ため全幅化させない。
+   3列相当の幅で固定(分身の3枠でも見た目は従来と同等) */
+.tokyo-nova.sheet.actor.troop .style-slot {
+    flex: 0 1 calc((100% - 10px) / 3);
+}
+
+.tokyo-nova.sheet.actor .sheet-controls {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+}
+
+/* ── メインコンテンツ: ボディ ─────────────────────────────────── */
+.tokyo-nova.sheet.actor .sheet-body {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding: 10px;
+    background: var(--tnx2-bg-1);
+}
+
+.tokyo-nova.sheet.actor .tabbed-content {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    min-height: 0;
+}
+
+/* ================================================================
+   19. キャストシート: 表示/編集モード切替
+   ================================================================ */
+
+.tokyo-nova.sheet.actor.view-mode .identity-edit-mode,
+.tokyo-nova.sheet.actor.view-mode .middle-header-section .edit-mode-rank,
+.tokyo-nova.sheet.actor.view-mode .middle-header-section .edit-mode-affiliation,
+.tokyo-nova.sheet.actor.view-mode .exp-display-section .edit-mode-exp,
+.tokyo-nova.sheet.actor.view-mode .styles-and-miracle-section .edit-mode-styles-miracle-block,
+.tokyo-nova.sheet.actor.view-mode .sidebar-hand-pool-section .sidebar-edit-controls,
+.tokyo-nova.sheet.actor.edit-mode .identity-view-mode,
+.tokyo-nova.sheet.actor.edit-mode .middle-header-section .view-mode-rank,
+.tokyo-nova.sheet.actor.edit-mode .middle-header-section .view-mode-affiliation,
+.tokyo-nova.sheet.actor.edit-mode .middle-header-section .view-mode-style-summary,
+.tokyo-nova.sheet.actor.edit-mode .exp-display-section .view-mode-exp,
+.tokyo-nova.sheet.actor.edit-mode .styles-and-miracle-section .view-mode-miracle-actions,
+.tokyo-nova.sheet.actor.edit-mode .sidebar-hand-pool-section .view-mode-hand {
+    display: none !important;
+}
+
+.tokyo-nova.sheet.actor.view-mode input,
+.tokyo-nova.sheet.actor.view-mode select {
+    border: none !important;
+    background: transparent !important;
+    pointer-events: none;
+    padding-left: 0;
+    padding-right: 0;
+    color: inherit !important;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+}
+
+/* ================================================================
+   20. キャストシート: 能力値閲覧モード (平行四辺形)
+   ================================================================ */
+
+.tokyo-nova.sheet.actor .abilities-grid.view-mode-layout {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+    padding: 5px;
+}
+
+.tokyo-nova.sheet.actor .view-mode-layout .ability-display {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.tokyo-nova.sheet.actor .view-mode-layout .ability-label-shape {
+    background: var(--tnx2-bg-3);
+    border: 1px solid var(--tnx2-accent-dim);
+    transform: skewX(-25deg);
+    width: 90%;
+    z-index: 2;
+    position: relative;
+}
+
+.tokyo-nova.sheet.actor .view-mode-layout .ability-label-content {
+    transform: skewX(25deg);
+    padding: 8px 0;
+}
+
+.tokyo-nova.sheet.actor .view-mode-layout .ability-label-content h3 {
+    color: var(--tnx2-text-accent);
+    font-size: 1.2em;
+    font-weight: bold;
+    text-align: center;
+    border-bottom: 0;
+    margin: 0;
+}
+
+.tokyo-nova.sheet.actor .view-mode-layout .ability-values-area {
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    width: 100%;
+}
+
+.tokyo-nova.sheet.actor .view-mode-layout .ability-value-shape {
+    background: var(--tnx2-bg-3);
+    border: 1px solid var(--tnx2-border-active);
+    transform: skewX(-25deg);
+    width: 60%;
+    z-index: 1;
+}
+
+.tokyo-nova.sheet.actor .view-mode-layout .ability-value-content {
+    transform: skewX(25deg);
+    padding: 5px;
+}
+
+.tokyo-nova.sheet.actor .view-mode-layout .control-value-shape {
+    background: var(--tnx2-bg-2);
+    border: 1px solid var(--tnx2-border-subtle);
+    transform: skewX(-25deg);
+    width: 40%;
+    height: 80%;
+    margin-left: -2px;
+}
+
+.tokyo-nova.sheet.actor .view-mode-layout .control-value-content {
+    transform: skewX(25deg);
+    padding: 5px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+}
+
+.tokyo-nova.sheet.actor .view-mode-layout input[type="number"] {
+    width: 100%;
+    background: transparent;
+    border: none;
+    text-align: center;
+    color: var(--tnx2-text-primary);
+    padding: 0;
+    pointer-events: none;
+}
+
+.tokyo-nova.sheet.actor .view-mode-layout .ability-value-content input {
+    font-size: 1.8em;
+    font-weight: bold;
+}
+
+.tokyo-nova.sheet.actor .view-mode-layout .control-value-content input {
+    font-size: 1.2em;
+    color: var(--tnx2-text-muted);
+}
+
+/* ================================================================
+   20b. キャストシート: 能力値編集モード グリッド
+   ================================================================ */
+
+.tokyo-nova.sheet.actor .abilities-grid.edit-mode-layout {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 8px;
+}
+
+.tokyo-nova.sheet.actor .ability-block {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px 8px;
+    background: var(--tnx2-bg-2);
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+}
+
+.tokyo-nova.sheet.actor .ability-block h3 {
+    font-family: var(--tnx2-font-mono);
+    font-size: 0.88em;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: var(--tnx2-text-secondary);
+    margin: 0;
+    text-transform: uppercase;
+    border: none;
+    text-align: center;
+}
+
+.tokyo-nova.sheet.actor .value-control-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+}
+
+.tokyo-nova.sheet.actor .value-control-wrapper input {
+    width: 44px;
+    text-align: center;
+    font-family: var(--tnx2-font-mono);
+    font-size: 1.1em;
+    font-weight: 700;
+    color: var(--tnx2-text-primary);
+    padding: 2px 0;
+}
+
+.tokyo-nova.sheet.actor .value-control-wrapper .separator {
+    color: var(--tnx2-text-muted);
+    font-size: 0.9em;
+}
+
+/* 内訳トグル */
+.ability-details-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    font-size: 0.78em;
+    color: var(--tnx2-text-muted);
+    cursor: pointer;
+    padding: 2px 0;
+    transition: color var(--tnx2-transition-fast);
+}
+
+.ability-details-toggle:hover { color: var(--tnx2-text-secondary); }
+
+.ability-details-toggle i {
+    font-size: 0.8em;
+    transition: transform var(--tnx2-transition-fast);
+}
+
+.ability-details-panel {
+    background: var(--tnx2-bg-3);
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+    padding: 6px;
+    font-size: 0.82em;
+}
+
+.breakdown-label {
+    font-size: 0.8em;
+    color: var(--tnx2-text-muted);
+    margin-top: 4px;
+}
+
+.breakdown-label--style {
+    color: var(--tnx2-text-secondary);
+    font-weight: 600;
+}
+
+/* ================================================================
+   21. キャストシート: 能力値編集モード 入力行
+   ================================================================ */
+
+.tokyo-nova.sheet .edit-mode-layout .ability-main-inputs {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.tokyo-nova.sheet .edit-mode-layout .ability-breakdown.breakdown-row {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    margin-bottom: 10px;
+}
+
+.tokyo-nova.sheet .edit-mode-layout .input-row,
+.tokyo-nova.sheet .edit-mode-layout .breakdown-item {
+    display: grid;
+    grid-template-columns: auto 1fr auto 1fr;
+    align-items: center;
+}
+
+.tokyo-nova.sheet .edit-mode-layout .input-row label,
+.tokyo-nova.sheet .edit-mode-layout .breakdown-item label {
+    text-align: right;
+    padding-right: 5px;
+}
+
+.tokyo-nova.sheet .edit-mode-layout .input-row input {
+    text-align: center;
+    height: 28px;
+    font-size: 1.2em;
+}
+
+.tokyo-nova.sheet .edit-mode-layout .breakdown-item input {
+    text-align: center;
+    height: 28px;
+    font-size: 1.2em;
+    color: var(--tnx2-text-muted);
+}
+
+.tokyo-nova.sheet .edit-mode-layout .input-row .separator,
+.tokyo-nova.sheet .edit-mode-layout .breakdown-item .separator {
+    font-size: 1.4em;
+}
+
+/* ================================================================
+   22. キャストシート: 技能セクション
+   ================================================================ */
+
+.skills-section { margin-top: 30px; }
+
+.skill-group-block { margin-bottom: 15px; }
+
+.tnx-item-list__row--header.skill-group-header {
+    color: var(--tnx2-text-muted);
+    border-bottom: 1px solid var(--tnx2-border-active);
+    margin-bottom: 0;
+}
+
+.skill-name-header {
+    flex: 1;
+    margin: 0;
+    font-weight: bold;
+}
+
+ol.item-list { padding: 0; }
+
+a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
+
+/* 閲覧モード: 二列レイアウト */
+.skills-list-view {
+    display: flex;
+    gap: 40px;
+    width: 100%;
+    align-items: flex-start;
+}
+
+.skills-column {
+    flex: 1 1 50%;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* 一般技能表示 */
+.general-skill-display {
+    display: flex;
+    align-items: center;
+    margin-bottom: 0;
+    width: 100%;
+}
+
+.skill-label-shape {
+    background: var(--tnx2-bg-3);
+    border: 1px solid var(--tnx2-accent-dim);
+    transform: skewX(-25deg);
+    padding: 0 10px;
+    width: 35%;
+    flex: 0 0 35%;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 15px;
+    margin-left: 10px;
+    overflow: hidden;
+}
+
+.skill-label-content {
+    transform: skewX(25deg);
+    color: var(--tnx2-text-primary);
+    font-weight: bold;
+}
+
+.skill-label-content.long-text {
+    font-size: 0.9em;
+    letter-spacing: -0.05em;
+}
+
+.skill-meta-data {
+    display: flex;
+    gap: 5px;
+    align-items: center;
+    font-weight: bold;
+}
+
+.skill-level {
+    font-size: 1.2em;
+    color: var(--tnx2-text-primary);
+    text-align: center;
+    min-width: 35px;
+}
+
+.skill-suits-view { display: flex; gap: 2px; }
+
+.suit-icon { font-size: 1.1em; }
+
+.suit-icon.active {
+    color: var(--tnx2-accent);
+    text-shadow: 0 0 6px var(--tnx2-accent-glow-sm);
+}
+
+.suit-icon.inactive { color: var(--tnx2-text-muted); }
+
+/* ================================================================
+   23. スタイル技能リスト (キャストシート表示)
+   ================================================================ */
+
+.style-skills-list-wrapper {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    border: 1px solid var(--tnx2-border-subtle);
+    background: var(--tnx2-bg-2);
+    border-radius: var(--tnx2-radius);
+}
+
+.style-skill-grid {
+    display: grid;
+    grid-template-columns: minmax(120px, 1.3fr) 80px 1fr 40px 75px 1fr 1fr 45px 1fr 35px;
+    align-items: center;
+    padding: 0 4px;
+}
+
+.style-skill-header {
+    background: var(--tnx2-bg-3);
+    color: var(--tnx2-text-secondary);
+    font-weight: bold;
+    border-bottom: 1px solid var(--tnx2-border-active);
+    padding-top: 4px;
+    padding-bottom: 4px;
+    font-size: 0.9em;
+}
+
+.style-skills-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.style-skill-row {
+    min-height: 50px;
+    border-bottom: 1px solid var(--tnx2-border-subtle);
+    font-size: 0.9em;
+    transition: background var(--tnx2-transition-fast);
+}
+
+.style-skill-row-main {
+    height: 50px;
+}
+
+.style-skill-row:last-child { border-bottom: none; }
+
+.style-skill-row:nth-child(even) { background: rgba(255,255,255,0.02); }
+
+.style-skill-row:hover { background: var(--tnx2-bg-hover); }
+
+.cell {
+    display: flex;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding: 0 2px;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+.level-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    width: 100%;
+}
+
+.level-number {
+    color: var(--tnx2-text-primary);
+    position: relative;
+}
+
+.level-suits { display: flex; gap: 1px; }
+
+.squeeze-text {
+    white-space: nowrap;
+    transform-origin: center center;
+    display: inline-block;
+}
+
+.cell-name {
+    text-align: left;
+    justify-content: flex-start;
+    font-weight: bold;
+}
+
+.item-menu-trigger {
+    color: var(--tnx2-text-muted);
+    cursor: pointer;
+    transition: color var(--tnx2-transition-fast);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.item-menu-trigger:hover {
+    color: var(--tnx2-accent);
+    text-shadow: 0 0 6px var(--tnx2-accent-glow-sm);
+}
+
+/* 一般技能行内のメニュートリガー(flexレイアウト用、スートマークのすぐ右) */
+.general-skill-display .item-menu-trigger {
+    width: auto;
+    height: auto;
+    margin-left: 6px;
+}
+
+/* 編集モード: 平行四辺形枠ではなく行全体を枠で囲む */
+.general-skill-display--edit {
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+    background: var(--tnx2-bg-2);
+    padding: 4px 8px;
+    gap: 8px;
+}
+.general-skill-display--edit .skill-name-wrap {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+}
+.general-skill-display--edit .skill-name-plain {
+    color: var(--tnx2-text-primary);
+    font-weight: bold;
+}
+
+/* 編集モードグリッド: Lvセルにレベル入力＋スートチェックを収める */
+.style-skill-grid--edit {
+    grid-template-columns: minmax(115px, 1.3fr) 110px 1fr 40px 75px 1fr 1fr 45px 1fr 40px;
+}
+.style-skill-grid--edit .cell-level .skill-level-container input[type="number"] {
+    width: 2.6em;
+}
+
+.skill-desc-toggle {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--tnx2-text-muted);
+    box-shadow: none;
+    padding: 0 5px;
+    font-size: 0.8em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: color var(--tnx2-transition-fast);
+}
+.skill-desc-toggle:focus { outline: none; }
+.skill-desc-toggle:hover { color: var(--tnx2-accent); }
+
+.cell-other .item-menu-trigger {
+    width: auto;
+    height: auto;
+    padding: 0 5px;
+}
+
+.style-skill-desc-panel {
+    border-top: 1px solid var(--tnx2-border-subtle);
+    background: var(--tnx2-bg-2);
+    padding: 8px 14px 10px 12px;
+}
+.style-skill-desc-content {
+    font-size: 0.85em;
+    color: var(--tnx2-text-secondary);
+    line-height: 1.6;
+    white-space: normal;
+}
+.style-skill-desc-content p { margin: 0 0 4px; }
+.style-skill-desc-content p:last-child { margin-bottom: 0; }
+.style-skill-desc-content ul,
+.style-skill-desc-content ol { margin: 2px 0 4px 1.2em; padding: 0; }
+.style-skill-desc-content li { margin-bottom: 2px; }
+
+/* ================================================================
+   24. アイテムシート: フォーム共通
+   ================================================================ */
+
+.tokyo-nova.sheet.item .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 8px;
+}
+
+.tokyo-nova.sheet.item .form-group label {
+    font-size: 0.85em;
+    color: var(--tnx2-text-secondary);
+}
+
+/* フットノートはイタリック・小文字・ミュートで通常ラベルと明確に差別化 */
+.tokyo-nova.sheet.item .form-group .notes,
+.tokyo-nova.sheet.item .form-group .sheet-notes {
+    font-size: 0.8em;
+    font-style: italic;
+    color: var(--tnx2-text-muted);
+}
+
+.tokyo-nova.sheet.item .form-group:has(> input[type="checkbox"]),
+.tokyo-nova.sheet.item .form-group:has(> input[type="radio"]),
+.tokyo-nova.sheet.item .form-group:has(> .number-input-spinner) {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 8px;
+}
+
+.tokyo-nova.sheet.item .form-group:has(> input[type="checkbox"]) > .notes,
+.tokyo-nova.sheet.item .form-group:has(> input[type="radio"]) > .notes,
+.tokyo-nova.sheet.item .form-group:has(> .number-input-spinner) > .notes {
+    width: 100%;
+    margin: 2px 0 0;
+}
+
+.tokyo-nova.sheet.item .form-group > input[type="checkbox"],
+.tokyo-nova.sheet.item .form-group > input[type="radio"],
+.tokyo-nova.sheet.item .form-group > .number-input-spinner {
+    margin-left: auto;
+}
+
+.tokyo-nova.sheet.item .basic-info {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.tokyo-nova.sheet.item .basic-info .form-group {
+    display: flex;
+    flex-direction: column;
+}
+
+.tokyo-nova.sheet.item .settings-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 15px;
+}
+
+.tnx-form-field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* フィールドセット内の設定行: ラベル列(130px) + 入力列の 2 カラムで横並びにする。
+   チェックボックス・ラジオ・スピナー行は上記の :has 行ルール(flex)の方が詳細度が
+   高いため、従来のレイアウト(ラベル左 + コントロール右寄せ)を維持する。 */
+.tokyo-nova.sheet.item .tnx-form-field > .form-group {
+    display: grid;
+    grid-template-columns: 130px 1fr;
+    align-items: center;
+    gap: 4px 10px;
+    margin-bottom: 0;
+}
+
+.tokyo-nova.sheet.item .tnx-form-field > .form-group.align-start {
+    align-items: start;
+}
+
+/* 注記はラベル・入力の下に全幅で回り込む */
+.tokyo-nova.sheet.item .tnx-form-field > .form-group > .notes,
+.tokyo-nova.sheet.item .tnx-form-field > .form-group > .sheet-notes {
+    grid-column: 1 / -1;
+    margin: 2px 0 0;
+}
+
+/* ラベルを持たない行(ボタン単独など)は全幅にする */
+.tokyo-nova.sheet.item .tnx-form-field > .form-group > :only-child {
+    grid-column: 1 / -1;
+}
+
+/* 技能シートのフィールドセット内トグル行: ラベル列を固定 130px でなく可変にして、
+   長いラベルの折返しとヘルプ(ⓘ)有無による行の不揃いを避ける。チェックは右端へ。 */
+.tokyo-nova.sheet.item.skill .tnx-form-field > .form-group:has(> input[type="checkbox"]) {
+    grid-template-columns: 1fr auto;
+}
+
+.array-row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    width: 100%;
+}
+
+.array-row select { flex: 1; min-width: 0; }
+
+.array-row input[type="text"] { flex: 1; min-width: 0; }
+
+/* 技能: 行=カード([selects の2列グリッド] + 削除)。ラベルなし・詰める(部位エディタの2列グリッド踏襲)。
+   用途シートの対決セクションも同構造を踏襲する(2026-07-18)ため .tnx-usage-sheet にも適用 */
+.tokyo-nova.sheet.item .tnx-combo-cards,
+.tokyo-nova.tnx-usage-sheet .tnx-combo-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.tokyo-nova.sheet.item .tnx-combo-card,
+.tokyo-nova.tnx-usage-sheet .tnx-combo-card {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid var(--tnx2-border, rgba(255, 255, 255, 0.14));
+    border-radius: 6px;
+    padding: 6px 8px;
+    background: var(--tnx2-bg-2, rgba(0, 0, 0, 0.18));
+}
+.tokyo-nova.sheet.item .tnx-combo-grid,
+.tokyo-nova.tnx-usage-sheet .tnx-combo-grid {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px 6px;
+}
+.tokyo-nova.sheet.item .tnx-combo-grid > select,
+.tokyo-nova.sheet.item .tnx-combo-grid > input,
+.tokyo-nova.tnx-usage-sheet .tnx-combo-grid > select,
+.tokyo-nova.tnx-usage-sheet .tnx-combo-grid > input { width: 100%; min-width: 0; }
+.tokyo-nova.sheet.item .tnx-combo-full,
+.tokyo-nova.tnx-usage-sheet .tnx-combo-full { grid-column: 1 / -1; }
+.tokyo-nova.sheet.item .tnx-combo-del,
+.tokyo-nova.tnx-usage-sheet .tnx-combo-del {
+    flex: 0 0 auto;
+    cursor: pointer;
+    color: var(--tnx2-text-muted, #888);
+}
+.tokyo-nova.sheet.item .tnx-combo-del:hover,
+.tokyo-nova.tnx-usage-sheet .tnx-combo-del:hover { color: var(--tnx2-color-danger-text, #e74c3c); }
+.tokyo-nova.sheet.item .tnx-combo-add,
+.tokyo-nova.tnx-usage-sheet .tnx-combo-add {
+    cursor: pointer;
+    opacity: 0.7;
+    font-size: 0.85em;
+}
+.tokyo-nova.sheet.item .tnx-combo-add:hover,
+.tokyo-nova.tnx-usage-sheet .tnx-combo-add:hover { opacity: 1; }
+/* 閲覧モードでは技能の追加・削除を隠す(部位エディタの .tnx-part-add/.tnx-part-del と同様) */
+.tokyo-nova.sheet.item.view-mode .tnx-combo-add,
+.tokyo-nova.sheet.item.view-mode .tnx-combo-del {
+    display: none;
+}
+
+.row-controls {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-left: auto;
+    min-width: 30px;
+    justify-content: flex-end;
+    flex: 0 0 auto;
+}
+
+/* ================================================================
+   25. アイテムシート: スタイル技能設定
+   ================================================================ */
+
+.style-skill-settings-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.style-skill-settings-wrapper .form-group {
+    display: grid;
+    grid-template-columns: 130px 1fr;
+    align-items: center;
+    gap: 0 10px;
+}
+
+.style-skill-settings-wrapper .form-group > label {
+    justify-self: end;
+    font-size: 0.85em;
+    color: var(--tnx2-text-secondary);
+}
+
+.style-skill-settings-wrapper .form-group.full-width-row,
+.style-skill-settings-wrapper .form-group .form-fields.split-fields {
+    display: flex;
+    align-items: center;
+}
+
+/* split-fields: セレクト + テキスト入力 or スピナーを 1:1 で横並び */
+.form-fields.split-fields {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.form-fields.split-fields > select {
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: 170.5px;
+}
+.form-fields.split-fields > input[type="text"] {
+    flex: 1 1 0;
+    min-width: 0;
+}
+.form-fields.split-fields > .number-input-spinner {
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+.form-group.align-start { align-items: flex-start; }
+
+.form-group.align-start > label { padding-top: 3px; }
+
+.form-fields-stack {
+    flex: 3;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
+.form-fields-column {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    width: 100%;
+}
+
+.form-group-checkbox,
+.checkbox-row {
+    display: flex;
+    align-items: center;
+}
+
+.form-group-checkbox { gap: 8px; }
+.form-group-checkbox label, .checkbox-row label { cursor: pointer; }
+
+.checkbox-row {
+    margin-top: 10px;
+    font-size: 0.9em;
+}
+
+.checkbox-row label {
+    display: flex;
+    align-items: center;
+    font-weight: normal;
+}
+
+.checkbox-row input[type="checkbox"] {
+    margin: 0 4px 0 0;
+    flex: 0 0 auto;
+}
+
+.checkbox-inline {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    font-weight: bold;
+    cursor: pointer;
+    white-space: nowrap;
+    font-size: 0.9em;
+}
+
+.checkbox-inline input { margin: 0; }
+
+.style-skill-inputs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 15px;
+}
+
+.style-skill-inputs .full-width-row { grid-column: 1 / -1; }
+
+.tokyo-nova.sheet.item .style-skill-inputs .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.form-group.usage-limit-group {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-end;
+    gap: 10px;
+}
+
+.usage-inputs {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    justify-content: flex-end;
+}
+
+.usage-field {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.usage-field label {
+    font-size: 0.8em;
+    color: var(--tnx2-text-muted);
+}
+
+.usage-field input { width: 60px; text-align: center; }
+
+.usage-separator {
+    font-size: 1.5em;
+    font-weight: bold;
+    color: var(--tnx2-text-muted);
+    padding-top: 20px;
+}
+
+/* 使用回数の最大値は数値も式も受ける(2026-08-09)。式が読める幅が要るので 60px 固定をやめるが、
+   長い式は入らない前提のため行いっぱいには広げず、**消費済み欄と同じ幅に揃える**
+   (2026-08-09 ユーザー指示)。式は左揃え・消費済みは数値なので中央揃えのまま。 */
+.usage-limit-group:has(.usage-field--formula) .usage-field input { width: 190.26px; }
+
+.usage-field--formula input { text-align: left; }
+
+.skill-level-container {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.skill-level-container input[type="number"] {
+    width: 3em;
+    text-align: center;
+}
+
+.skill-suits-row { display: flex; gap: 2px; }
+
+.suit-checkbox-tiny {
+    cursor: pointer;
+    font-size: 0.9em;
+    color: var(--tnx2-text-muted);
+}
+
+.suit-checkbox-tiny input[type="checkbox"] { display: none; }
+
+.suit-checkbox-tiny input:checked + i { color: var(--tnx2-accent); }
+
+/* ================================================================
+   26. アイテムシート: 閲覧モード動作
+   ================================================================ */
+
+.tokyo-nova.sheet.item.view-mode .sheet-header input:not([name="system.level"]),
+.tokyo-nova.sheet.item.view-mode .tab[data-tab="description"] input,
+.tokyo-nova.sheet.item.view-mode .tab[data-tab="description"] textarea {
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    pointer-events: none;
+}
+
+.tokyo-nova.sheet.item.view-mode .sheet-header .level-display input {
+    pointer-events: none;
+}
+
+.tokyo-nova.sheet.item.view-mode .sheet-header .suit-selection {
+    pointer-events: none;
+}
+
+.tokyo-nova.sheet.item.view-mode .tab:not([data-tab="description"]) input[type="text"],
+.tokyo-nova.sheet.item.view-mode .tab:not([data-tab="description"]) input[type="number"],
+.tokyo-nova.sheet.item.view-mode .tab:not([data-tab="description"]) select,
+.tokyo-nova.sheet.item.view-mode .tab:not([data-tab="description"]) textarea {
+    background: var(--tnx2-bg-2);
+    color: var(--tnx2-text-muted);
+    border: 1px solid var(--tnx2-border-subtle);
+    pointer-events: none;
+}
+
+.tokyo-nova.sheet.item.view-mode .tab:not([data-tab="description"]) input[type="checkbox"],
+.tokyo-nova.sheet.item.view-mode .tab:not([data-tab="description"]) input[type="radio"] {
+    pointer-events: none;
+    opacity: 0.5;
+    filter: grayscale(100%);
+}
+
+.tokyo-nova.sheet.item.view-mode .row-controls a,
+.tokyo-nova.sheet.item.view-mode .tnx-btn {
+    pointer-events: none;
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.tokyo-nova.sheet.item.view-mode input::placeholder,
+.tokyo-nova.sheet.item.view-mode textarea::placeholder {
+    color: transparent;
+    opacity: 0;
+}
+
+/* 神業シート: 使用済みチェックボックス */
+.tokyo-nova.sheet.item .sheet-header .is-used-checkbox {
+    position: absolute;
+    top: 57px;
+    right: 15px;
+    display: flex;
+    align-items: center;
+}
+
+.tokyo-nova.sheet.item .sheet-header .is-used-checkbox label {
+    font-weight: bold;
+    color: var(--tnx2-text-muted);
+}
+
+.tokyo-nova.sheet.item .sheet-header .is-used-checkbox input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 16px;
+    margin-right: 5px;
+}

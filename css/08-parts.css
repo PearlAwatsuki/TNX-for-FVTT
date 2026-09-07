@@ -1,0 +1,718 @@
+/**
+ * 部位(プリセット・エディタ・占有パネル)と FS判定エディタ/パネル
+ *
+ * css/tnx2.css(11,788 行)を役割で分けたもの(2026-09-07)。**読み込み順に意味がある**ため
+ * ファイル名に連番を付け、system.json の styles も同じ順に並べる。後ろのファイルほど
+ * 後勝ちする——順序を変えると見た目が変わる。
+ */
+
+/* ============================================================
+   § 36: 部位スロットプリセット 設定アプリ（フェーズ10）
+   ============================================================ */
+/* standard-form の flex gap がヘッダー/本体間に空くのを打ち消す。id でなくクラスにし、
+   Foundry の .application.standard-form より高い詳細度(3クラス)で確実に上書き(両エディタ共通)。 */
+.application.standard-form.tnx-part-slot-preset {
+    gap: 0;
+}
+.tnx-part-slot-preset .window-content {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-height: 0;
+    flex: 1;
+    /* Foundry 既定の window-content パディングを消し、余白は内側(body/各セクション)で持つ。
+       これでスクロール枠がウィンドウ枠まで届き、スクロールバー右の余白が出ない。 */
+    padding: 0;
+}
+.tnx-part-slot-preset [data-application-part="main"] {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+.tnx-part-slot-preset .tnx-psp-body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1;
+    min-height: 0;
+    padding: 8px; /* 左右対称。各要素はこの余白で揃う(行追加・hint・footer 含む) */
+}
+.tnx-part-slot-preset .tnx-psp-hint {
+    margin: 0 0 4px;
+    font-size: 0.82em;
+}
+.tnx-part-slot-preset .tnx-psp-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex: 1;
+    overflow-y: auto;
+    /* スクロール枠だけ本体の右パディング(8px)を負マージンで打ち消し、スクロールバーを
+       ウィンドウ枠まで届かせる。中身は padding-right でバーから離す(他要素は触らない)。 */
+    margin-right: -8px;
+    padding-right: 8px;
+}
+.tnx-part-slot-preset .tnx-psp-row {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 0;
+    border-bottom: 1px solid var(--tnx-border-subtle, rgba(255, 255, 255, 0.06));
+}
+.tnx-part-slot-preset .tnx-psp-row:last-child {
+    border-bottom: none;
+}
+/* 並び替え用グリップ(ドラッグハンドル)。専用グリップのみ draggable=true。 */
+.tnx-part-slot-preset .tnx-psp-grip {
+    flex: 0 0 auto;
+    cursor: grab;
+    color: var(--tnx2-text-muted, #4a5e72);
+    padding: 0 2px;
+    user-select: none;
+}
+.tnx-part-slot-preset .tnx-psp-grip:active {
+    cursor: grabbing;
+}
+.tnx-part-slot-preset .tnx-psp-row.dragging {
+    opacity: 0.5;
+}
+.tnx-part-slot-preset .tnx-psp-name {
+    flex: 1 1 5rem;
+    min-width: 4rem;
+}
+/* 部位キー列(フェーズ12)。ウィンドウ幅は 780px へ拡幅済み=名前列を狭めずに追加する */
+.tnx-part-slot-preset .tnx-psp-key {
+    flex: 1 1 7rem;
+    min-width: 6rem;
+    font-family: var(--font-mono, monospace);
+    font-size: 0.85em;
+}
+/* コンパクトスピナー: グローバルの flex 0 0 60px/35px を上書きして密な行に収める
+   (width だけでは flex-basis に負けて効かない。flex ごと上書きする) */
+.tnx-part-slot-preset .tnx-spinner--sm {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+.tnx-part-slot-preset .tnx-spinner--sm input[type="number"] {
+    flex: 0 0 40px;
+    width: 40px;
+    height: 26px;
+    font-size: 0.9em;
+    padding: 0 2px;
+}
+.tnx-part-slot-preset .tnx-spinner--sm .tnx-btn {
+    flex: 0 0 24px;
+    width: 24px;
+    min-width: 24px;
+    height: 26px;
+    padding: 0;
+    font-size: 1.1em;
+}
+.tnx-part-slot-preset .tnx-psp-alias-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    flex-shrink: 0;
+    font-size: 0.78em;
+    white-space: nowrap;
+    color: var(--tnx2-text-secondary, #aaa);
+}
+.tnx-part-slot-preset .tnx-psp-alias-target {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex: 1 1 11rem;
+    min-width: 10rem;
+}
+.tnx-part-slot-preset .tnx-psp-alias-target .tnx-psp-name {
+    flex: 1 1 4rem;
+}
+.tnx-part-slot-preset .tnx-psp-x {
+    opacity: 0.6;
+    flex-shrink: 0;
+}
+.tnx-part-slot-preset .tnx-psp-del {
+    flex-shrink: 0;
+    cursor: pointer;
+    opacity: 0.6;
+}
+.tnx-part-slot-preset .tnx-psp-del:hover {
+    opacity: 1;
+    color: var(--tnx2-danger, #c0392b);
+}
+.tnx-part-slot-preset .tnx-psp-footer {
+    display: flex;
+    justify-content: flex-end;
+    padding-top: 6px;
+    border-top: 1px solid var(--tnx-border-subtle, rgba(255, 255, 255, 0.08));
+}
+
+/* ============================================================
+   § 38: 部位エディタ（アウトフィットシート・行=ブロックカード・D&D 消費 UI 参考）
+   ============================================================ */
+.tnx-part-fieldset legend {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.tnx-part-fieldset .tnx-part-add {
+    cursor: pointer;
+    opacity: 0.7;
+    font-size: 0.85em;
+}
+.tnx-part-fieldset .tnx-part-add:hover {
+    opacity: 1;
+}
+.tnx-part-fieldset .tnx-part-controls {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap; /* 狭いときは折り返す(ラベルを縦割れさせない) */
+    gap: 8px 14px;
+    margin-bottom: 6px;
+}
+.tnx-part-fieldset .tnx-part-relation {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+.tnx-part-fieldset .tnx-part-relation > label {
+    font-size: 0.85em;
+    color: var(--tnx2-text-secondary, #aaa);
+    white-space: nowrap; /* 「複数部位の扱い」が縦書きにならないように */
+}
+.tnx-part-fieldset .tnx-part-relation select {
+    flex: 0 0 8rem;
+}
+.tnx-part-fieldset .tnx-part-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+/* 装備先(オプション・キャスト所属時。部位 fieldset 最下部・上罫線で区切る。2層の「装備先」側) */
+.tnx-part-fieldset .tnx-part-equip {
+    grid-column: 1 / -1; /* 親 .tnx-part-option(2列グリッド)の全幅を占有し、装備先/スロット種別を横並びにする */
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--tnx2-border, rgba(255, 255, 255, 0.14));
+}
+.tnx-part-fieldset .tnx-part-equip .tnx-part-field {
+    flex: 1 1 8rem;
+    min-width: 7rem;
+}
+.tnx-part-fieldset .tnx-part-equip select {
+    width: 100%;
+}
+
+/* スタイル技能 自動取得(10-2): 取得後ボタン(tnx-linked-btn)の縦リスト＋末尾の空インポートボックス */
+.tokyo-nova.sheet.item .style-acquire-list {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.tokyo-nova.sheet.item .style-acquire-list .tnx-linked-btn.is-missing .tnx-linked-btn__label {
+    color: var(--tnx2-text-muted, #888);
+    text-decoration: line-through;
+}
+.tnx-part-fieldset .tnx-part-card {
+    position: relative;
+    border: 1px solid var(--tnx2-border, rgba(255, 255, 255, 0.14));
+    border-radius: 6px;
+    padding: 8px;
+    background: var(--tnx2-bg-2, rgba(0, 0, 0, 0.18));
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.tnx-part-fieldset .tnx-part-card-top {
+    display: flex;
+    flex-direction: row;
+    align-items: flex-end;
+    gap: 10px;
+}
+.tnx-part-fieldset .tnx-part-field {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.tnx-part-fieldset .tnx-part-field > label {
+    font-size: 0.72em;
+    color: var(--tnx2-text-secondary, #aaa);
+    white-space: nowrap;
+}
+.tnx-part-fieldset .tnx-part-kind {
+    flex: 1 1 auto;
+    min-width: 6rem;
+}
+.tnx-part-fieldset .tnx-part-kind select {
+    width: 100%;
+}
+.tnx-part-fieldset .tnx-part-slots {
+    flex: 0 0 auto;
+}
+.tnx-part-fieldset .tnx-part-optional,
+.tnx-part-fieldset .tnx-part-exclude {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 0.78em;
+    white-space: nowrap;
+    color: var(--tnx2-text-secondary, #aaa);
+}
+.tnx-part-fieldset .tnx-part-del {
+    align-self: flex-end;
+    padding-bottom: 6px;
+    cursor: pointer;
+    opacity: 0.55;
+    flex-shrink: 0;
+}
+.tnx-part-fieldset .tnx-part-del:hover {
+    opacity: 1;
+    color: var(--tnx2-danger, #c0392b);
+}
+/* 閲覧モードでは編集ボタン（行追加・削除）を隠す */
+.tokyo-nova.sheet.item.view-mode .tnx-part-add,
+.tokyo-nova.sheet.item.view-mode .tnx-part-del {
+    display: none;
+}
+.tnx-part-fieldset .tnx-part-target {
+    width: 100%;
+}
+.tnx-part-fieldset .tnx-part-target input,
+.tnx-part-fieldset .tnx-part-target select {
+    width: 100%;
+}
+.tnx-part-fieldset .tnx-part-note {
+    font-weight: normal;
+    opacity: 0.7;
+    font-size: 0.92em;
+}
+.tnx-part-fieldset .tnx-part-option {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px 10px;
+}
+.tnx-part-fieldset .tnx-part-option .tnx-part-target {
+    grid-column: 1 / -1;
+}
+.tnx-part-fieldset .tnx-part-minor-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.tnx-part-fieldset .tnx-part-minor-row select {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.tnx-part-fieldset .tnx-part-target-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+}
+.tnx-part-fieldset .tnx-part-target-row .tnx-part-target {
+    flex: 1 1 auto;
+}
+/* 直下・辞典の身体部位: プリセットプルダウン＋(その他選択時のみ)自由入力を横並び半々 */
+.tnx-part-fieldset .tnx-part-body-row {
+    display: flex;
+    gap: 6px;
+}
+.tnx-part-fieldset .tnx-part-body-row > select,
+.tnx-part-fieldset .tnx-part-body-row > input {
+    flex: 1 1 0;
+    min-width: 0;
+}
+/* カード内コンパクトスピナー（global の flex 0 0 60px/35px を上書き） */
+.tokyo-nova.sheet.item .tnx-part-fieldset .number-input-spinner input[type="number"] {
+    flex: 0 0 42px;
+    width: 42px;
+    height: 26px;
+    font-size: 0.9em;
+    padding: 0 2px;
+}
+.tokyo-nova.sheet.item .tnx-part-fieldset .number-input-spinner .tnx-btn {
+    flex: 0 0 24px;
+    width: 24px;
+    min-width: 24px;
+    height: 26px;
+    padding: 0;
+    font-size: 1.1em;
+}
+
+/* ============================================================
+   § 39: 部位占有パネル（キャスト・アウトフィットタブ。フェーズ10）
+   ============================================================ */
+.tokyo-nova.sheet.actor .tnx-part-occupancy {
+    margin: 8px 0;
+    padding: 8px 10px;
+    border: 1px solid var(--tnx2-border, rgba(255, 255, 255, 0.12));
+    border-radius: 6px;
+    background: var(--tnx2-bg-2, rgba(0, 0, 0, 0.15));
+}
+.tokyo-nova.sheet.actor .tnx-occ-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    font-size: 0.8em;
+    color: var(--tnx2-text-secondary, #aaa);
+    margin-bottom: 6px;
+}
+.tokyo-nova.sheet.actor .tnx-occ-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+.tokyo-nova.sheet.actor .tnx-occ-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: var(--tnx2-bg-3, rgba(255, 255, 255, 0.06));
+    border: 1px solid var(--tnx2-border, rgba(255, 255, 255, 0.12));
+    font-size: 0.82em;
+    white-space: nowrap;
+}
+.tokyo-nova.sheet.actor .tnx-occ-chip .tnx-occ-count {
+    font-variant-numeric: tabular-nums;
+    opacity: 0.85;
+}
+.tokyo-nova.sheet.actor .tnx-occ-chip.tnx-occ-over {
+    background: var(--tnx2-danger-bg, rgba(192, 57, 43, 0.22));
+    border-color: var(--tnx2-danger, #c0392b);
+    color: var(--tnx2-danger-text, #e74c3c);
+    font-weight: 600;
+}
+.tokyo-nova.sheet.actor .tnx-occ-load {
+    cursor: pointer;
+    font-size: 0.95em;
+    font-weight: 600;
+    color: var(--tnx2-accent, #6fb3d2);
+    white-space: nowrap;
+}
+.tokyo-nova.sheet.actor .tnx-occ-load:hover {
+    text-decoration: underline;
+}
+.tokyo-nova.sheet.actor .tnx-occ-empty {
+    font-size: 0.82em;
+    color: var(--tnx2-text-secondary, #aaa);
+    opacity: 0.8;
+}
+.tokyo-nova.sheet.actor .tnx-occ-toggle {
+    cursor: pointer;
+    user-select: none;
+}
+.tokyo-nova.sheet.actor .tnx-occ-chevron {
+    transition: transform 0.15s ease;
+    font-size: 0.9em;
+}
+.tokyo-nova.sheet.actor .tnx-part-occupancy:not(.collapsed) .tnx-occ-chevron {
+    transform: rotate(90deg);
+}
+.tokyo-nova.sheet.actor .tnx-part-occupancy.collapsed .tnx-occ-body {
+    display: none;
+}
+.tokyo-nova.sheet.actor .tnx-part-occupancy.collapsed .tnx-occ-title {
+    margin-bottom: 0;
+}
+.tokyo-nova.sheet.actor .tnx-occ-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+.tokyo-nova.sheet.actor .tnx-occ-edit {
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--tnx2-accent, #6fb3d2);
+    white-space: nowrap;
+}
+.tokyo-nova.sheet.actor .tnx-occ-edit:hover {
+    text-decoration: underline;
+}
+
+/* ============================================================
+   FS判定エディタ — FS判定シート（JournalEntry）と起動フォームで共用(2026-07-21)。
+   ①概要=2カラム ②支援判定=可変長リスト ③判定行=全幅の表 ④メモ=全幅
+   ============================================================ */
+
+/* ウィンドウのタイトルを再表示する。システム既定は .window-title を非表示にするため
+   (各シートが本文に名前を出す方針)、そのままだとタイトルが消えてヘッダーのコントロールが
+   左に寄る。アクトシートと同じく flex:1 でタイトルを出し、コントロールを右へ押し出す */
+.tokyo-nova.sheet.tnx-focus-system-sheet .window-header .window-title {
+    display: block;
+    flex: 1 1 auto;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.tnx-focus-system-sheet__body {
+    padding: 10px 12px;
+    overflow-y: auto;
+    height: 100%;
+}
+
+/* ① 概要: ラベル+入力の対を2カラムに並べる */
+.fs-editor .fs-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px 16px;
+}
+.fs-editor .fs-grid .form-group {
+    display: grid;
+    grid-template-columns: 90px minmax(0, 1fr);
+    align-items: center;
+    gap: 6px;
+}
+.fs-editor .fs-grid .form-group > label {
+    font-size: 0.85em;
+    font-weight: 600;
+    color: var(--tnx2-text-secondary);
+    white-space: nowrap;
+}
+/* 概要セクションのスピナーだけ右寄せ(ユーザー指示・2026-07-21)。カード内は左寄せのまま */
+.fs-editor .fs-grid .number-input-spinner {
+    justify-content: flex-end;
+}
+/* 概要の全幅行(敗北時の処理・支援判定)。右に空きを作らず1行を使い切る(2026-07-21) */
+.fs-editor .fs-full-row,
+.fs-editor .fs-support-group {
+    grid-column: 1 / -1;
+}
+.fs-editor .fs-support-group {
+    align-items: start;
+}
+/* ラベルはタグ領域の上端に合わせる(概要グリッドの align-items:center に負けないよう
+   グリッドアイテム自身へ align-self を指定する) */
+.fs-editor .fs-support-group > label {
+    align-self: start;
+    padding-top: 6px;
+}
+.fs-editor .fs-support-group > .tnx-tag-field {
+    align-self: start;
+}
+
+.fs-name-row {
+    display: grid;
+    grid-template-columns: 90px minmax(0, 1fr);
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+
+/* 技能の複数選択＝タグ入力。意匠は共通部品 .tnx-tag-field(セクション10)へ移した
+   (2026-08-09・シーンの指定技能と一本化)。ここは FS エディタ固有の調整のみ */
+.fs-editor .fs-empty {
+    margin: 0;
+    font-size: 0.85em;
+    color: var(--tnx2-text-muted);
+}
+/* 追加プルダウンは FS エディタの縮小スケールに合わせる(他の入力 30px より一段小さい) */
+.fs-editor .tnx-tag-add {
+    height: 28px;
+    font-size: 0.85em;
+}
+
+/* 入力コントロールの高さを 30px に統一する。既定のスピナーは大きすぎて他の入力欄と
+   揃わなかったため、FS エディタ内では小さめにする(2026-07-21 ユーザー指示) */
+.fs-editor select,
+.fs-editor input[type="text"] {
+    height: 30px;
+    box-sizing: border-box;
+}
+.fs-editor .number-input-spinner {
+    justify-content: flex-start;
+}
+.fs-editor .number-input-spinner input[type="number"] {
+    flex: 0 0 42px;
+    width: 42px;
+    height: 30px;
+    font-size: 1em;
+    font-weight: 600;
+}
+.fs-editor .number-input-spinner .tnx-btn {
+    flex: 0 0 26px;
+    width: 26px;
+    height: 30px;
+    font-size: 1.05em;
+}
+
+/* ② イベント・進行判定: 高さがバラバラなレコードなので、表でなくカードにする。
+   カードなら技能や進行修正で高さが変わっても、他の項目に空白が出ない(2026-07-21 是正) */
+.fs-editor .fs-event-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+.fs-editor .fs-event-card {
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: 6px;
+    padding: 8px 10px 10px;
+    background: var(--tnx2-bg-1);
+}
+.fs-editor .fs-event-card.dragging {
+    opacity: 0.5;
+}
+/* カード見出し: 進行値(切り替えの閾値)を前に出す。ラベル幅と間隔を本体の
+   グリッド(68px + 10px)に合わせ、進行値スピナーを目標値スピナーと縦に揃える */
+.fs-editor .fs-event-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+.fs-editor .fs-event-hlabel {
+    flex: 0 0 68px;
+    font-size: 0.85em;
+    font-weight: 600;
+    color: var(--tnx2-text-secondary);
+}
+.fs-editor .fs-event-hsuffix {
+    font-size: 0.85em;
+    color: var(--tnx2-text-muted);
+}
+.fs-editor .fs-event-tools {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.fs-editor .fs-row-grip {
+    cursor: grab;
+    color: var(--tnx2-text-muted);
+}
+/* カード本体: ラベル＋入力の2カラム。技能・進行修正・備考は右カラムで自然に伸びる */
+.fs-editor .fs-event-fields {
+    display: grid;
+    grid-template-columns: 68px minmax(0, 1fr);
+    align-items: start;
+    gap: 8px 10px;
+}
+.fs-editor .fs-event-fields > label {
+    font-size: 0.85em;
+    font-weight: 600;
+    color: var(--tnx2-text-secondary);
+    white-space: nowrap;
+    padding-top: 6px;
+}
+.fs-editor .fs-event-target {
+    justify-content: flex-start;
+}
+.fs-editor .fs-event-fields > input[type="text"] {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* 進行修正: 参照元／パラメータ／式を完全に3つ並列。参照元＝なし のときはパラメータを
+   出さず、式欄は固定値の入力欄として常に出す */
+.fs-editor .fs-mod {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.fs-editor .fs-mod-source  { flex: 0 0 150px; }
+.fs-editor .fs-mod-param   { flex: 0 0 160px; }
+.fs-editor .fs-mod-formula { flex: 0 0 130px; }
+
+/* ④ メモ: textarea はブラウザ既定の cols 幅で出るため、明示的に全幅にする */
+.fs-editor textarea[name="memo"] {
+    width: 100%;
+    box-sizing: border-box;
+    resize: vertical;
+}
+
+.fs-start-footer {
+    margin-top: 10px;
+    display: flex;
+    justify-content: flex-end;
+}
+
+/* ============================================================
+   FS判定パネル(フェーズ12-5) — 進行状態の操作・閲覧
+   ============================================================ */
+
+.tnx-fs-panel .fs-panel-item {
+    padding: 8px;
+    margin-bottom: 10px;
+    border: 1px solid var(--tnx2-border, #3a3f4b);
+    border-radius: 4px;
+}
+.tnx-fs-panel .fs-panel-name {
+    font-weight: 700;
+}
+.tnx-fs-panel .fs-panel-restriction,
+.tnx-fs-panel .fs-panel-defeat,
+.tnx-fs-panel .fs-panel-norow {
+    margin: 4px 0;
+    font-size: 0.9em;
+    opacity: 0.85;
+}
+.tnx-fs-panel .fs-gauge-block {
+    margin: 8px 0;
+}
+.tnx-fs-panel .fs-gauge-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 3px;
+}
+.tnx-fs-panel .fs-gauge-label {
+    font-weight: 600;
+}
+.tnx-fs-panel .fs-gauge-value {
+    margin-left: auto;
+    font-variant-numeric: tabular-nums;
+}
+.tnx-fs-panel .fs-gauge {
+    position: relative;
+    height: 14px;
+    overflow: hidden;
+    background: rgb(0 0 0 / 35%);
+    border: 1px solid var(--tnx2-border, #3a3f4b);
+    border-radius: 3px;
+}
+.tnx-fs-panel .fs-gauge-fill {
+    height: 100%;
+    background: var(--tnx2-accent, #6fb3d2);
+}
+.tnx-fs-panel .fs-gauge--cut .fs-gauge-fill {
+    background: #d98b6f;
+}
+.tnx-fs-panel .fs-gauge-marker {
+    position: absolute;
+    top: 0;
+    width: 2px;
+    height: 100%;
+    background: rgb(255 255 255 / 65%);
+}
+.tnx-fs-panel .fs-panel-active {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 2px 10px;
+    margin: 6px 0 0;
+    font-size: 0.92em;
+}
+.tnx-fs-panel .fs-panel-active dt {
+    font-weight: 600;
+    white-space: nowrap;
+}
+.tnx-fs-panel .fs-panel-active dd {
+    margin: 0;
+}
+.tnx-rl-request .fs-start-note {
+    margin: 6px 0;
+    font-size: 0.88em;
+    opacity: 0.8;
+}

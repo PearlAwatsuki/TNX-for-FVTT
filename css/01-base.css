@@ -1,0 +1,1242 @@
+/**
+ * デザイントークン・ウィンドウ枠・タイポグラフィ・フォーム・ボタン・見出し・汎用ユーティリティ
+ *
+ * css/tnx2.css(11,788 行)を役割で分けたもの(2026-09-07)。**読み込み順に意味がある**ため
+ * ファイル名に連番を付け、system.json の styles も同じ順に並べる。後ろのファイルほど
+ * 後勝ちする——順序を変えると見た目が変わる。
+ */
+
+﻿/* ================================================================
+   TNX Design System v2  —  tnx2.css
+   Phase 4: サイバーパンク・デザイン刷新 (Tokyo Noir Cyber)
+   ================================================================
+   構造:
+     1.  Design Tokens (CSS カスタムプロパティ)
+     2.  ウィンドウ / アプリケーション ベース
+     3.  スキャンライン
+     4.  タイポグラフィ & リンク
+     5.  フォーム要素
+     6.  ボタン
+     7.  アイコンコントロール
+     8.  セクションヘッダー & フィールドセット
+     9.  アイテムリスト
+    10.  汎用ユーティリティ
+    11.  シートフッター
+    12.  テキストエディタセクション
+    13.  キャストシート: バッドステータスグリッド
+    14.  キャストシート: パーソナルデータ / ヘッダーラベル英語化
+    15.  アイテムシート共通
+    16.  アイテムシート: スキル系共通 (スーツ / レベル / スキル表示グリッド)
+    17.  アイテムシート: スタイル固有 (アビリティグリッド)
+   ================================================================
+   セレクタの設計指針:
+     - .tokyo-nova        : 色・文字サイズ等の無害なグローバル値のみ
+                            (TnxHud も含まれるため、背景・枠線は付けない)
+     - .tokyo-nova.sheet  : DocumentSheetV2 系シート (cast / item / scenario)
+     - .tokyo-nova.dialog : DialogV2 系ダイアログ
+     HUD は 4-5 で個別に対応する。
+   ================================================================ */
+
+/* ----------------------------------------------------------------
+   1. Design Tokens
+   ---------------------------------------------------------------- */
+:root {
+    /* 背景レイヤー */
+    --tnx2-bg-0:     #080b10;
+    --tnx2-bg-1:     #0d1117;
+    --tnx2-bg-2:     #131920;
+    --tnx2-bg-3:     #1a2230;
+    --tnx2-bg-hover: #1e2a3a;
+
+    /* テキスト — cool white 系 (ハレーション防止) */
+    --tnx2-text-primary:   #c8d4e0;
+    --tnx2-text-secondary: #7a90a8;
+    --tnx2-text-muted:     #4a5e72;
+    --tnx2-text-accent:    #78c8d8; /* 文字用シアン: 明度を下げた安全値 */
+
+    /* アクセント — シアン (ボーダー・装飾専用) */
+    --tnx2-accent:         #00c8e0;
+    --tnx2-accent-dim:     #007a8a;
+    --tnx2-accent-glow:    rgba(0, 200, 224, 0.25);
+    --tnx2-accent-glow-sm: rgba(0, 200, 224, 0.12);
+
+    /* 状態色 */
+    --tnx2-color-warn:        #e07830;
+    --tnx2-color-danger:      #cc3344;
+    --tnx2-color-danger-text: #f08090;
+    --tnx2-color-success:     #44aa77;
+
+    /* ボーダー */
+    --tnx2-border-subtle: #1e2d3e;
+    --tnx2-border-active: #2a4a60;
+    --tnx2-border-glow:   #006880;
+
+    /* タイポグラフィ */
+    --tnx2-font-mono: "Consolas", "Menlo", "Courier New", monospace;
+
+    /* その他 */
+    --tnx2-radius:           2px;
+    --tnx2-transition-fast:  0.1s ease-out;
+    --tnx2-transition-mid:   0.18s ease-out;
+}
+
+/* ----------------------------------------------------------------
+   2. ウィンドウ / アプリケーション ベース
+   ----------------------------------------------------------------
+   NOTE: .tokyo-nova.sheet / .dialog のみ対象。
+         TnxHud は .tokyo-nova 単体クラスのため、ここには含めない。
+   ---------------------------------------------------------------- */
+
+/* box-sizing 統一 (HUD 含む全 TNX 要素) */
+.tokyo-nova *,
+.tokyo-nova *::before,
+.tokyo-nova *::after {
+    box-sizing: border-box;
+}
+
+/* ウィンドウ枠 — シート・ダイアログのみ
+   IMPORTANT: position は Foundry の @layer applications { .application { position: absolute } } に委ねる。
+              ここで position を上書きすると座標系が壊れる (.application は @layer 内なので
+              unlayered である tnx2.css のルールに常に負けてしまう)。 */
+.tokyo-nova.sheet,
+.tokyo-nova.dialog {
+    background: var(--tnx2-bg-1);
+    color: var(--tnx2-text-primary);
+    border: 1px solid var(--tnx2-border-active);
+    border-radius: var(--tnx2-radius);
+    box-shadow:
+        0 0 0 1px var(--tnx2-border-subtle),
+        0 6px 40px rgba(0, 0, 0, 0.85),
+        0 0 20px rgba(0, 200, 224, 0.05);
+}
+
+/* ウィンドウヘッダー */
+.tokyo-nova.sheet .window-header,
+.tokyo-nova.dialog .window-header {
+    background: var(--tnx2-bg-0);
+    border-bottom: 1px solid var(--tnx2-border-glow);
+    color: var(--tnx2-text-accent);
+    height: 32px;
+    padding: 0 10px;
+    box-shadow: 0 1px 10px rgba(0, 200, 224, 0.08);
+    flex-direction: row;
+    align-items: center;
+    overflow: visible;
+}
+
+/* V2 ウィンドウタイトル非表示 */
+.tokyo-nova.sheet .window-header .window-title {
+    display: none;
+}
+
+/* ヘッダーのコントロール群は常に右寄せ。
+   Foundry 既定では flex:1 の .window-title が余白を吸ってコントロールを右へ押し出すが、
+   シートはそのタイトルを非表示にする(本文に名前を出す方針)ため、余白を吸う要素が無いと
+   コントロールが左端に張り付く。編集モードトグルの margin-right:auto に依存すると、
+   トグルが出ない場合(権限なし・閲覧のみ)に左寄せへ崩れるので、ヘッダー側で右寄せを既定にする。
+   タイトルを再表示するシート(アクト・FS判定)は flex:1 のタイトルが余白を吸うため影響しない */
+.tokyo-nova.sheet .window-header {
+    justify-content: flex-end;
+}
+
+/* ヘッダーボタン */
+.tokyo-nova.sheet .window-header .header-button,
+.tokyo-nova.dialog .window-header .header-button {
+    background: none;
+    border: none;
+    box-shadow: none;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    margin-left: 4px;
+    font-size: 0;
+    color: var(--tnx2-text-muted);
+    transition: color var(--tnx2-transition-fast);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+.tokyo-nova.sheet .window-header .header-button:hover,
+.tokyo-nova.dialog .window-header .header-button:hover {
+    color: var(--tnx2-text-accent);
+}
+.tokyo-nova.sheet .window-header .header-button i,
+.tokyo-nova.dialog .window-header .header-button i {
+    font-size: 13px;
+    margin: 0;
+}
+
+/* リサイズハンドル */
+.tokyo-nova.sheet .window-resizable-handle,
+.tokyo-nova.dialog .window-resizable-handle {
+    color: var(--tnx2-accent-dim);
+    opacity: 0.5;
+}
+
+/* ウィンドウコンテンツ */
+.tokyo-nova .window-content {
+    background-color: var(--tnx2-bg-1) !important;
+    background-image: none !important;
+    color: var(--tnx2-text-primary);
+}
+.tokyo-nova.sheet .window-content {
+    padding: 0;
+    overflow-y: auto;
+}
+
+/* select option */
+.tokyo-nova select option {
+    background-color: var(--tnx2-bg-2);
+    color: var(--tnx2-text-primary);
+}
+
+/* 編集モード切替トグル */
+.tokyo-nova.sheet .edit-mode-toggle {
+    position: relative;
+    display: inline-block;
+    width: 36px;
+    height: 20px;
+    background-color: var(--tnx2-border-active);
+    border: 1px solid var(--tnx2-accent-dim);
+    border-radius: 13px;
+    cursor: pointer;
+    transition: background-color 0.2s ease-in-out;
+    -webkit-appearance: none;
+    appearance: none;
+    padding: 0;
+    flex-shrink: 0;
+    margin-right: auto;
+    margin-left: 0;
+}
+.tokyo-nova.sheet .edit-mode-toggle::after {
+    content: '';
+    position: absolute;
+    top: 1px;
+    left: 1px;
+    width: 16px;
+    height: 16px;
+    background-color: var(--tnx2-text-secondary);
+    border-radius: 50%;
+    transition: left 0.2s ease-in-out;
+}
+.tokyo-nova.sheet .edit-mode-toggle .tnx-view-icon,
+.tokyo-nova.sheet .edit-mode-toggle .tnx-edit-icon {
+    position: absolute;
+    top: 50%;
+    left: 1px;
+    transform: translateY(-50%);
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    color: var(--tnx2-border-active);
+    z-index: 1;
+    pointer-events: none;
+    transition: left 0.2s ease-in-out;
+}
+.tokyo-nova.sheet .edit-mode-toggle .tnx-edit-icon {
+    display: none;
+}
+.tokyo-nova.sheet .window-header .edit-mode-toggle:hover::after {
+    box-shadow: 0 0 4px var(--tnx2-accent);
+    background-color: var(--tnx2-accent);
+}
+.tokyo-nova.sheet.edit-mode .edit-mode-toggle {
+    background-color: var(--tnx2-accent-dim);
+    border-color: var(--tnx2-accent);
+}
+.tokyo-nova.sheet.edit-mode .edit-mode-toggle::after {
+    left: 17px;
+    background-color: var(--tnx2-accent);
+}
+.tokyo-nova.sheet.edit-mode .edit-mode-toggle .tnx-view-icon {
+    display: none;
+}
+.tokyo-nova.sheet.edit-mode .edit-mode-toggle .tnx-edit-icon {
+    display: flex;
+    left: 17px;
+    color: var(--tnx2-accent-dim);
+}
+
+/* ----------------------------------------------------------------
+   3. スキャンライン (シート・ダイアログのみ)
+   ---------------------------------------------------------------- */
+.tokyo-nova.sheet::after,
+.tokyo-nova.dialog::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: repeating-linear-gradient(
+        to bottom,
+        transparent 0px,
+        transparent 3px,
+        rgba(0, 0, 0, 0.08) 3px,
+        rgba(0, 0, 0, 0.08) 4px
+    );
+    z-index: 9999;
+}
+
+
+/* ----------------------------------------------------------------
+   4. タイポグラフィ & リンク
+   ---------------------------------------------------------------- */
+.tokyo-nova {
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.tokyo-nova a {
+    color: var(--tnx2-text-accent);
+    text-decoration: none;
+    transition: color var(--tnx2-transition-fast),
+                text-shadow var(--tnx2-transition-mid);
+}
+.tokyo-nova a:hover {
+    color: var(--tnx2-accent);
+    text-shadow: 0 0 6px var(--tnx2-accent-glow-sm);
+}
+
+/* 注釈・ヒント (.tokyo-nova 配下のみ) */
+.tokyo-nova .notes,
+.tokyo-nova .hint,
+.tokyo-nova form .notes,
+.tokyo-nova form .hint {
+    color: var(--tnx2-text-muted);
+    font-size: 0.85em;
+}
+.tokyo-nova form .sheet-notes.notes {
+    color: var(--tnx2-text-secondary);
+}
+
+/* ----------------------------------------------------------------
+   5. フォーム要素
+   ---------------------------------------------------------------- */
+.tokyo-nova input,
+.tokyo-nova select,
+.tokyo-nova textarea {
+    background: var(--tnx2-bg-3);
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+    color: var(--tnx2-text-primary);
+    transition: border-color var(--tnx2-transition-mid),
+                box-shadow   var(--tnx2-transition-mid);
+}
+.tokyo-nova input:focus,
+.tokyo-nova select:focus,
+.tokyo-nova textarea:focus {
+    border-color: var(--tnx2-border-glow);
+    box-shadow: 0 0 0 1px var(--tnx2-accent-glow-sm),
+                inset 0 0 8px rgba(0, 200, 224, 0.04);
+    outline: none;
+    color: var(--tnx2-text-primary);
+}
+
+.tokyo-nova select {
+    min-width: 120px;
+    padding: 4px;
+}
+
+/* チェックボックス / ラジオ
+   Foundry は appearance:none + FA アイコン(::before/::after)で描画する。
+   CSS 変数アプローチは themed.theme-dark 等の高特異度ルールに負けるため、
+   ::before / ::after を直接スタイルして確実に上書きする。 */
+.tokyo-nova input[type="checkbox"]::before,
+.tokyo-nova input[type="radio"]::before {
+    color: var(--tnx2-border-active) !important;
+}
+.tokyo-nova input[type="checkbox"]:checked::after,
+.tokyo-nova input[type="radio"]:checked::after,
+.tokyo-nova input[type="checkbox"]:indeterminate::after,
+.tokyo-nova input[type="radio"]:indeterminate::after {
+    color: var(--tnx2-accent) !important;
+}
+
+/* 数値入力 */
+.tokyo-nova input[type="number"] {
+    font-family: var(--tnx2-font-mono);
+    text-align: center;
+}
+
+/* スピナー */
+.number-input-spinner {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    justify-content: flex-end;
+}
+.number-input-spinner input[type="number"] {
+    flex: 0 0 60px;
+    width: 60px;
+    height: 35px;
+    text-align: center;
+    font-size: 1.2em;
+    font-weight: bold;
+    border: 1px solid var(--tnx2-border-active);
+    border-left: none;
+    border-right: none;
+    border-radius: 0;
+    padding: 0 2px;
+    margin: 0;
+    -moz-appearance: textfield;
+    box-sizing: border-box;
+}
+/* .tokyo-nova スコープで specificity を上げ、.tokyo-nova .tnx-btn (020) に勝つ (030) */
+.tokyo-nova .number-input-spinner .tnx-btn {
+    flex: 0 0 35px;
+    width: 35px;
+    height: 35px;
+    padding: 0;
+    font-size: 1.4em;
+    line-height: 1;
+    margin: 0;
+}
+.tokyo-nova .number-input-spinner button[data-action="decrement"],
+.tokyo-nova .number-input-spinner button[data-action="decrementLevel"],
+.tokyo-nova .number-input-spinner button[data-action="decrementMaxLevel"],
+.tokyo-nova .number-input-spinner button[data-action="decrementTargetValue"],
+.tokyo-nova .number-input-spinner button[data-action="decrementFixedResult"],
+.tokyo-nova .number-input-spinner button[data-action="decrementAcquireCount"],
+.tokyo-nova .number-input-spinner button[data-action="decrementConsumeAmount"] {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+}
+.tokyo-nova .number-input-spinner button[data-action="increment"],
+.tokyo-nova .number-input-spinner button[data-action="incrementLevel"],
+.tokyo-nova .number-input-spinner button[data-action="incrementMaxLevel"],
+.tokyo-nova .number-input-spinner button[data-action="incrementTargetValue"],
+.tokyo-nova .number-input-spinner button[data-action="incrementFixedResult"],
+.tokyo-nova .number-input-spinner button[data-action="incrementAcquireCount"],
+.tokyo-nova .number-input-spinner button[data-action="incrementConsumeAmount"] {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+}
+
+/* ----------------------------------------------------------------
+   5b. コンボボックス(自由入力＋候補) — combobox.mjs / enhanceComboboxes
+   ----------------------------------------------------------------
+   ネイティブ <datalist> の壊れたドロップダウンを置き換える共通部品。
+   ドロップダウン本体(.tnx-combobox__list)は body 直下に position:fixed で描画されるため
+   .tokyo-nova に依存しない自立スコープにする。背景/文字/フォントはアンカー入力から JS が
+   inline 継承し、枠と選択ハイライトは currentColor の混色でテーマ非依存にする。 */
+.tnx-combobox {
+    position: relative;
+    align-items: stretch;
+    max-width: 100%;
+    vertical-align: middle;
+}
+/* ▼ トグル分の余白を確保(入力文字がトグルに潜り込まないように) */
+.tnx-combobox > input {
+    padding-right: 20px;
+}
+.tnx-combobox__toggle {
+    position: absolute;
+    top: 1px;
+    right: 1px;
+    bottom: 1px;
+    width: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    margin: 0;
+    border: none;
+    background: transparent;
+    color: inherit;
+    opacity: 0.55;
+    cursor: pointer;
+    font-size: 0.8em;
+    line-height: 1;
+}
+.tnx-combobox__toggle:hover {
+    opacity: 1;
+    background: transparent;
+    box-shadow: none;
+}
+
+.tnx-combobox__list {
+    position: fixed;
+    z-index: 100000;
+    margin: 0;
+    padding: 2px;
+    list-style: none;
+    overflow-y: auto;
+    overflow-x: hidden;
+    border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
+    border-radius: 3px;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+    /* background / color / font はアンカー入力から JS が inline 設定する */
+}
+.tnx-combobox__option {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    padding: 3px 6px;
+    border-radius: 2px;
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-size: 0.95em;
+}
+.tnx-combobox__option .tnx-combobox__sub {
+    margin-left: auto;
+    opacity: 0.55;
+    font-size: 0.85em;
+    font-family: var(--tnx2-font-mono, monospace);
+}
+.tnx-combobox__option.is-active,
+.tnx-combobox__option:hover {
+    background: color-mix(in srgb, currentColor 15%, transparent);
+}
+.tnx-combobox__empty {
+    padding: 4px 6px;
+    opacity: 0.6;
+    font-style: italic;
+}
+
+/* ----------------------------------------------------------------
+   6. ボタン
+   ---------------------------------------------------------------- */
+.tokyo-nova .tnx-btn,
+.tokyo-nova.sheet .tnx-linked-btn {
+    background: var(--tnx2-bg-2);
+    border: 1px solid var(--tnx2-border-active);
+    color: var(--tnx2-text-primary);
+    border-radius: var(--tnx2-radius);
+    transition:
+        background-color var(--tnx2-transition-fast),
+        border-color     var(--tnx2-transition-fast),
+        box-shadow       var(--tnx2-transition-mid);
+    cursor: pointer;
+}
+.tokyo-nova .tnx-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    height: 36px;
+    padding: 0 12px;
+    font-size: 13px;
+    font-weight: 600;
+    text-align: center;
+}
+.tokyo-nova .tnx-btn:hover:not(:disabled),
+.tokyo-nova.sheet .tnx-linked-btn:hover:not(:disabled) {
+    background: var(--tnx2-bg-hover);
+    border-color: var(--tnx2-accent-dim);
+    box-shadow: 0 0 10px var(--tnx2-accent-glow-sm),
+                inset 0 0 6px rgba(0, 200, 224, 0.04);
+    color: var(--tnx2-text-accent);
+}
+.tokyo-nova .tnx-btn:focus,
+.tokyo-nova.sheet .tnx-linked-btn:focus {
+    border-color: var(--tnx2-border-glow);
+    box-shadow: 0 0 10px var(--tnx2-accent-glow-sm);
+    outline: none;
+    color: inherit;
+}
+.tokyo-nova .tnx-btn:disabled,
+.tokyo-nova.sheet .tnx-linked-btn:disabled {
+    background: var(--tnx2-bg-1);
+    border-color: var(--tnx2-border-subtle);
+    color: var(--tnx2-text-muted);
+    box-shadow: none;
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+/* 破線バリアント */
+.tokyo-nova .tnx-btn.tnx-btn-dashed {
+    background: transparent;
+    border-style: dashed;
+    border-color: var(--tnx2-border-subtle);
+    color: var(--tnx2-text-muted);
+}
+.tokyo-nova .tnx-btn.tnx-btn-dashed:hover:not(:disabled) {
+    border-color: var(--tnx2-accent-dim);
+    color: var(--tnx2-text-accent);
+    background: var(--tnx2-accent-glow-sm);
+    box-shadow: none;
+}
+
+/* 小型バリアント */
+.tokyo-nova .tnx-btn.tnx-btn--sm {
+    height: 26px;
+    font-size: 12px;
+    padding: 0 10px;
+    width: auto;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* リンクボタン */
+.tokyo-nova.sheet .tnx-linked-btn {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    height: 38px;
+    justify-content: flex-start;
+    padding: 5px 10px;
+    gap: 8px;
+    font-family: inherit;
+    text-align: left;
+}
+.tokyo-nova.sheet .tnx-linked-btn .tnx-linked-btn__icon {
+    width: 24px;
+    height: 24px;
+    flex: 0 0 24px;
+    border: none;
+    object-fit: contain;
+    border-radius: var(--tnx2-radius);
+    opacity: 0.85;
+}
+.tokyo-nova.sheet .tnx-linked-btn .tnx-linked-btn__label {
+    flex-grow: 1;
+    min-width: 0;
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--tnx2-text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: color var(--tnx2-transition-fast);
+}
+.tokyo-nova.sheet .tnx-linked-btn:hover .tnx-linked-btn__label {
+    color: var(--tnx2-text-accent);
+}
+
+/* リング/行型アイコンボタン */
+.tnx-ring-btn,
+.tnx-row-btn,
+.tnx-row-btn--delete {
+    background: var(--tnx2-bg-2);
+    border: 1px solid var(--tnx2-border-subtle);
+    color: var(--tnx2-text-muted);
+    cursor: pointer;
+    transition: color        var(--tnx2-transition-fast),
+                border-color var(--tnx2-transition-fast);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+.tnx-ring-btn:hover,
+.tnx-row-btn:hover {
+    color: var(--tnx2-text-accent);
+    border-color: var(--tnx2-accent-dim);
+}
+.tnx-ring-btn[data-action*="delete"]:hover,
+.tnx-row-btn--delete:hover {
+    color: var(--tnx2-color-danger-text);
+    border-color: var(--tnx2-color-danger);
+}
+/* Foundry の "a.button, button { min-height: var(--button-size); width: 100% }" に対抗するため
+   width / height / min-height を !important で固定 */
+.tnx-ring-btn {
+    border-radius: 50%;
+    width: 22px !important;
+    height: 22px !important;
+    min-height: 22px !important;
+    flex-shrink: 0;
+    line-height: 1 !important;
+}
+
+/* チャットカード内のテキストボタン(判定する/リアクション/ダメージ算出等)。
+   丸型(tnx-ring-btn)に文字を詰め込まない(2026-07-09 修正)——幅は内容に応じ、通常のボタン形状 */
+.tnx-chat-btn {
+    /* チャットカード内のボタンは D&D 5e に倣い全幅・縦積み(2026-07-08 ユーザー指示) */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    width: 100%;
+    padding: 6px 12px;
+    background: var(--tnx2-bg-2);
+    border: 1px solid var(--tnx2-border-active);
+    border-radius: var(--tnx2-radius);
+    color: var(--tnx2-text-primary);
+    font-size: 0.84em;
+    line-height: 1.4;
+    cursor: pointer;
+    transition: background var(--tnx2-transition-fast);
+}
+.tnx-chat-btn:hover {
+    background: var(--tnx2-bg-hover);
+}
+.tnx-row-btn,
+.tnx-row-btn--delete {
+    flex: 0 0 24px;
+    width: 24px !important;
+    height: 24px !important;
+    min-height: 24px !important;
+    border-radius: var(--tnx2-radius);
+    font-size: 12px;
+    line-height: 1 !important;
+    flex-shrink: 0;
+}
+
+/* ----------------------------------------------------------------
+   7. アイコンコントロール
+   ---------------------------------------------------------------- */
+.tnx-icon-ctrl {
+    font-size: 1.1em;
+    color: var(--tnx2-text-muted);
+    cursor: pointer;
+    transition: color       var(--tnx2-transition-fast),
+                text-shadow var(--tnx2-transition-mid);
+}
+.tnx-icon-ctrl:hover {
+    color: var(--tnx2-text-accent);
+    text-shadow: 0 0 6px var(--tnx2-accent-glow-sm);
+}
+.tnx-icon-ctrl[data-action*="delete"]:hover {
+    color: var(--tnx2-color-danger-text);
+    text-shadow: none;
+}
+
+.tnx-ctrl-strip {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+/* ----------------------------------------------------------------
+   8. セクションヘッダー & フィールドセット
+   ---------------------------------------------------------------- */
+.tnx-section-title {
+    font-family: var(--tnx2-font-mono);
+    font-size: 0.9em;
+    font-weight: 700;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    color: var(--tnx2-text-accent);
+    margin-bottom: 12px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--tnx2-border-active);
+}
+.tnx-section-title::before {
+    content: "> ";
+    color: var(--tnx2-accent);
+    font-weight: 400;
+}
+.tnx-section-title--sm {
+    margin-bottom: 8px;
+}
+.tnx-section-title--center {
+    text-align: center;
+}
+.tnx-section-title--center::before {
+    content: "";
+}
+
+.tnx-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--tnx2-border-active);
+    padding-bottom: 6px;
+    margin-bottom: 10px;
+}
+.tnx-section-header h3 {
+    margin: 0;
+    font-family: var(--tnx2-font-mono);
+    font-size: 0.9em;
+    font-weight: 700;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    color: var(--tnx2-text-accent);
+    border: none;
+}
+.tnx-section-header h3::before {
+    content: "> ";
+    color: var(--tnx2-accent);
+    font-weight: 400;
+}
+
+/* スタイル技能のスタイル別グループ見出し（スタイル名＋秘技/奥義の取得数バッジ・表示のみ）。 */
+.style-skill-group-header {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin: 8px 0 2px;
+    padding-bottom: 2px;
+    border-bottom: 1px dashed var(--tnx2-border-active);
+}
+.style-skill-group-header .group-label {
+    font-family: var(--tnx2-font-mono);
+    font-size: 0.82em;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: var(--tnx2-text-accent);
+}
+.style-skill-group-header .style-skill-counts {
+    font-family: var(--tnx2-font-mono);
+    font-size: 0.78em;
+    letter-spacing: 0.04em;
+    color: var(--tnx2-text-secondary);
+}
+
+.tnx-item-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.tnx-item-header--card {
+    padding: 6px 10px;
+    background: var(--tnx2-bg-2);
+    border-bottom: 1px solid var(--tnx2-border-subtle);
+}
+.tnx-item-header input[type="text"] {
+    flex-grow: 1;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid transparent;
+    border-radius: 0;
+    padding: 3px 0;
+    font-size: 1em;
+    font-weight: 700;
+    color: var(--tnx2-text-primary);
+    transition: border-color var(--tnx2-transition-mid),
+                background   var(--tnx2-transition-fast),
+                padding-left var(--tnx2-transition-fast);
+}
+.tnx-item-header input[type="text"]:focus {
+    outline: none;
+    background: rgba(26, 34, 48, 0.6);
+    padding-left: 5px;
+    border-bottom-color: var(--tnx2-accent);
+    box-shadow: none;
+}
+
+/* 枠の幅は**常に置かれた場所の幅**で、中身の長さで伸び縮みしない(2026-08-15 ユーザー指示)。
+   fieldset は UA が `min-inline-size: min-content` を当てており、さらに flex/grid の
+   子としては自動最小サイズ(min-content)を持つ——どちらも「中で最も縮まない要素の幅」まで
+   枠を押し広げる。長い技能名やアイテム名を 1 つ足しただけで枠が親からはみ出して見切れる
+   ため、両方を 0 で解除する。中身が入りきらないときは**枠でなく中身を折り返す**
+   (`.tnx-wrap-text` / 各画面の動的ラベル側で担保する)。 */
+.tnx-fieldset {
+    min-width: 0;
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+    padding: 12px 14px;
+    margin-bottom: 12px;
+    background: var(--tnx2-bg-2);
+}
+
+/* 動的な文字列(名前・技能名・ラベル)を置く箇所の共通指定。行の幅を分け合い、
+   入りきらない分は折り返す(省略記号で見切らない)。単語境界の無い長い連続文字も折る。 */
+.tnx-wrap-text {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    white-space: normal;
+}
+.tnx-fieldset legend {
+    font-family: var(--tnx2-font-mono);
+    font-size: 0.84em;
+    font-weight: 700;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    color: var(--tnx2-text-accent);
+    padding: 0 4px;
+}
+.tnx-fieldset legend::before {
+    content: "[ ";
+    color: var(--tnx2-accent);
+    font-weight: 400;
+}
+.tnx-fieldset legend::after {
+    content: " ]";
+    color: var(--tnx2-accent);
+    font-weight: 400;
+}
+
+/* ----------------------------------------------------------------
+   9. アイテムリスト
+   ---------------------------------------------------------------- */
+/* display を指定した要素は UA の [hidden] を上書きしてしまうため、明示的に打ち消す。
+   これが無いと JS の toggleAttribute("hidden", ...) による出し分けが効かない */
+.tokyo-nova [hidden] {
+    display: none !important;
+}
+
+.tnx-item-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.tnx-item-list__row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 8px;
+    background: var(--tnx2-bg-2);
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+    transition: background     var(--tnx2-transition-fast),
+                border-color   var(--tnx2-transition-fast);
+}
+.tnx-item-list__row:hover {
+    background: var(--tnx2-bg-hover);
+    border-color: var(--tnx2-border-active);
+}
+.tnx-item-list__row--active,
+.tnx-item-list__row.active {
+    border-left: 2px solid var(--tnx2-accent);
+    background: var(--tnx2-bg-hover);
+}
+.tnx-item-list__row--header {
+    background: var(--tnx2-bg-3);
+    font-size: 0.82em;
+    color: var(--tnx2-text-muted);
+    font-family: var(--tnx2-font-mono);
+    letter-spacing: 0.04em;
+}
+/* エフェクトリスト列 */
+.tnx-item-list__column--main {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+.tnx-item-list__column--main h4,
+.tnx-item-list__column--main h5 {
+    margin: 0;
+    font-size: 0.9em;
+    border: none;
+    font-weight: 600;
+    color: var(--tnx2-text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.tnx-item-list__column--main h4.disabled {
+    color: var(--tnx2-text-muted);
+    text-decoration: line-through;
+}
+/* 効果の要約(状態・変更の件数)。名前を優先し、狭ければ縮めて省略する */
+.tnx-item-list__column--summary {
+    flex: 0 1 auto;
+    min-width: 0;
+    text-align: right;
+    font-size: 0.82em;
+    color: var(--tnx2-text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.tnx-item-list__column--duration {
+    flex: 0 0 80px;
+    text-align: center;
+    font-size: 0.82em;
+    color: var(--tnx2-text-muted);
+    font-family: var(--tnx2-font-mono);
+}
+.tnx-item-list__column--controls {
+    flex: 0 0 auto;
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+/* 効果リストのみ: ヘッダー(＋1個)と行(3ボタン)で操作列の幅が変わると、左隣の
+   固定幅「効果時間」列の位置がヘッダーと行でずれるため、操作列を固定幅・右寄せにする */
+.tnx-item-list--effects .tnx-item-list__column--controls {
+    flex: 0 0 64px;
+    justify-content: flex-end;
+}
+.tnx-item-list .effect-image {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+    border: none;
+    flex-shrink: 0;
+    border-radius: 2px;
+}
+.tnx-item-list .item-list-body {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-top: 2px;
+}
+
+/* ----------------------------------------------------------------
+   10. 汎用ユーティリティ
+   ---------------------------------------------------------------- */
+.tnx-interactive-text {
+    display: inline-block;
+    font-size: 1.05em;
+    font-weight: 600;
+    color: var(--tnx2-text-primary);
+    cursor: pointer;
+    transition: color var(--tnx2-transition-fast);
+}
+.tnx-interactive-text:hover {
+    color: var(--tnx2-text-accent);
+}
+
+.tnx-import-box {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    color: var(--tnx2-text-muted);
+    font-size: 0.88em;
+    font-style: italic;
+    text-align: center;
+    padding: 12px;
+    border: 1px dashed var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+}
+
+/* タグ入力(複数選択の登録表示＋追加プルダウン・FS 判定エディタで確立した意匠を共通化)。
+   **タグ領域を先に確保し、追加プルダウンはその下に固定する**——追加してもプルダウンが
+   右や下へ流れない(2026-07-21 ユーザー指示。2026-08-09 にシーンの指定技能へ展開) */
+.tnx-tag-field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    min-width: 0;
+}
+
+.tnx-tag-list {
+    display: flex;
+    flex-wrap: wrap;
+    align-content: flex-start;
+    gap: 4px;
+    /* タグが無くても1行分の高さを確保しておく(最初の追加でレイアウトが飛ばない) */
+    min-height: 26px;
+}
+
+.tnx-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 4px 2px 9px;
+    background: var(--tnx2-bg-2);
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: 13px;
+    font-size: 0.85em;
+    white-space: nowrap;
+}
+
+.tnx-tag-remove {
+    color: var(--tnx2-text-muted);
+    cursor: pointer;
+    display: inline-flex;
+}
+
+.tnx-tag-remove:hover {
+    color: var(--tnx2-danger, #d66);
+}
+
+/* タグ内のトグル(登場キャラクターの名前非公開)。オンは強調して現在の指定を示す */
+.tnx-tag-toggle {
+    color: var(--tnx2-text-muted);
+    cursor: pointer;
+    display: inline-flex;
+}
+
+.tnx-tag-toggle:hover { color: var(--tnx2-text-primary); }
+
+.tnx-tag-toggle.is-on { color: var(--tnx2-accent); }
+
+/* 追加プルダウンは左端に固定した小さな幅(全幅にしない)。
+   高さ・文字サイズは**置いたシート自身の他のコントロールに合わせる**ため、ここでは指定しない
+   (FS エディタは 28px/0.85em・アクトシートは他のセレクトと同じ 32px/14px・2026-08-09 指摘) */
+.tnx-tag-add {
+    align-self: flex-start;
+    width: auto;
+    max-width: 180px;
+    color: var(--tnx2-text-secondary);
+}
+
+/* 空のタグ領域に出すプレースホルダー(タグが入ると消える) */
+.tnx-tag-empty {
+    align-self: center;
+    font-size: 0.85em;
+    color: var(--tnx2-text-muted);
+    font-style: italic;
+}
+
+/* 追加の手立てが2つある場合(プルダウン＋ドロップ)は、同じ行で幅を分け合う
+   (2026-08-12・判定要求の指定技能。プルダウン=一般技能／ドロップ=スタイル・ワークス技能)。
+   どちらから足しても同じタグ領域に積まれるので、辞典をまたいだ指定が1操作で足せる */
+.tnx-tag-add-row {
+    display: flex;
+    align-items: stretch;
+    gap: 6px;
+    min-width: 0;
+}
+
+.tnx-tag-add-row > .tnx-tag-add {
+    flex: 0 1 180px;
+    align-self: auto;
+}
+
+/* 行内のドロップ枠は残り幅いっぱい。既定の 12px パディングは行の中では高すぎる */
+.tnx-tag-add-row > .tnx-import-box {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 4px 8px;
+}
+
+/* スタイルスロット: コンテンツ＋ロールインジケーターの横並びラッパー */
+.tokyo-nova.sheet.actor .style-slot-inner {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    width: 100%;
+}
+.tokyo-nova.sheet.actor .style-slot-inner .style-info-button,
+.tokyo-nova.sheet.actor .style-slot-inner .tnx-import-box--compact {
+    flex: 1;
+    min-width: 0;
+}
+
+/* ロールインジケーター */
+.tokyo-nova.sheet .style-role-toggle {
+    flex: 0 0 3em;
+    width: 3em;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+    cursor: pointer;
+    border-radius: var(--tnx2-radius);
+}
+.tokyo-nova.sheet .style-role-toggle--disabled {
+    opacity: 0.3;
+    cursor: default;
+    pointer-events: none;
+}
+.tokyo-nova.sheet .role-indicator {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.4em;
+    min-height: 1.4em;
+    font-weight: 700;
+    font-size: 1.2em;
+    color: var(--tnx2-text-primary);
+}
+.tokyo-nova.sheet .role-indicator.role-shadow {
+    background-color: var(--tnx2-bg-3);
+    border: 1px solid var(--tnx2-accent-dim);
+    border-radius: var(--tnx2-radius);
+}
+
+
+.mirror-character {
+    font-family: 'Mirror', sans-serif;
+    font-weight: bold;
+}
+
+.tokyo-nova .exp-input {
+    width: 70px;
+    padding: 3px 5px;
+    font-family: var(--tnx2-font-mono);
+    text-align: center;
+}
+
+/* ----------------------------------------------------------------
+   11. シートフッター
+   ---------------------------------------------------------------- */
+.tokyo-nova .sheet-footer {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    padding-top: 10px;
+    border-top: 1px solid var(--tnx2-border-subtle);
+    margin-top: 10px;
+}
+
+/* ----------------------------------------------------------------
+   12. テキストエディタセクション
+   ---------------------------------------------------------------- */
+
+.tokyo-nova .tnx-editor-section__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--tnx2-border-active);
+    padding-bottom: 6px;
+    margin-bottom: 10px;
+}
+.tokyo-nova .tnx-editor-section__header > label {
+    font-family: var(--tnx2-font-mono);
+    font-size: 0.9em;
+    font-weight: 700;
+    letter-spacing: 0.10em;
+    text-transform: uppercase;
+    color: var(--tnx2-text-accent);
+    margin: 0;
+}
+.tokyo-nova .tnx-editor-section__header > label::before {
+    content: "> ";
+    color: var(--tnx2-accent);
+    font-weight: 400;
+}
+.tokyo-nova .tnx-editor-section__header .tnx-editor-open {
+    color: var(--tnx2-text-muted);
+    font-size: 0.85em;
+    transition: color var(--tnx2-transition-fast);
+}
+.tokyo-nova .tnx-editor-section__header .tnx-editor-open:hover {
+    color: var(--tnx2-accent);
+}
+/* 固定高さ＋内部スクロール。overflow: hidden で枠線(角丸)からのはみ出しを防ぐ */
+.tokyo-nova .tnx-editor-section__content prose-mirror {
+    border-color: var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+    box-shadow: inset 0 0 6px rgba(0, 200, 255, 0.08);
+    height: 200px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+.tokyo-nova .tnx-editor-section__content prose-mirror .editor-content {
+    color: var(--tnx2-text-secondary);
+    padding: 8px 10px;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+}
+.tokyo-nova .tnx-editor-section__content prose-mirror .ProseMirror {
+    color: var(--tnx2-text-primary);
+    padding: 8px 10px;
+}
+/* トグルボタンはJSでヘッダーへ移動済み: ヘッダー内でのスタイル */
+.tokyo-nova .tnx-editor-section__header button.toggle {
+    background: transparent;
+    border: none;
+    color: var(--tnx2-text-muted);
+    font-size: 0.9em;
+    cursor: pointer;
+    padding: 2px 4px;
+    line-height: 1;
+    flex-shrink: 0;
+    transition: color var(--tnx2-transition-fast);
+}
+.tokyo-nova .tnx-editor-section__header button.toggle:hover:not([disabled]) {
+    color: var(--tnx2-accent);
+}
+.tokyo-nova .tnx-editor-section__header button.toggle[disabled] {
+    opacity: 0.3;
+    cursor: default;
+}
+.tokyo-nova .tnx-editor-section__header .tnx-editor-mode-icon {
+    color: var(--tnx2-text-muted);
+    font-size: 0.9em;
+    padding: 2px 4px;
+    flex-shrink: 0;
+}

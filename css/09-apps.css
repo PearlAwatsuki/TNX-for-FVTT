@@ -1,0 +1,1774 @@
+/**
+ * 各パネル(シナリオ/サブシーン/経験点)・対象選択・辞典ブラウザ・コア UI のテーマ
+ *
+ * css/tnx2.css(11,788 行)を役割で分けたもの(2026-09-07)。**読み込み順に意味がある**ため
+ * ファイル名に連番を付け、system.json の styles も同じ順に並べる。後ろのファイルほど
+ * 後勝ちする——順序を変えると見た目が変わる。
+ */
+
+/* ============================================================
+   シナリオコントロールパネル(フェーズ14-3) — アクト/シーン進行の操作盤
+   ============================================================ */
+
+/* パネルは伸び過ぎないよう上限を設ける(14-5 是正)。シナリオコントロールは固定ヘッダの下に
+   本文が十分見える高さを確保する(2026-08-16 ユーザー指示=ボディはヘッダより広く) */
+.tnx-scenario-panel-app { max-height: min(700px, calc(100vh - 160px)); }
+
+.tnx-subscene-panel-app { max-height: min(560px, calc(100vh - 200px)); }
+
+.tnx-subscene-panel-app .window-content { overflow-y: auto; }
+
+/* シナリオコントロールはヘッダ(現在シーン)とタブを固定し、本文(.scp-body)だけを
+   スクロールさせる(2026-08-15 タブ再構成) */
+.tnx-scenario-panel-app .window-content {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.tnx-scenario-panel-app .tnx-scenario-panel {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 0;
+    padding: 8px;
+}
+
+.tnx-scenario-panel .scp-body {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    gap: 8px;
+    min-height: 0;
+    overflow-y: auto;
+}
+
+/* 操作層のタブ(2026-08-15 タブ再構成)。意匠はシートのタブ(sheet-tabs)を踏襲する。
+   固定ヘッダと本文に挟まれる行なので、パネルの gap に margin を足して息継ぎを作る */
+.tnx-scenario-panel .scp-tabs {
+    display: flex;
+    flex: 0 0 auto;
+    margin: 4px 0;
+    border-bottom: 1px solid var(--tnx2-border-active);
+}
+
+.tnx-scenario-panel .scp-tabs .item {
+    flex: 1 1 0;
+    padding: 6px 8px;
+    border-bottom: 2px solid transparent;
+    color: var(--tnx2-text-muted);
+    font-family: var(--tnx2-font-mono);
+    font-size: 0.92em;
+    letter-spacing: 0.04em;
+    text-align: center;
+    cursor: pointer;
+    transition: color        var(--tnx2-transition-fast),
+                border-color var(--tnx2-transition-fast);
+}
+
+.tnx-scenario-panel .scp-tabs .item:hover { color: var(--tnx2-text-secondary); }
+
+.tnx-scenario-panel .scp-tabs .item.active {
+    color: var(--tnx2-accent);
+    border-bottom-color: var(--tnx2-accent);
+}
+
+.tnx-scenario-panel .scp-body .tab { display: none; }
+
+.tnx-scenario-panel .scp-body .tab.active {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/* 折りたたみ見出し(巡回・シーン一覧)。開閉状態はクライアント設定で保つ */
+.tnx-scenario-panel .scp-disclosure-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 0;
+    cursor: pointer;
+}
+
+/* シーン一覧は直前の進行ボタンと密着しないよう上に間を置く */
+.tnx-scenario-panel .scp-scene-list { margin-top: 6px; }
+
+.tnx-scenario-panel .scp-disclosure-head i {
+    width: 12px;
+    font-size: 0.8em;
+    text-align: center;
+}
+
+.tnx-scenario-panel .scp-disclosure-head .scp-phase-label { margin-bottom: 0; }
+
+.tnx-scenario-panel .scp-empty {
+    margin: 4px 0;
+    opacity: 0.8;
+    text-align: center;
+}
+
+.tnx-scenario-panel .scp-status {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px;
+    background: var(--tnx2-bg-2);
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+}
+
+.tnx-scenario-panel .scp-act-line {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+/* 名前・ラベルはいずれも折り返す(省略記号で見切らない・枠を押し広げない・2026-08-15) */
+.tnx-scenario-panel .scp-act-name {
+    font-weight: 700;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.tnx-scenario-panel .scp-phase-badge {
+    flex: 0 0 auto;
+    padding: 1px 8px;
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: 10px;
+    font-size: 0.85em;
+}
+
+.tnx-scenario-panel .scp-scene-title { font-size: 1.05em; font-weight: 600; }
+
+/* シーンプレイヤー/エリア/登場=横並びのインライン(2026-08-16 是正で元の配置に復帰。
+   ラベル列グリッド・縦積み・アクセント色ラベルはいずれもユーザー指摘で撤回)。
+   項目間は広めに離し、値はラベルよりやや大きく明るく(同日ユーザー指示) */
+.tnx-scenario-panel .scp-scene-meta {
+    display: flex;
+    gap: 18px;
+    flex-wrap: wrap;
+    align-items: baseline;
+    font-size: 0.9em;
+    color: var(--tnx2-text-secondary);
+}
+
+.tnx-scenario-panel .scp-meta-value {
+    font-size: 1.1em;
+    color: var(--tnx2-text-primary);
+}
+
+/* シーンカードは枠で囲んで1ブロックにまとめる(2026-08-16 ユーザー指示・チャットカード意匠に
+   寄せた左アクセント線)。ホバーでチャットカードと同じツールチップが出る */
+.tnx-scenario-panel .scp-scene-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin-top: 2px;
+    padding: 6px 8px;
+    background: var(--tnx2-bg-0);
+    border: 1px solid var(--tnx2-border-subtle);
+    border-left: 3px solid var(--tnx2-accent);
+    border-radius: var(--tnx2-radius);
+}
+
+.tnx-scenario-panel .scp-scene-card img {
+    flex: 0 0 auto;
+    height: 64px;
+    width: auto;
+    border: none;
+    border-radius: 4px;
+}
+
+.tnx-scenario-panel .scp-scene-card-info {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.tnx-scenario-panel .scp-scene-card-name { font-weight: 600; }
+
+.tnx-scenario-panel .scp-scene-card-field {
+    font-size: 0.9em;
+    min-width: 0;
+}
+
+.tnx-scenario-panel .scp-scene-card-field p { margin: 0; }
+
+.tnx-scenario-panel .scp-scene-card-label {
+    font-weight: 600;
+    opacity: 0.8;
+    margin-right: 4px;
+}
+
+/* チャットカード意匠のツールチップ(2026-08-16): コアの #tooltip の器を無効化し、
+   中身(チャットと同じ生成 HTML=ニューロカード/情報カード)の意匠をそのまま見せる */
+#tooltip.tnx-neuro-card-tooltip,
+#tooltip.tnx-info-card-tooltip {
+    width: 300px;
+    max-width: 300px;
+    padding: 0;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    text-align: left;
+}
+
+.tnx-scenario-panel .scp-load-row {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.tnx-scenario-panel .scp-load-row select { flex: 1 1 auto; min-width: 0; }
+
+.tnx-scenario-panel .scp-act-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 6px;
+}
+
+/* 進行ボタンはシーン名を含むため固定高にしない(2026-08-23 ユーザー指摘)。
+   1行なら従来と同じ36px・長い名前は折り返して高さが伸びる。--sm は従来のまま */
+.tnx-scenario-panel .tnx-btn:not(.tnx-btn--sm) {
+    height: auto;
+    min-height: 36px;
+    padding: 6px 12px;
+    overflow-wrap: anywhere;
+}
+
+/* シーン一覧はフェイズごとに間を置く(2026-08-23 ユーザー指摘=見出しが行に紛れる) */
+.tnx-scenario-panel .scp-phase-group { margin: 8px 0 10px; }
+
+.tnx-scenario-panel .scp-phase-label {
+    font-size: 0.85em;
+    font-weight: 700;
+    opacity: 0.8;
+    margin-bottom: 2px;
+}
+
+/* シーン一覧のフェイズ見出しはシーン行と紛れないよう発光色にする(同上) */
+.tnx-scenario-panel .scp-phase-group > .scp-phase-label {
+    color: var(--tnx2-text-accent);
+    opacity: 1;
+}
+
+.tnx-scenario-panel .scp-scene-row,
+.tnx-scenario-panel .scp-send-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 4px;
+    border-radius: 4px;
+}
+
+.tnx-scenario-panel .scp-scene-row.is-current {
+    background: var(--tnx2-bg-hover);
+    font-weight: 700;
+}
+
+.tnx-scenario-panel .scp-scene-row-name,
+.tnx-scenario-panel .scp-send-label {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.tnx-scenario-panel .scp-info-item { margin-bottom: 4px; }
+
+/* 指定技能＝その枝の見出し。目標値の行はこの下に字下げして並ぶ(2026-08-15) */
+.tnx-scenario-panel .scp-info-skills {
+    padding: 0 4px 0 20px;
+    font-size: 0.9em;
+    overflow-wrap: anywhere;
+}
+
+/* 目標値の行。**どの目標値も同列**(上下関係は無い)なので字下げは 1 段だけ */
+.tnx-scenario-panel .scp-info-content {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 4px 0 36px;
+    font-size: 0.9em;
+    opacity: 0.9;
+}
+
+.tnx-scenario-panel .scp-info-content-label {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.tnx-scenario-panel .tnx-icon-ctrl.is-on { color: var(--tnx2-accent); }
+
+/* 登場中の一覧・チーム(14-5) */
+.tnx-scenario-panel .scp-appearing {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: wrap;
+    font-size: 0.9em;
+}
+
+.tnx-scenario-panel .scp-appearing-label {
+    font-weight: 600;
+    opacity: 0.8;
+}
+
+.tnx-scenario-panel .scp-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    max-width: 100%;
+    padding: 0 8px;
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: 10px;
+    background: var(--tnx2-bg-2);
+    overflow-wrap: anywhere;
+}
+
+.tnx-scenario-panel .scp-chip.is-appearing { border-color: var(--tnx2-accent); }
+
+/* 名前を伏せて登場しているキャラクター(14-8)。RL の画面には実名が出るため印で区別する */
+.tnx-scenario-panel .scp-chip.is-name-hidden { border-style: dashed; }
+
+.tnx-scenario-panel .scp-appear-add { margin-top: 4px; }
+
+/* 舞台裏(14-6): シーンを閉じてから回す・回しきるまで次のシーンへは出ない */
+.tnx-scenario-panel .scp-backstage {
+    margin: 6px 0;
+    padding: 6px;
+    background: var(--tnx2-bg-2);
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+}
+
+.tnx-scenario-panel .scp-backstage-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+
+.tnx-scenario-panel .scp-backstage-state {
+    font-size: 0.9em;
+    opacity: 0.8;
+}
+
+.tnx-scenario-panel .scp-backstage-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 4px;
+    border-radius: 4px;
+}
+
+.tnx-scenario-panel .scp-backstage-row.is-spot {
+    background: var(--tnx2-bg-hover);
+    font-weight: 700;
+}
+
+.tnx-scenario-panel .scp-backstage-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+/* シーン開始ダイアログ(14-8)。Foundry の .form-fields は justify-content: flex-end のため、
+   幅いっぱいに伸びるセレクトと違ってスピナーだけが右端へ寄る。コントロールの左端を
+   揃えるため、このダイアログ内だけ先頭寄せに戻す */
+.tnx-scene-entry .form-fields { justify-content: flex-start; }
+
+/* スピナーは内容幅に縮める。全幅に伸ばすと共通の justify-content: flex-end で
+   中身だけが右端へ寄り、上下のセレクトと左端が揃わない */
+.tnx-scene-entry .number-input-spinner { flex: 0 0 auto; }
+
+/* タグ入力の行は**ラベルをプルダウンの行に合わせる**(シートの .scene-tag-row と同じ規則)。
+   中央揃えのままだと、チップが増えるたびにラベルだけが上下に動く */
+.tnx-scene-entry .form-group:has(.tnx-tag-field) { align-items: flex-end; }
+
+/* チップが無いときは高さを確保しない(シートは器ごと描かないので同じ見え方になる) */
+.tnx-scene-entry .tnx-tag-list { min-height: 0; }
+
+/* イベントシーンの選択(14-8): 名前の下に起動条件を添えて縦に並べる。
+   条件を読んで選ぶ操作なので、行全体をクリック領域(label)にする */
+.tnx-event-choices {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.tnx-event-choice {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: baseline;
+    gap: 2px 8px;
+    padding: 6px 8px;
+    background: var(--tnx2-bg-2);
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+    cursor: pointer;
+}
+
+.tnx-event-choice:hover { background: var(--tnx2-bg-hover); }
+
+/* 選んだ行が一目で分かるようにする(ラジオだけでは条件文に埋もれる) */
+.tnx-event-choice:has(input:checked) {
+    background: var(--tnx2-bg-hover);
+    border-color: var(--tnx2-border-active);
+}
+
+.tnx-event-choice input[type="radio"] {
+    flex: 0 0 auto;
+    width: 14px;
+    height: 14px;
+    margin: 0;
+}
+
+.tnx-event-choice__name { font-weight: 600; }
+
+/* 起動条件は名前の下・ラジオの列を跨がずに揃える */
+.tnx-event-choice__cond {
+    grid-column: 2;
+    color: var(--tnx2-text-secondary);
+    font-size: 0.9em;
+}
+
+/* 巡回の消化状況(14-8): 舞台裏の枠と同じ意匠で、ハンドアウト順に済み/次を示す */
+.tnx-scenario-panel .scp-rotation {
+    margin: 6px 0;
+    padding: 6px;
+    background: var(--tnx2-bg-2);
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+}
+
+.tnx-scenario-panel .scp-rotation-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 4px;
+    border-radius: 4px;
+}
+
+.tnx-scenario-panel .scp-rotation-row.is-next {
+    background: var(--tnx2-bg-hover);
+    font-weight: 700;
+}
+
+.tnx-scenario-panel .scp-rotation-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+/* 務め終えた人は薄く落とす(候補から外れるわけではない=選び直せる) */
+.tnx-scenario-panel .scp-rotation-name.is-done { opacity: 0.55; }
+
+.tnx-scenario-panel .scp-rotation-state {
+    flex: 0 0 auto;
+    font-size: 0.9em;
+    opacity: 0.8;
+}
+
+.tnx-scenario-panel .scp-team { margin-bottom: 6px; }
+
+.tnx-scenario-panel .scp-team-members {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    padding: 2px 4px 0 12px;
+    font-size: 0.88em;
+}
+
+.tnx-scenario-panel .scp-chip-remove { opacity: 0.6; }
+
+.tnx-scenario-panel .scp-chip-remove:hover { opacity: 1; }
+
+.tnx-scenario-panel .scp-team-name { flex: 1 1 auto; min-width: 0; }
+
+.tnx-scenario-panel .scp-team-add { padding-left: 12px; }
+
+.tnx-scenario-panel .scp-team-add select { flex: 1 1 auto; min-width: 0; }
+
+/* ============================================================
+   サブシーンパネル(フェーズ14-4) — 名前付き盤面状態の保存・切替
+   ============================================================ */
+
+.tnx-subscene-panel-app .tnx-subscene-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px;
+}
+
+.tnx-subscene-panel .ssp-empty {
+    margin: 4px 0;
+    opacity: 0.8;
+    text-align: center;
+}
+
+.tnx-subscene-panel .ssp-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.tnx-subscene-panel .ssp-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px;
+    background: var(--tnx2-bg-2);
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+}
+
+.tnx-subscene-panel .ssp-row.is-current {
+    border-color: var(--tnx2-accent);
+}
+
+.tnx-subscene-panel .ssp-row.dragging { opacity: 0.5; }
+
+.tnx-subscene-panel .ssp-grip {
+    cursor: grab;
+    opacity: 0.6;
+    flex: 0 0 auto;
+    padding: 0 2px;
+}
+
+.tnx-subscene-panel .ssp-thumb {
+    flex: 0 0 56px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border-radius: 4px;
+    background: var(--tnx2-bg-hover);
+}
+
+.tnx-subscene-panel .ssp-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border: none;
+}
+
+.tnx-subscene-panel .ssp-name {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.tnx-subscene-panel .ssp-order-btns {
+    display: flex;
+    flex-direction: column;
+    line-height: 1;
+}
+
+.tnx-subscene-panel .ssp-footer {
+    display: flex;
+    justify-content: space-between;
+    gap: 6px;
+}
+
+/* ============================================================
+   経験点配布アプリ(フェーズ14-7) — アクト終了後の半自動配布
+   ============================================================ */
+
+.tnx-exp-award-app .tnx-exp-award {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px;
+}
+
+.tnx-exp-award .exa-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.tnx-exp-award .exa-act-name {
+    flex: 1 1 auto;
+    min-width: 0;
+    margin: 0;
+    font-weight: 700;
+}
+
+/* ボタンの全幅既定(.tokyo-nova .tnx-btn)をヘッダ内では内容幅に戻す */
+.tnx-exp-award .exa-header .tnx-btn {
+    flex: 0 0 auto;
+    width: auto;
+}
+
+.tnx-exp-award .exa-table-wrap { overflow-x: auto; }
+
+.tnx-exp-award .exa-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9em;
+}
+
+.tnx-exp-award .exa-table th,
+.tnx-exp-award .exa-table td {
+    padding: 3px 4px;
+    border-bottom: 1px solid var(--tnx2-border-subtle);
+    text-align: center;
+    white-space: nowrap;
+}
+
+.tnx-exp-award .exa-table .exa-user {
+    text-align: left;
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tnx-exp-award .exa-cast {
+    display: block;
+    font-size: 0.85em;
+    opacity: 0.75;
+}
+
+.tnx-exp-award .exa-points {
+    display: block;
+    font-size: 0.8em;
+    opacity: 0.7;
+}
+
+.tnx-exp-award .exa-count .number-input-spinner { justify-content: center; }
+
+.tnx-exp-award .exa-count input[type="number"] { width: 42px; }
+
+.tnx-exp-award .exa-total { font-weight: 700; }
+
+.tnx-exp-award .exa-rl-share { font-size: 0.85em; }
+
+.tnx-exp-award .exa-footer {
+    display: flex;
+    justify-content: space-between;
+    gap: 6px;
+}
+
+/* ============================================================
+   アクトシート「判定要求」タブ(フェーズ12-5) — プリセット
+   ============================================================ */
+
+.scenario-sheet .preset-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+.scenario-sheet .preset-item {
+    padding: 8px;
+    border: 1px solid var(--tnx2-border, #3a3f4b);
+    border-radius: 4px;
+}
+/* レイアウトはラベル列グリッド(.tnx-form-field)を併用する(2026-08-09 全面改修) */
+.scenario-sheet .preset-body { margin-top: 6px; }
+
+
+/* ============================================================
+   対象選択(2026-07-21) — 判定要求／報酬点／ダメージ付与／状態・効果の付与で共通。
+   Monks Token Bar を踏襲した表形式＋アイコンのみボタン(ラベルは title)。
+   ============================================================ */
+
+.tnx-target-picker {
+    margin-top: 10px;
+    overflow: hidden;
+    border: 1px solid var(--tnx2-border, #3a3f4b);
+    border-radius: 4px;
+}
+
+/* 見出し帯: 左に「対象」・右にアイコンのみの操作。ラベルを持たないので幅に依存しない */
+.tnx-target-picker .tnx-tp-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 3px 6px;
+    background: rgb(255 255 255 / 6%);
+    border-bottom: 1px solid var(--tnx2-border, #3a3f4b);
+}
+.tnx-target-picker .tnx-tp-title {
+    font-size: 0.9em;
+    font-weight: 700;
+}
+.tnx-target-picker .tnx-tp-tools {
+    display: flex;
+    gap: 2px;
+    margin-left: auto;
+}
+.tnx-target-picker .tnx-tp-tool {
+    padding: 2px 5px;
+    cursor: pointer;
+    border-radius: 3px;
+    opacity: 0.8;
+}
+.tnx-target-picker .tnx-tp-tool:hover {
+    background: rgb(255 255 255 / 10%);
+    opacity: 1;
+}
+
+.tnx-target-picker .tnx-tp-list {
+    max-height: 170px;
+    overflow-y: auto;
+}
+.tnx-target-picker .tnx-tp-empty {
+    margin: 0;
+    padding: 6px;
+    font-size: 0.85em;
+    text-align: center;
+    opacity: 0.6;
+}
+
+/* 行: グリップ・画像・名前・除去。名前は溢れさせず省略する */
+.tnx-target-picker .tnx-tp-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 6px;
+}
+.tnx-target-picker .tnx-tp-row + .tnx-tp-row {
+    border-top: 1px solid rgb(255 255 255 / 6%);
+}
+.tnx-target-picker .tnx-tp-row:hover {
+    background: rgb(255 255 255 / 5%);
+}
+.tnx-target-picker .tnx-tp-row.dragging {
+    opacity: 0.5;
+}
+.tnx-target-picker .tnx-tp-grip {
+    cursor: grab;
+    opacity: 0.5;
+}
+.tnx-target-picker .tnx-tp-grip:active {
+    cursor: grabbing;
+}
+.tnx-target-picker .tnx-tp-img {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    border: none;
+    border-radius: 3px;
+    object-fit: cover;
+}
+.tnx-target-picker .tnx-tp-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    font-size: 0.9em;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.tnx-target-picker .tnx-tp-remove {
+    flex-shrink: 0;
+    cursor: pointer;
+    opacity: 0.7;
+}
+.tnx-target-picker .tnx-tp-remove:hover {
+    opacity: 1;
+}
+
+/* ─── カット進行トラッカー（フェーズ13-4・サブターンモデル） ─────────────── */
+.tnx-cut-tracker {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+
+/* サブターン行（セットアップ/イニシアチブ/クリンナップ＝全体の場） */
+.tnx-subturn {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 5px 8px;
+    background: var(--tnx2-bg-2);
+    border-bottom: 1px solid var(--tnx2-border-subtle);
+}
+.tnx-subturn-label {
+    font-weight: 700;
+    color: var(--tnx2-text-secondary);
+}
+.tnx-subturn-active {
+    background: var(--tnx2-accent-dim);
+    box-shadow: inset 3px 0 0 var(--tnx2-accent);
+}
+.tnx-subturn-active .tnx-subturn-label {
+    color: var(--tnx2-text-accent);
+}
+.tnx-subturn-note {
+    overflow: hidden;
+    font-size: 0.85em;
+    color: var(--tnx2-text-muted);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* 参加者リスト（既定の .combat-tracker/.combatant 意匠に TNX 状態を重ねる） */
+.tnx-combatant.tnx-turn-main,
+.tnx-combatant.tnx-turn-spot {
+    background: var(--tnx2-accent-dim);
+    box-shadow: inset 3px 0 0 var(--tnx2-accent);
+}
+.tnx-combatant.tnx-turn-candidate {
+    box-shadow: inset 3px 0 0 var(--tnx2-border-glow);
+}
+/* 挿入メイン（割り込み・追加行動）は通常メインと区別する——警告系アクセントの太い左罫（13-5） */
+.tnx-combatant.tnx-turn-interrupt {
+    background: var(--tnx2-danger-bg, rgba(192, 57, 43, 0.22));
+    box-shadow: inset 4px 0 0 var(--tnx2-danger, #c0392b);
+}
+.tnx-combatant.tnx-no-turn {
+    opacity: 0.55;
+}
+
+/* CS はトラッカーの主数値（既定トラッカーのイニシアチブ枠相当）——大きく出す */
+.tnx-combatant-stats {
+    display: flex;
+    flex: 0 0 auto;
+    gap: 8px;
+    align-items: center;
+    font-family: var(--tnx2-font-mono);
+}
+.tnx-stat-cs {
+    min-width: 2ch;
+    font-size: 1.4em;
+    font-weight: 700;
+    color: var(--tnx2-text-accent);
+    text-align: right;
+}
+.tnx-stat-ar {
+    font-size: 0.85em;
+    color: var(--tnx2-text-secondary);
+}
+.tnx-stat-note {
+    font-family: inherit;
+    font-size: 0.8em;
+    font-style: italic;
+    color: var(--tnx2-text-muted);
+}
+.tnx-combatant-actions {
+    display: flex;
+    flex: 0 0 auto;
+    gap: 3px;
+}
+
+/* 進行・宣言ボタン */
+.tnx-cut-btn {
+    padding: 3px 8px;
+    font-size: 0.85em;
+    color: var(--tnx2-text-primary);
+    background: var(--tnx2-bg-3);
+    border: 1px solid var(--tnx2-border-active);
+    border-radius: var(--tnx2-radius-sm);
+    cursor: pointer;
+    transition: var(--tnx2-transition-fast);
+}
+.tnx-cut-btn:hover {
+    background: var(--tnx2-bg-hover);
+    border-color: var(--tnx2-accent);
+}
+.tnx-cut-btn-sm {
+    padding: 2px 5px;
+    font-size: 0.78em;
+}
+.tnx-cut-btn-primary {
+    font-weight: 700;
+    color: var(--tnx2-text-accent);
+    border-color: var(--tnx2-accent);
+}
+
+/* フッター（進行ボタン列） */
+.tnx-cut-footer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 6px;
+}
+.tnx-cut-footer .tnx-cut-btn {
+    flex: 1 1 100%;
+}
+.tnx-cut-footer .tnx-cut-btn:not(.tnx-cut-btn-primary) {
+    flex: 1 1 auto;
+}
+
+/* ─── アクト限定技能の後始末ダイアログ(2026-08-13) ─────────────────────────────
+   アクト終了時に、消すか残すかを一覧で選ぶ。既定は全部オフ＝削除（アクト限定は
+   そのアクト限りが原則）。チェックしたものだけ残る */
+.tnx-act-limited {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.tnx-act-limited-tools {
+    display: flex;
+    gap: 6px;
+}
+
+.tnx-act-limited-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    max-height: 320px;
+    overflow-y: auto;
+}
+
+.tnx-act-limited-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 6px;
+    border-radius: var(--tnx2-radius);
+}
+
+.tnx-act-limited-row:hover {
+    background: rgba(255,255,255,0.05);
+}
+
+/* キャスト名は幅を揃えて技能名の頭を通す(長い名前は省略・全文は title で出す) */
+.tnx-act-limited-actor {
+    flex: 0 0 10em;
+    color: var(--tnx2-text-secondary);
+    font-size: 0.9em;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.tnx-act-limited-item {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+/* 固有名詞技能の名前欄(2026-08-26): 区分ラベルのプレフィックス+固有名詞入力を1行で分け合う。
+   プレフィックスの書式は閲覧モード(charname-view)と同一。縦位置は箱合わせでなく
+   align-items: baseline で**実テキストのベースラインを直接一致**させる(input 内部の
+   テキスト配置は行高の中央計算と一致しないため、外形を揃えても文字は揃わない) */
+.tokyo-nova.sheet.item.skill .onomastic-name {
+    display: flex;
+    align-items: baseline;
+    min-width: 0;
+}
+
+.tokyo-nova.sheet.item.skill .onomastic-name__prefix {
+    padding-left: 8px;
+    white-space: nowrap;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 22px;
+    color: var(--tnx2-text-primary);
+}
+
+.tokyo-nova.sheet.item.skill .onomastic-name input {
+    flex: 1;
+    min-width: 0;
+    padding-left: 0;
+}
+
+/* 指定充足宣言の行(2026-08-26): 判定種別チェック+条件セレクトが行の幅を分け合う */
+.tokyo-nova.sheet.item.skill .standin-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.tokyo-nova.sheet.item.skill .standin-row .standin-kind {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    white-space: nowrap;
+}
+
+.tokyo-nova.sheet.item.skill .standin-row select {
+    flex: 1;
+    min-width: 0;
+}
+
+/* 行動での回復(15-4): 戦闘タブの「支払って回復する BS」の行。武器/防御力の行(combat-ref-line)と
+   同じ体系＝固定の名前列＋行幅 420px。ボタンは内容幅にする——共通の .tnx-btn は width:100% で、
+   そのままだと行の幅を全部取って名前が 1 文字ずつ折り返す(隔離実機で実測) */
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .action-recoveries {
+    margin-bottom: 14px;
+}
+
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .action-recovery-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    max-width: 420px;
+    padding: 3px 6px;
+    border-bottom: 1px solid var(--tnx2-border-subtle);
+}
+
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .action-recovery-row__name {
+    flex: 0 0 84px;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-family: var(--tnx2-font-mono);
+    font-size: 0.78em;
+    letter-spacing: 0.06em;
+    color: var(--tnx2-text-secondary);
+}
+
+.tokyo-nova.sheet.actor .tab[data-tab="combat"] .action-recovery-row__pay {
+    flex: 0 0 auto;
+    width: auto;
+    margin-left: auto;
+    height: 28px;
+}
+
+/* ============================================================
+   辞典ブラウザ + 辞典カード (フェーズ16-2)
+   タブ8種(2026-08-31 ユーザー明示)・D&D 踏襲の縦タブ+絞り込み+結果。
+   カードはルルブのデータカード形式の踏襲(情報配置のみ・意匠は TNX 言語)。
+   ============================================================ */
+
+/* 起動ボタンはヘッダーのボタンエリアに置き、見た目は標準ボタンに従う(2026-08-31・
+   独自スタイルは持たない=資料タブの「アクトシートを作成」と同じ扱い) */
+
+/* --- レイアウト骨格 --- */
+.tnx-dictionary-browser .window-content {
+    padding: 0;
+    background: var(--tnx2-bg-1);
+    color: var(--tnx2-text-primary);
+}
+
+.tnx-dict {
+    display: grid;
+    grid-template-columns: 44px 220px 1fr;
+    height: 100%;
+    min-height: 0;
+
+    /* 固定カード幅(スタイル技能/アウトフィット): デフォルトウィンドウ幅(980px)で
+       結果エリアのグリッド実効幅(684px=スクロールバー溝10px確保後)に余白込みちょうど3枚
+       = (684 - 8px×2) ÷ 3 ≒ 222px(実測で3枚並びを確認) */
+    --tnx-dict-card-w: 222px;
+}
+
+/* 選択モード(技能起点の購入・16-3 追補): タブレールが無いため2列(サイドバー+結果)。
+   結果エリア幅はタブレール分(44px)広がるが、カード幅222px固定・枚数可変の規約で吸収される */
+.tnx-dict--picker {
+    grid-template-columns: 220px 1fr;
+}
+
+/* --- 縦タブ --- */
+.tnx-dict__tabs {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px 4px;
+    background: var(--tnx2-bg-0);
+    border-right: 1px solid var(--tnx2-border-subtle);
+}
+
+.tnx-dict__tab {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: var(--tnx2-radius);
+    color: var(--tnx2-text-secondary);
+    border: 1px solid transparent;
+}
+
+.tnx-dict__tab:hover {
+    color: var(--tnx2-text-accent);
+    background: var(--tnx2-bg-hover);
+}
+
+.tnx-dict__tab.active {
+    color: var(--tnx2-accent);
+    background: var(--tnx2-bg-3);
+    border-color: var(--tnx2-border-glow);
+}
+
+/* --- 絞り込みサイドバー --- */
+.tnx-dict__sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px;
+    border-right: 1px solid var(--tnx2-border-subtle);
+    background: var(--tnx2-bg-2);
+    overflow-y: auto;
+    min-height: 0;
+}
+
+.tnx-dict__search {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 6px;
+    background: var(--tnx2-bg-1);
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+    color: var(--tnx2-text-muted);
+}
+
+.tnx-dict__search input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    background: transparent;
+    color: var(--tnx2-text-primary);
+}
+
+.tnx-dict__range label {
+    color: var(--tnx2-text-secondary);
+    font-size: 0.85em;
+}
+
+.tnx-dict__range-inputs {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.tnx-dict__range-inputs input {
+    flex: 1;
+    min-width: 0;
+}
+
+.tnx-dict__filter-group {
+    border: none;
+    border-top: 1px solid var(--tnx2-border-subtle);
+    padding: 4px 0 0;
+    margin: 0;
+}
+
+.tnx-dict__filter-group legend {
+    color: var(--tnx2-text-accent);
+    font-size: 0.85em;
+    padding: 0 4px;
+}
+
+.tnx-dict__filter-option {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 1px 2px;
+    color: var(--tnx2-text-primary);
+    font-size: 0.9em;
+}
+
+/* --- 結果エリア --- */
+.tnx-dict__results {
+    padding: 8px 10px;
+    overflow-y: auto;
+    /* スクロールバーの有無で内容幅が揺れない=固定幅カードの3枚並びが安定する */
+    scrollbar-gutter: stable;
+    min-height: 0;
+    min-width: 0;
+}
+
+.tnx-dict__results-header {
+    color: var(--tnx2-text-secondary);
+    font-size: 0.85em;
+    margin-bottom: 6px;
+}
+
+.tnx-dict__group-header {
+    margin: 10px 0 6px;
+    padding: 3px 8px;
+    background: var(--tnx2-bg-3);
+    border-left: 3px solid var(--tnx2-accent-dim);
+    color: var(--tnx2-text-accent);
+    letter-spacing: 0.08em;
+}
+
+.tnx-dict__group-header--major {
+    background: var(--tnx2-bg-0);
+    border-left-color: var(--tnx2-accent);
+    font-size: 1.05em;
+}
+
+/* カードの寸法規約(2026-08-31 ユーザー指定):
+   - スタイル技能/アウトフィット: デフォルトウィンドウ幅で余白込みちょうど3枚並ぶ**固定幅**。
+     ウィンドウ幅を変えても大きさは不変で、1行に並ぶ枚数だけが変わる(auto-fill)。
+   - スタイル/神業/オーガニゼーション: **2列固定・カード幅はウィンドウ幅に追従**(1fr)。
+   - 一般技能: 縦積み1列・幅はウィンドウ幅に追従。
+   高さは種別ごとに固定・入りきらない解説は fitDictionaryCards が文字サイズを縮小して収める */
+.tnx-dict__card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, var(--tnx-dict-card-w, 220px));
+    gap: 8px;
+    align-items: start;
+    justify-content: start;
+}
+
+.tnx-dict__results[data-kind="style"] .tnx-dict__card-grid,
+.tnx-dict__results[data-kind="miracle"] .tnx-dict__card-grid,
+.tnx-dict__results[data-kind="organization"] .tnx-dict__card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.tnx-dict__card-slot {
+    cursor: grab;
+}
+
+.tnx-dict__card-slot .tnx-dict-card {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.tnx-dict__card-slot .tnx-dict-card__desc {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.tnx-dict__results[data-kind="styleSkill"] .tnx-dict__card-slot { height: 330px; }
+
+/* アウトフィットは購入ボタン(16-3)がカード下に付くため、固定高はカード側に持たせる
+   (スロット=縦flex・カードの大きさは従来どおり完全固定) */
+.tnx-dict__results[data-kind="outfit"] .tnx-dict__card-slot {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.tnx-dict__results[data-kind="outfit"] .tnx-dict__card-slot .tnx-dict-card {
+    height: 285px;
+    flex: 0 0 auto;
+}
+
+/* ヴィークル・全身義体・式神装備はパラメータ多・解説長のため他の 4/3(2026-08-31 ユーザー指定) */
+.tnx-dict__results[data-kind="outfit"] .tnx-dict__card-slot--tall .tnx-dict-card { height: 380px; }
+
+/* 購入ボタン(16-3): カード下の全幅アクション(D&D 準拠) */
+.tnx-dict__buy-btn {
+    width: 100%;
+    flex: 0 0 auto;
+}
+.tnx-dict__results[data-kind="style"] .tnx-dict__card-slot { height: 430px; }
+/* 370px=手持ちデータ最長の神業が最小フォントで収まる高さ(実測) */
+.tnx-dict__results[data-kind="miracle"] .tnx-dict__card-slot { height: 370px; }
+.tnx-dict__results[data-kind="organization"] .tnx-dict__card-slot { height: 430px; }
+
+/* 一般技能: 横幅広めのカードを縦積みで直接表示(リスト形式に寄せる・高さは内容なり)。
+   幅はウィンドウ幅に追従(2026-08-31・上限固定をやめる) */
+.tnx-dict__card-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.tnx-dict__empty {
+    color: var(--tnx2-text-muted);
+    text-align: center;
+    margin-top: 24px;
+}
+
+/* --- リスト形式(一般技能・オーガニゼーション・NPC) --- */
+.tnx-dict__list {
+    display: flex;
+    flex-direction: column;
+}
+
+.tnx-dict__row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 3px 6px;
+    border-bottom: 1px solid var(--tnx2-border-subtle);
+    cursor: pointer;
+}
+
+.tnx-dict__row:hover {
+    background: var(--tnx2-bg-hover);
+}
+
+.tnx-dict__row-icon {
+    width: 28px;
+    height: 28px;
+    object-fit: cover;
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+    flex: 0 0 auto;
+}
+
+.tnx-dict__row-title {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.tnx-dict__row-name {
+    color: var(--tnx2-text-primary);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tnx-dict__row-meta {
+    color: var(--tnx2-text-muted);
+    font-size: 0.8em;
+}
+
+.tnx-dict__row-source {
+    flex: 0 0 auto;
+    color: var(--tnx2-text-secondary);
+    font-size: 0.85em;
+}
+
+/* --- 表形式(ライフパス) --- */
+.tnx-dict__table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0;
+}
+
+.tnx-dict__table th {
+    background: var(--tnx2-bg-3);
+    color: var(--tnx2-text-secondary);
+    padding: 3px 6px;
+    text-align: left;
+    font-weight: normal;
+}
+
+.tnx-dict__table td {
+    padding: 3px 6px;
+    border-bottom: 1px solid var(--tnx2-border-subtle);
+    vertical-align: top;
+}
+
+.tnx-dict__table tr[data-uuid] {
+    cursor: pointer;
+}
+
+.tnx-dict__table tr[data-uuid]:hover {
+    background: var(--tnx2-bg-hover);
+}
+
+.tnx-dict__table-name {
+    white-space: nowrap;
+}
+
+/* Foundry 側の img 既定(ブロック化)で名前が折り返さないようインラインへ戻す */
+.tnx-dict__table-name .tnx-dict__row-icon {
+    display: inline-block;
+    vertical-align: middle;
+}
+
+.tnx-dict__table-name span {
+    margin-left: 4px;
+}
+
+.tnx-dict__table-skill {
+    white-space: nowrap;
+    color: var(--tnx2-text-accent);
+}
+
+.tnx-dict__table-desc p {
+    margin: 0 0 2px;
+}
+
+/* --- 辞典カード(ブラウザ・ツールチップ共用) --- */
+.tnx-dict-card {
+    background: var(--tnx2-bg-2);
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+    overflow: hidden;
+}
+
+.tnx-dict-card__header {
+    display: flex;
+    /* 長い名前・長い分類ラベルは折り返して吸収する(2026-08-31 是正=縮まない subtitle が
+       名前列を幅ゼロまで圧縮し、名前が1文字ずつ縦積みになっていた) */
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px 8px;
+    padding: 5px 8px;
+    background: var(--tnx2-bg-0);
+    border-bottom: 1px solid var(--tnx2-border-glow);
+    cursor: pointer;
+}
+
+.tnx-dict-card__icon {
+    width: 30px;
+    height: 30px;
+    object-fit: cover;
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+    flex: 0 0 auto;
+}
+
+.tnx-dict-card--style .tnx-dict-card__icon {
+    width: 48px;
+    height: 48px;
+}
+
+/* アイコン+名前の不可分ブロック(2026-08-31 指摘=アイコンだけ別行へ折れない)。
+   basis 0 で行内に必ず収まり、長い名前は内側(titles)で折り返す */
+.tnx-dict-card__identity {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1 1 0;
+    min-width: 0;
+}
+
+.tnx-dict-card__titles {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.tnx-dict-card__name {
+    color: var(--tnx2-text-primary);
+    font-weight: bold;
+    letter-spacing: 0.05em;
+    overflow-wrap: anywhere;
+}
+
+/* ふりがな=ルビ(名前と同色・名前幅に均等割り。2026-08-31 ユーザー指摘=暗色をやめる) */
+.tnx-dict-card__name ruby {
+    ruby-align: space-between;
+}
+
+.tnx-dict-card__name rt {
+    font-size: 0.55em;
+    font-weight: normal;
+    color: inherit;
+    letter-spacing: 0.05em;
+}
+
+.tnx-dict-card__name-en {
+    color: var(--tnx2-text-muted);
+    font-size: 0.75em;
+    letter-spacing: 0.1em;
+}
+
+.tnx-dict-card__subtitle {
+    /* 名前の下の縦積み(2026-08-31 指摘=名前との横並びをやめる)。長くても折り返す */
+    min-width: 0;
+    overflow-wrap: anywhere;
+    color: var(--tnx2-text-secondary);
+    font-size: 0.8em;
+}
+
+.tnx-dict-card__tag {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    padding: 1px 6px;
+    background: var(--tnx2-bg-3);
+    border: 1px solid var(--tnx2-border-active);
+    border-radius: var(--tnx2-radius);
+    color: var(--tnx2-text-accent);
+    font-size: 0.75em;
+}
+
+/* 略号グリッドは6分割: 1/2幅=span 3(既定)・1/3幅=span 2・全幅=1/-1。
+   ルルブ実紙面の型別配置(タップのソ|ハ|CS 3連等)を再現する(2026-08-31) */
+.tnx-dict-card__params {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 1px 6px; /* 列間6px=1/3幅3連(購|隠|電制)に2桁／1桁の値が収まる幅を確保 */
+    padding: 5px 8px;
+    border-bottom: 1px solid var(--tnx2-border-subtle);
+    font-size: 0.8em; /* 枠に対して一回り小さく(2026-08-31 指示) */
+}
+
+/* 一般技能: パラメータ行は1行全幅の縦積み(2026-08-31 指摘=2列だと初期スート・特性など
+   長い値が右に空きがあるのに半分幅で改行されてしまう) */
+.tnx-dict-card--generalSkill .tnx-dict-card__params {
+    grid-template-columns: 1fr;
+}
+
+.tnx-dict-card__param {
+    display: flex;
+    gap: 2px;
+    min-width: 0;
+    grid-column: span 3;
+}
+
+.tnx-dict-card__param--full {
+    grid-column: 1 / -1;
+}
+
+.tnx-dict-card__param--third {
+    grid-column: span 2;
+}
+
+/* 一般技能カードは縦積み1列のため全セル全幅 */
+.tnx-dict-card--generalSkill .tnx-dict-card__param {
+    grid-column: 1 / -1;
+}
+
+/* スラッシュ区切りの複合値を行内で割らない。セル幅に入りきらない場合は
+   fitDictionaryCard が値の文字幅を scaleX 圧縮して収める(セルの行送りはしない・
+   ラベルは縮めない・一般技能は折り返し表示のまま) */
+.tnx-dict-card__param:not(.tnx-dict-card__param--full) span {
+    white-space: nowrap;
+    transform-origin: left center; /* 圧縮してもラベル直後に留まる */
+}
+
+.tnx-dict-card--generalSkill .tnx-dict-card__param span {
+    white-space: normal;
+}
+
+.tnx-dict-card__param label {
+    color: var(--tnx2-text-secondary);
+    flex: 0 0 auto;
+}
+
+.tnx-dict-card__param span {
+    color: var(--tnx2-text-primary);
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.tnx-dict-card__desc {
+    padding: 5px 8px;
+    color: var(--tnx2-text-primary);
+    font-size: 0.9em;
+}
+
+.tnx-dict-card__desc p {
+    margin: 0 0 4px;
+}
+
+.tnx-dict-card__condition {
+    display: flex;
+    gap: 6px;
+    margin: 0;
+    padding: 2px 8px 4px;
+    font-size: 0.85em;
+}
+
+.tnx-dict-card__condition label {
+    color: var(--tnx2-text-secondary);
+    flex: 0 0 auto;
+}
+
+.tnx-dict-card__condition-body {
+    min-width: 0;
+}
+
+.tnx-dict-card__condition-body p {
+    margin: 0 0 2px;
+}
+
+.tnx-dict-card__abilities {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4px;
+    padding: 5px 8px;
+    border-top: 1px solid var(--tnx2-border-subtle);
+}
+
+.tnx-dict-card__ability {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: var(--tnx2-bg-1);
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+    padding: 2px 0;
+}
+
+.tnx-dict-card__ability label {
+    color: var(--tnx2-text-secondary);
+    font-size: 0.75em;
+}
+
+.tnx-dict-card__ability span {
+    color: var(--tnx2-text-primary);
+}
+
+/* --- ツールチップとしてのカード(横幅広め=2026-08-30 ユーザー指定) ---
+   コア #tooltip の文字寄せ等の既定が注入 HTML へ継承されるため、ここで明示的に打ち消す
+   (2026-08-31 是正=右寄せで表示されていた)。
+   スタイル技能/アウトフィットは辞典ブラウザと同寸法の固定サイズスロット入り
+   (item-card-tooltips.mjs がフィット済み HTML を注入する)。
+   輪郭はアクセント色+グロー(2026-08-31 指摘=下地と同色で見分けがつかなかった) */
+.tnx-dict-tooltip {
+    max-width: 420px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    text-align: left;
+}
+
+.tnx-dict-tooltip .tnx-dict-card {
+    border: 1px solid var(--tnx2-accent);
+    box-shadow: 0 0 10px var(--tnx2-accent-glow),
+                0 8px 24px rgb(0 0 0 / 70%);
+    text-align: left;
+}
+
+.tnx-dict-tooltip .tnx-dict__card-slot {
+    cursor: default;
+}
+
+.tnx-dict-tooltip .tnx-dict-card__header {
+    cursor: default;
+}
+
+/* ============================================================
+   FVTT コア UI の N◎VA テーマ (フェーズ16-2・2026-08-31 ユーザー指示)
+   「UI改修は前フェーズまでの負債」= コアのデフォルト HUD(チャットの羊皮紙・橙アクセント・
+   サイドバー・シーンコントロール・ショートカットバー等)を tnx2 の意匠体系へ寄せる。
+   方法: コアのテーマ変数(warm/cool/light/text 系)をシステム有効時に上書きする。
+   セレクタは body.system-tokyo-nova-axleration = コアの body.theme-* と同特異度で
+   読み込み順により優越(システム CSS はコアの後に読まれる)。
+   ============================================================ */
+
+body.system-tokyo-nova-axleration {
+    /* アクセント(コアの橙系 → N◎VA シアン系) */
+    --color-warm-1: #00c8e0;
+    --color-warm-2: #0090a8;
+    --color-warm-3: #0f4552;
+
+    /* 基調の闇(紫黒 → 青黒) */
+    --color-cool-3: #2a4a60;
+    --color-cool-4: #131920;
+    --color-cool-5: #080b10;
+    --color-cool-5-25: rgb(8 11 16 / 25%);
+    --color-cool-5-50: rgb(8 11 16 / 50%);
+    --color-cool-5-75: rgb(8 11 16 / 75%);
+    --color-cool-5-90: rgb(8 11 16 / 90%);
+
+    /* 明色スケール(クリーム系 → 青白系) */
+    --color-light-1: #eef4f9;
+    --color-light-2: #dbe6ee;
+    --color-light-3: #c8d4e0;
+    --color-light-4: #9fb2c2;
+    --color-light-5: #6d8296;
+    --color-light-6: #45586a;
+
+    /* 暗色スケール(茶黒 → 青黒) */
+    --color-dark-1: #0b0f14;
+    --color-dark-2: #131920;
+    --color-dark-3: #1a2230;
+    --color-dark-4: #3c4f61;
+    --color-dark-5: #55677a;
+    --color-dark-6: #70849a;
+
+    /* テキスト */
+    --color-text-emphatic: #e2ecf4;
+    --color-text-primary: #c8d4e0;
+    --color-text-secondary: #78c8d8;
+    --color-text-subtle: #7a90a8;
+
+    /* サイドバー・スクロールバー */
+    --sidebar-background: rgb(8 11 16 / 92%);
+    --color-scrollbar: #2a4a60;
+    --color-scrollbar-track: transparent;
+
+    /* チェック・フォーカス */
+    --checkbox-checked-color: #00c8e0;
+}
+
+/* チャットカード(羊皮紙 → N◎VA ダークカード)。コアは変数を .chat-message 要素自身に
+   定義するため、継承(body)では届かず**同じ要素スコープ**で上書きする必要がある
+   (サイドバー内・折りたたみ時の通知ポップアップの両方に効く) */
+body.system-tokyo-nova-axleration .chat-message {
+    --chat-message-background: #131920;
+    --chat-message-border-color: #1e2d3e;
+    --color-whisper-background: #14202d;
+    --color-whisper-border: #2a4a60;
+    --color-blind-background: #181322;
+    --color-blind-border: #453a5e;
+    --color-emote-background: #12201c;
+    --color-emote-border: #2a5747;
+
+    color: var(--tnx2-text-primary);
+    border-width: 1px;
+}
+
+body.system-tokyo-nova-axleration .chat-message .message-header {
+    color: var(--tnx2-text-secondary);
+}
+
+body.system-tokyo-nova-axleration .chat-message .message-sender {
+    color: var(--tnx2-text-primary);
+}
+
+/* ドロー表結果などの羊皮紙前提の固定色罫線 */
+body.system-tokyo-nova-axleration .chat-message .table-draw .table-description,
+body.system-tokyo-nova-axleration .chat-message .table-draw ul.table-results li {
+    border-color: var(--tnx2-border-subtle);
+    color: var(--tnx2-text-secondary);
+}
+
+/* bright ボタン: コアはホバーに橙の固定色(#fda948)を持つため同系のシアンへ */
+body.system-tokyo-nova-axleration button.bright:hover {
+    background: #33d6ea;
+    border-color: var(--color-warm-3);
+    color: #001318;
+}
+
+/* ─── 神業「効果の参照」の表(2026-09-06) ─────────────────────────────────────
+   区分(〈フォルム〉等)と参照する神業の対応表。**表として読める形にする**——列幅を固定して
+   見出しと中身の左端をそろえ、空欄(ドロップ)と結線済み(リンクボタン)で行の高さを変えない。
+   体裁は経験点付与の表(.exa-table)に揃える */
+.tnx-asother-wrap { overflow-x: auto; }
+
+.tnx-asother-table {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+    font-size: 0.9em;
+}
+
+.tnx-asother-table th,
+.tnx-asother-table td {
+    padding: 3px 4px;
+    border-bottom: 1px solid var(--tnx2-border-subtle);
+    text-align: left;
+    vertical-align: middle;
+}
+
+.tnx-asother-table th {
+    color: var(--tnx2-text-secondary);
+    font-size: 0.85em;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+/* 列幅: 2つの参照を等分し、削除はアイコン1つぶん */
+.tnx-asother-table .aso-skill,
+.tnx-asother-table .aso-miracle { width: calc((100% - 2.4em) / 2); }
+.tnx-asother-table .aso-del     { width: 2.4em; text-align: center; }
+
+/* 空欄(ドロップ枠)は結線済み(リンクボタン)と**同じ背丈**にする——リンクボタンは 38px 固定で
+   システム共通なので、そちらに合わせる(行の高さが揃う) */
+.tnx-asother-table .tnx-import-box {
+    box-sizing: border-box;
+    width: 100%;
+    height: 38px;
+    margin: 0;
+    padding: 2px 6px;
+    font-size: 0.85em;
+}
+
+/* Foundry 既定の交互の縞(rgba(255,255,255,0.1))は意味を持たない上に読みにくいので消す。
+   色を敷くのは**選ばれている効果の行**だけ */
+.tnx-asother-table tbody tr {
+    background: none;
+}
+
+.tnx-asother-table tbody tr.aso-row--selected {
+    background: var(--tnx2-accent-glow-sm);
+}

@@ -1,0 +1,254 @@
+/**
+ * チャットカード(ニューロカードを含む)
+ *
+ * css/tnx2.css(11,788 行)を役割で分けたもの(2026-09-07)。**読み込み順に意味がある**ため
+ * ファイル名に連番を付け、system.json の styles も同じ順に並べる。後ろのファイルほど
+ * 後勝ちする——順序を変えると見た目が変わる。
+ */
+
+/* ================================================================
+   27. チャットカード
+   ================================================================ */
+
+/* TNX のチャットカードは暗色地・明色文字が既定(黒文字は使わない)。個別カードで色指定が
+   漏れても Foundry の明テーマ既定(暗色文字)を継承して沈まないよう、tnx- 接頭辞の
+   カードコンテナ全てに本文色を明示する(未実装・今後のカードへの最低保証) */
+.chat-message .message-content [class*="tnx-"] {
+    color: var(--tnx2-text-primary);
+}
+
+/* 宣言の使用カード(解説カード統合形・2026-08-30): 効果エリアはカードの外に置くため、
+   枠はラッパーが引き受け、内側のカードは枠を持たない。
+   「効果を適用」ボタン/適用済み注記はカードの段に埋もれず常に見える */
+.chat-message .message-content .tnx-usage-use-card {
+    border: 1px solid var(--tnx2-border-active);
+    border-radius: var(--tnx2-radius);
+    background: var(--tnx2-bg-2);
+    margin-bottom: 5px;
+    overflow: hidden;
+}
+
+.chat-message .message-content .tnx-usage-use-card .tnx-card,
+.chat-message .message-content .tnx-usage-use-card .tnx-check-result,
+.chat-message .message-content .tnx-usage-use-card .tnx-check-request {
+    border: none;
+    border-radius: 0;
+    margin-bottom: 0;
+}
+
+.chat-message .nested-description {
+    margin-top: 10px;
+    background: rgba(255,255,255,0.02);
+    border-left: 3px solid var(--tnx2-accent-dim);
+    border-radius: var(--tnx2-radius);
+    padding: 0;
+}
+
+.chat-message .nested-description > summary {
+    cursor: pointer;
+    padding: 12px 10px;
+    display: block;
+    outline: none;
+    transition: background var(--tnx2-transition-fast);
+}
+
+.chat-message .nested-description > summary:hover { background: rgba(255,255,255,0.03); }
+
+.chat-message .nested-description > summary::-webkit-details-marker { display: none; }
+
+.chat-message .nested-description > summary::before {
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    content: '\f0da';
+    margin-right: 6px;
+    transition: transform 0.2s ease-in-out;
+    display: inline-block;
+    font-size: 0.9em;
+}
+
+.chat-message .nested-description[open] > summary::before { transform: rotate(90deg); }
+
+.chat-message .nested-description > summary h4 {
+    margin: 0;
+    padding: 0;
+    border-bottom: none;
+    font-size: 1.1em;
+    display: inline;
+}
+
+.chat-message .nested-description .card-content {
+    padding: 10px 12px 10px 30px;
+    border-top: 1px solid var(--tnx2-border-subtle);
+}
+
+/* ================================================================
+   27b. ニューロカード チャットカード
+   ================================================================ */
+
+/* ニューロカード: 骨格は統一規格の .tnx-card。左の光る縁と絵札だけがこのカードの意匠 */
+.tnx-neuro-card-chat.tnx-card,
+/* ニューロカード: 骨格は統一規格の .tnx-check-result。左の光る縁と絵札だけがこのカードの意匠 */
+.tnx-neuro-card-chat.tnx-check-result,
+/* ニューロカード: 骨格は統一規格の .tnx-check-request。左の光る縁と絵札だけがこのカードの意匠 */
+.tnx-neuro-card-chat.tnx-check-request {
+    border-left: 3px solid var(--tnx2-accent);
+    box-shadow: 0 0 12px rgba(0, 200, 224, 0.08);
+}
+
+.tnx-neuro-card-chat__romaji {
+    font-family: var(--tnx2-font-mono);
+    font-size: 0.8em;
+    color: var(--tnx2-accent);
+    letter-spacing: 0.08em;
+}
+
+
+
+
+.tnx-neuro-card-chat__image {
+    flex-shrink: 0;
+    width: 76px;
+    height: auto;
+    border-radius: var(--tnx2-radius);
+    border: 1px solid var(--tnx2-border-active);
+    display: block;
+}
+
+
+
+
+
+
+
+
+/* ════════════════════════════════════════════════════════════════════
+   過去ログのカードの互換(2026-09-05)
+   チャットカードは**投稿時の HTML がそのまま保存される**ため、統一規格より前に投稿された
+   カードは旧いクラス名のまま卓のログに残る。新しく出るカードは統一規格の名前しか使わないが、
+   過去ログが素の HTML に崩れないよう、旧名をここで受ける。
+   - 名前が変わっただけの段(器・見出し・行・結果 等)は、統一規格の規則に旧名を別名として
+     並べてある(規則そのものは1つ＝二重管理にしない)。
+   - 骨格ごと変わったカード(details でくくっていた解説カード・独自の枠だったニューロカード)は
+     当時の意匠をこの節に残す。**新しいカードでこれらのクラスを使わないこと。**
+   ════════════════════════════════════════════════════════════════════ */
+
+.chat-message .message-content .tnx-chat-card {
+    border: 1px solid var(--tnx2-border-active);
+    border-radius: var(--tnx2-radius);
+    background: var(--tnx2-bg-2);
+    margin-bottom: 5px;
+    overflow: hidden;
+}
+
+.chat-message .message-content .tnx-chat-card > summary {
+    padding: 12px;
+    background: var(--tnx2-bg-3);
+    cursor: pointer;
+    transition: background var(--tnx2-transition-fast);
+    display: block;
+    outline: none;
+}
+
+.chat-message .message-content .tnx-chat-card > summary:hover {
+    background: var(--tnx2-bg-hover);
+}
+
+.chat-message .message-content .tnx-chat-card > summary::-webkit-details-marker { display: none; }
+
+.chat-message .message-content .tnx-chat-card > summary h3 {
+    margin: 0;
+    display: inline;
+    font-size: 1.1em;
+    border-bottom: none;
+    color: var(--tnx2-text-primary);
+}
+
+.chat-message .message-content .tnx-chat-card > summary::before {
+    content: '';
+    width: 0;
+    height: 0;
+    border-top: 5px solid transparent;
+    border-bottom: 5px solid transparent;
+    border-left: 6px solid var(--tnx2-text-secondary);
+    margin-right: 8px;
+    transition: transform 0.2s ease-in-out;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+.chat-message .message-content .tnx-chat-card[open] > summary::before {
+    transform: rotate(90deg);
+}
+
+.chat-message .message-content .tnx-chat-card .card-content {
+    padding: 10px 12px;
+    border-top: 1px solid var(--tnx2-border-active);
+}
+
+/* 過去ログのニューロカードは独自の枠を持っていた(統一規格のカードは .tnx-card が枠を持つ) */
+.tnx-neuro-card-chat:not(.tnx-card) {
+    border: 1px solid var(--tnx2-border-glow);
+    border-left: 3px solid var(--tnx2-accent);
+    border-radius: var(--tnx2-radius);
+    background: var(--tnx2-bg-0);
+    overflow: hidden;
+    font-size: 14px;
+    box-shadow: 0 0 12px rgb(0 200 224 / 8%);
+}
+
+.tnx-neuro-card-chat__header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    background: var(--tnx2-bg-1);
+    border-bottom: 1px solid var(--tnx2-border-glow);
+}
+
+.tnx-neuro-card-chat__type-label {
+    font-family: var(--tnx2-font-mono);
+    font-size: 0.8em;
+    color: var(--tnx2-accent);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.tnx-neuro-card-chat__body {
+    display: flex;
+    gap: 10px;
+    padding: 10px;
+    align-items: flex-start;
+}
+
+.tnx-neuro-card-chat__name {
+    font-size: 0.93em;
+    color: var(--tnx2-text-primary);
+    line-height: 1.2;
+    margin-bottom: 5px;
+}
+
+.tnx-neuro-card-chat__divider {
+    border: none;
+    border-top: 1px solid var(--tnx2-border-subtle);
+    margin: 4px 0 6px;
+}
+
+.tnx-neuro-card-chat__field {
+    margin-bottom: 5px;
+}
+
+.tnx-neuro-card-chat__field-label {
+    display: block;
+    font-family: var(--tnx2-font-mono);
+    font-size: 0.75em;
+    color: var(--tnx2-accent);
+    letter-spacing: 0.06em;
+    margin-bottom: 1px;
+}
+
+.tnx-neuro-card-chat__field-value {
+    display: block;
+    color: var(--tnx2-text-secondary);
+    font-size: 0.95em;
+    line-height: 1.4;
+}

@@ -1,0 +1,1252 @@
+/**
+ * シナリオシート・レコードシート・ダイアログ・カードセットアップ・ドロー表
+ *
+ * css/tnx2.css(11,788 行)を役割で分けたもの(2026-09-07)。**読み込み順に意味がある**ため
+ * ファイル名に連番を付け、system.json の styles も同じ順に並べる。後ろのファイルほど
+ * 後勝ちする——順序を変えると見た目が変わる。
+ */
+
+/* ================================================================
+   29. シナリオシート
+   ================================================================ */
+
+/* アクトシート: タイトル・アイコン表示、ヘッダーボタン右寄せ */
+.tokyo-nova.sheet.scenario .window-header .window-title {
+    display: block;
+    flex: 1 1 auto;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.scenario-sheet.two-column-layout {
+    display: flex;
+    flex-direction: row;
+    height: 100%;
+}
+
+.scenario-sheet .scenario-sidebar {
+    flex: 0 0 180px;
+    background: var(--tnx2-bg-2);
+    border-right: 1px solid var(--tnx2-border-subtle);
+    padding: 10px;
+    overflow-y: auto;
+}
+
+.scenario-sheet .vertical-tabs {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    border: none;
+}
+
+.scenario-sheet .vertical-tabs .item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    border-radius: var(--tnx2-radius);
+    color: var(--tnx2-text-muted);
+    border: 1px solid transparent;
+    transition: background var(--tnx2-transition-fast),
+                border-color var(--tnx2-transition-fast),
+                color var(--tnx2-transition-fast);
+    cursor: pointer;
+}
+
+.scenario-sheet .vertical-tabs .item:hover {
+    background: rgba(255,255,255,0.04);
+    color: var(--tnx2-text-primary);
+}
+
+.scenario-sheet .vertical-tabs .item.active {
+    background: var(--tnx2-bg-3);
+    border-color: var(--tnx2-border-active);
+    color: var(--tnx2-text-accent);
+    font-weight: bold;
+}
+
+/* 子要素をクリック判定から抜き、クリック対象を常に data-tab を持つ <a> 自身にする
+   (アイコン・ラベルに当たった回はタブ切り替えが黙って無視されるため) */
+.scenario-sheet .vertical-tabs .item > * { pointer-events: none; }
+
+.scenario-sheet .vertical-tabs .item i { width: 20px; text-align: center; }
+
+.scenario-sheet .vertical-tabs .item.active i { color: var(--tnx2-text-accent); }
+
+.scenario-sheet .sheet-body {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding: 10px;
+    background: var(--tnx2-bg-1);
+}
+
+.scenario-sheet .tab-placeholder {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    color: var(--tnx2-text-muted);
+    font-style: italic;
+    font-size: 1.2em;
+}
+
+.scenes-container { display: flex; flex-direction: column; gap: 5px; }
+
+.phase-section {
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+}
+
+.phase-section .tnx-section-header {
+    padding: 8px 15px;
+    background: var(--tnx2-bg-2);
+    margin-bottom: 0;
+}
+
+.scene-table { display: flex; flex-direction: column; padding: 10px; }
+
+/* 種別列(14-8)は内容幅で固定。残りの配分は 5:5:4 ——シーンプレイヤーが
+   「①スタイル名（キャスト名）」になり(2026-08-10)、旧来の 2fr では収まらないため
+   シーン名と同幅にし、値の短い使用シーンから分けてもらう */
+.scene-table-header {
+    display: grid;
+    grid-template-columns: 36px 88px 5fr 5fr 4fr 32px;
+    gap: 6px;
+    align-items: center;
+    padding: 0 8px 8px 12px;
+    font-weight: bold;
+    color: var(--tnx2-text-muted);
+    border-bottom: 1px solid var(--tnx2-border-active);
+}
+
+/* 列幅が詰まっても見出しを折り返さない(「シーンプレイヤー」の2行化防止) */
+.scene-table-header .header-cell {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.scene-table-header .header-cell.scene-number,
+.scene-table-header .header-cell.scene-controls { text-align: center; }
+
+.scene-table-body { display: flex; flex-direction: column; gap: 5px; margin-top: 5px; }
+
+.scene-item {
+    display: flex;
+    flex-direction: column;
+    background: var(--tnx2-bg-2);
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+    transition: background var(--tnx2-transition-fast);
+}
+
+.scene-item:hover { background: var(--tnx2-bg-hover); }
+
+.scene-main-row {
+    display: grid;
+    grid-template-columns: 36px 88px 5fr 5fr 4fr 32px;
+    gap: 6px;
+    align-items: center;
+    padding: 8px;
+}
+
+/* 使用シーンセレクトは幅を超える名前を省略表示にする */
+.scene-main-row .table-cell select { width: 100%; min-width: 0; text-overflow: ellipsis; }
+
+.table-cell input[type="text"] { width: 100%; padding: 6px 8px; }
+
+.table-cell input[type="text"]:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.table-cell select { width: 100%; padding: 5px 4px; font-size: 14px; height: 32px; }
+
+.table-cell select:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.table-cell.scene-number,
+.table-cell.scene-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* No. は自動採番の表示(14-8・入力欄ではない)。入力欄と行の高さが変わらないよう揃える */
+.scene-number-auto {
+    color: var(--tnx2-text-secondary);
+    font-variant-numeric: tabular-nums;
+    line-height: 32px;
+}
+
+/* RL プリセットのラベル付き欄(2026-08-09):
+   グループ単位の共有グリッド。ラベル列は max-content=グループ内の最長ラベル幅に縮め、
+   ラベルは右揃えでコントロールに密着させる(距離は常に一定・コントロール左端はグループ内で一致)。
+   セレクトは内容幅(180〜380px)・スピナーは左置き。全幅に伸ばすのはテキスト入力と
+   長文エディタのみ(幅=期待される入力量の合図)。
+   ※ラベルの短い欄が並ぶハンドアウト・シーン詳細設定では、この共有列が無用の隙間を作るため
+     使わない(ラベル直付けの横並び行=下記 .handout-row / .scene-detail-row・2026-08-09 指摘) */
+.scenario-sheet .tnx-form-field {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    align-items: center;
+    gap: 8px 10px;
+}
+
+.scenario-sheet .tnx-form-field > .form-group {
+    display: contents;
+}
+
+.scenario-sheet .tnx-form-field > .form-group > label {
+    font-weight: 600;
+    color: var(--tnx2-text-secondary);
+    white-space: nowrap;
+    justify-self: end;
+}
+
+.scenario-sheet .tnx-form-field > .form-group.align-start > * { align-self: start; }
+
+.scenario-sheet .tnx-form-field > .form-group.align-start > label { padding-top: 5px; }
+
+.scenario-sheet .tnx-form-field > .form-group > select {
+    justify-self: start;
+    width: auto;
+    min-width: 180px;
+    max-width: 380px;
+}
+
+.scenario-sheet .tnx-form-field > .form-group > .number-input-spinner { justify-self: start; }
+
+/* ラベルを持たない行(チェックボックス行等)と、form-group でない直接子
+   (長文エディタ・効果リスト)は全幅に置く */
+.scenario-sheet .tnx-form-field > .form-group > :only-child,
+.scenario-sheet .tnx-form-field > :not(.form-group) { grid-column: 1 / -1; }
+
+/* 単独のチェックボックス行(rl-check-label)は右揃えラベル規則の対象外=左に置く */
+.scenario-sheet .tnx-form-field > .form-group > label:only-child {
+    justify-self: start;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.scene-details-body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px;
+}
+
+/* 詳細設定の欄(2026-08-09 指摘=縦積みのみでは右が空く): 行そのものがレイアウトを持つ
+   横並び。ラベルはコントロールに直付け(6px)・欄と欄の間は 18px で対を読み分ける */
+.scene-detail-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.scene-detail-row > label {
+    flex: 0 0 auto;
+    font-weight: 600;
+    color: var(--tnx2-text-secondary);
+    white-space: nowrap;
+}
+
+.scene-detail-row > .scene-detail-label--next { margin-left: 12px; }
+
+/* 同じ行に並ぶ欄は残り幅を等分する(右が大きく空くのを避ける・上限 380px) */
+.scene-detail-row > select {
+    flex: 1 1 0;
+    width: auto;
+    min-width: 110px;
+    max-width: 380px;
+}
+
+.scene-detail-row > .number-input-spinner { flex: 0 0 auto; }
+
+/* 起動条件(14-8)のような単独のテキスト欄も、セレクトと同じく行の残り幅を分け合う
+   (入力欄の既定幅のまま置くと右が大きく空く) */
+.scene-detail-row > input[type="text"] {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 6px 8px;
+}
+
+/* シーン行のタグ入力(指定技能・登場)。2026-08-09 ユーザー指示:
+   **ラベルはプルダウン側に付ける**(チップは 0 個になりうるのでラベルの相手にならない。
+   空のときは「ラベル＋プルダウン」だけが残って欄として成立する)・プルダウンは全幅。
+   並びは従来どおり**タグ領域が先・プルダウンはその下**(2026-07-21 指示)なので、
+   ラベルは行の下端＝プルダウンの行に合わせる。2行のラベル幅を揃え、列を縦に通す */
+.scene-tag-row { align-items: flex-end; }
+
+.scene-tag-row > label { flex: 0 0 4.4em; padding-bottom: 6px; }
+
+/* basis 0 で置く。基準を内容幅にすると、タグが増えた分だけ行が折り返して
+   タグ領域ごとラベルの下へ落ちる(行の折り返し判定は縮む前の内容幅で行われる) */
+.scene-tag-row > .scene-tag-field {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.scene-tag-row .scene-tag-field > select {
+    width: 100%;
+    max-width: none;
+    color: var(--tnx2-text-secondary);
+}
+
+/* チップは中身があるときだけ描画される=空行の高さを確保しない */
+.scene-tag-row .tnx-tag-list { min-height: 0; }
+
+/* 14-7: アクト名編集欄・アクトコネクションのドロップエリア */
+.scenario-sheet .act-name-section {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.scenario-sheet .act-name-section label { font-weight: 700; flex: 0 0 auto; }
+
+.scenario-sheet .act-name-section input { flex: 1 1 auto; min-width: 0; }
+
+.scene-details-row { border-top: 1px dashed transparent; }
+.scene-details-row[open] { border-top-color: var(--tnx2-border-subtle); }
+
+.scene-details-row > summary {
+    padding: 3px 10px;
+    cursor: pointer;
+    color: var(--tnx2-text-muted);
+    font-style: italic;
+    font-size: 0.9em;
+    outline: none;
+    list-style: none;
+    text-align: center;
+}
+
+.scene-details-row > summary::-webkit-details-marker { display: none; }
+
+.scene-details-row > summary:hover { color: var(--tnx2-text-accent); }
+
+.info-container {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.info-item-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.info-item {
+    background: var(--tnx2-bg-2);
+    border: 1px solid var(--tnx2-border-active);
+    border-radius: var(--tnx2-radius);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    transition: all 0.3s ease-out;
+}
+
+.info-item-body { padding: 12px; display: flex; flex-direction: column; }
+
+.no-items-placeholder {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--tnx2-text-muted);
+    font-style: italic;
+    border: 2px dashed var(--tnx2-border-active);
+    border-radius: var(--tnx2-radius);
+    margin-top: 10px;
+}
+
+.info-item-body .info-contents-list { flex-grow: 1; }
+
+/* 内容ブロック(2026-08-08 是正): ヘッダー行・公開/調査トグルは廃止(実行系はパネルの領分)。
+   削除は枠内右上のアイコン */
+.info-content-block {
+    position: relative;
+    padding: 12px;
+    padding-right: 36px;
+    border-top: 1px solid var(--tnx2-border-active);
+}
+
+.info-content-block:first-child { border-top: none; }
+
+.info-content-block .info-content-delete {
+    position: absolute;
+    top: 14px;
+    right: 12px;
+}
+
+.skill-checks-area {
+    padding: 10px;
+    background: var(--tnx2-bg-3);
+    border-radius: var(--tnx2-radius);
+}
+
+.skill-checks-area .tnx-item-header { margin-bottom: 8px; }
+
+/* コアの h5 { font-size: 20px } を上書きし、行内の小見出しスケールに揃える */
+.skill-checks-area .tnx-item-header h5 {
+    margin: 0;
+    font-size: 0.9em;
+    font-weight: 600;
+    color: var(--tnx2-text-primary);
+}
+
+.skill-check-list { display: flex; flex-direction: column; gap: 6px; }
+
+/* 1行＝技能の集合(タグ入力)＋共通の目標値(2026-08-09)。タグの数で高さが変わるため、
+   FS 判定のイベント行と同じく**レコードごとのカード**にして切れ目を見せる */
+/* チップ領域は**行の全幅**(目標値スピナーの上まで)を使い、下段に追加プルダウンと目標値を
+   横に並べる(2026-08-10 ユーザー指摘)。以前はチップ領域と追加プルダウンを左半分の器に
+   まとめ、右に目標値を置いていたため、チップが右へ伸びず、プルダウンの右にも空白が残った */
+.skill-check-row {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 6px 8px;
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: 6px;
+    background: var(--tnx2-bg-1);
+}
+
+.skill-check-bottom {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* 追加プルダウンは残り幅を埋める(共通の左寄せ・180px 上限はこの行では外す) */
+.skill-check-bottom > .tnx-tag-add {
+    flex: 1 1 0;
+    align-self: auto;
+    max-width: none;
+    min-width: 0;
+}
+
+/* 目標値と削除は追加プルダウンと同じ行(カードの一番下)に揃える */
+.skill-check-target {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.skill-check-row .skill-tn { width: 48px; text-align: center; }
+
+.skill-check-row input { padding: 4px 6px; }
+
+.tn-label { font-size: 0.9em; color: var(--tnx2-text-muted); white-space: nowrap; }
+
+/* 段＝追加で判明する内容(2026-08-12): 同じ入口(使用技能)のまま目標値が上がると積み増される。
+   別の枝(内容ブロック)ではなく本文の続きであることを、左の罫線と字下げで示す */
+.info-content-block .info-tier-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 10px;
+    align-items: flex-start;
+}
+
+.info-content-block .info-tier {
+    align-self: stretch;
+    padding-left: 10px;
+    border-left: 2px solid var(--tnx2-border-active);
+}
+
+/* 目標値と削除はヘッダー行に並べ(行の幅を分け合う)、編集トグル
+   (attachEditorSectionToggles がヘッダー末尾へ移す)だけを右端へ寄せる */
+.tokyo-nova .info-tier .tnx-editor-section__header {
+    justify-content: flex-start;
+    gap: 8px;
+}
+
+.tokyo-nova .info-tier .tnx-editor-section__header button.toggle { margin-left: auto; }
+
+/* 段の本文は入口本文(200px)より低く。段ごとに枠が積まれるため。
+   150px は prose-mirror の min-height(Foundry コア)＝これ以上は縮まない */
+.tokyo-nova .info-tier .tnx-editor-section__content prose-mirror { height: 150px; }
+
+.add-content-button-wrapper {
+    padding: 12px;
+    border-top: 1px solid var(--tnx2-border-active);
+}
+
+.scenario-info-container { display: flex; flex-direction: column; gap: 20px; }
+
+.handouts-section {
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+    padding: 15px;
+}
+
+.handout-list { display: flex; flex-direction: column; gap: 10px; }
+
+.handout-item {
+    border: 1px solid var(--tnx2-border-active);
+    border-radius: var(--tnx2-radius);
+    background: var(--tnx2-bg-2);
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.handout-row { display: flex; width: 100%; }
+
+/* 1行目=ハンドアウト名(番号前置＋スタイルセレクト＋自動表示・自由記述時は記入欄を伸長) */
+.handout-row--header { align-items: center; gap: 10px; }
+
+.handout-row--header .handout-number {
+    flex: 0 0 auto;
+    font-weight: bold;
+    font-size: 1.1em;
+}
+
+.handout-row--header .handout-style { flex: 0 0 auto; width: auto; min-width: 140px; }
+
+.handout-row--header .handout-title-auto {
+    flex: 1 1 auto;
+    min-width: 0;
+    font-weight: bold;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.handout-row--header .handout-title { flex: 1 1 auto; }
+
+/* 2行目以降の欄(2026-08-09 指摘=ラベル列グリッドは短いラベルに無用の隙間を作る):
+   行そのものがレイアウトを持つ横並び。ラベルはコントロールに直付け(6px)・
+   欄と欄の間は 18px。全幅に伸ばすのは長文を書く PS だけ */
+.handout-row--meta,
+.handout-row--ps,
+.handout-row--user {
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.handout-row--meta > label,
+.handout-row--ps > label,
+.handout-row--user > label {
+    flex: 0 0 auto;
+    font-weight: 600;
+    color: var(--tnx2-text-secondary);
+    white-space: nowrap;
+}
+
+/* コネの入力欄と対象ユーザーは行の残り幅を引き受ける。推奨スートは4値の列挙=内容幅。
+   コネは「指定方法＋入力欄」の2コントロールになったため、入力欄は半分程度に抑える
+   (2026-08-13 ユーザー指摘＝入力欄が長すぎた) */
+.handout-row--meta > .handout-conn-input {
+    flex: 1 1 0;
+    width: auto;
+    min-width: 0;
+}
+
+.handout-row--user > select {
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 180px;
+}
+
+/* 指定方法(自由記述/PC/NPC)は3値の列挙=内容幅 */
+.handout-row--meta > .handout-conn-type {
+    flex: 0 0 auto;
+    width: auto;
+    min-width: 0;
+}
+
+/* NPC モード: ドロップ枠と、設定済みの表示(名前＋外す)。行の高さに収める */
+.handout-row--meta > .tnx-import-box.handout-conn-drop {
+    padding: 4px 8px;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.handout-row--meta > .handout-conn-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    padding: 4px 8px;
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.handout-row--meta > .handout-suit-select { flex: 0 0 auto; width: auto; min-width: 0; }
+
+.handout-row--meta > .handout-suit-label { margin-left: 12px; }
+
+/* PS は長文を書く欄=行の残りを全部使う(basis 0。コアの input{width:100%} を基準にすると
+   ラベルとの合計が行幅を超えて折り返す) */
+.handout-row--ps > input { flex: 1 1 0; min-width: 0; }
+
+.handout-item input[type="text"],
+.handout-item textarea {
+    border-radius: var(--tnx2-radius);
+    padding: 6px 8px;
+    font-family: inherit;
+}
+
+/* ================================================================
+   30. レコードシート
+   ================================================================ */
+
+.record-sheet .window-content {
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto;
+}
+
+.record-sheet-body { display: flex; flex-direction: column; gap: 12px; }
+
+.record-exp-summary {
+    display: flex;
+    gap: 20px;
+    padding: 8px 12px;
+    background: var(--tnx2-bg-3);
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+}
+
+.record-exp-summary .exp-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+}
+
+.record-exp-summary .exp-label {
+    font-size: 11px;
+    color: var(--tnx2-text-muted);
+}
+
+.record-exp-summary .record-exp-value {
+    font-size: 1.4em;
+    font-weight: bold;
+    color: var(--tnx2-accent);
+}
+
+.record-history-section { display: flex; flex-direction: column; gap: 6px; }
+
+.record-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--tnx2-border-subtle);
+}
+
+.record-section-title {
+    font-size: 13px;
+    font-weight: bold;
+    color: var(--tnx2-text-secondary);
+    margin: 0;
+}
+
+.record-link-section {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 350px;
+    padding: 5px 0;
+}
+
+.record-link-section label { flex: 0 0 auto; font-weight: bold; margin: 0; }
+
+.record-slot {
+    flex: 1;
+    height: 38px;
+    position: relative;
+    display: block;
+}
+
+.record-slot .tnx-import-box,
+.record-slot .tnx-linked-btn {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.tokyo-nova .history-list-wrapper {
+    border: 1px solid var(--tnx2-border-subtle);
+    border-radius: var(--tnx2-radius);
+    background: var(--tnx2-bg-2);
+    overflow: hidden;
+    font-size: 13px;
+}
+
+.tokyo-nova .history-list { list-style: none; margin: 0; padding: 0; }
+
+.tokyo-nova .history-grid {
+    display: grid;
+    grid-template-columns: 100px 150px 48px 80px 2fr 24px;
+    gap: 2px;
+    align-items: center;
+}
+
+.tokyo-nova .history-header {
+    background: var(--tnx2-bg-3);
+    color: var(--tnx2-text-secondary);
+    font-weight: bold;
+    padding: 4px;
+    text-align: center;
+    border-bottom: 1px solid var(--tnx2-border-subtle);
+}
+
+.tokyo-nova .history-row {
+    padding: 2px 4px;
+    border-bottom: 1px solid var(--tnx2-border-subtle);
+}
+
+.tokyo-nova .history-row:nth-child(even) { background: rgba(255,255,255,0.02); }
+
+.tokyo-nova .history-row .cell-players { justify-content: flex-start; }
+
+.tokyo-nova .history-row input {
+    height: 24px;
+    font-size: 12px;
+    width: 100%;
+    border: 1px solid transparent;
+    background: transparent;
+    text-align: left;
+}
+
+.tokyo-nova .history-row input:focus {
+    border: 1px solid var(--tnx2-border-active);
+    background: var(--tnx2-bg-3);
+}
+
+/* ================================================================
+   31. ウィザードダイアログ
+   ================================================================ */
+
+#tnx-scenario-wizard .dialog-content { background: var(--tnx2-bg-2); }
+
+#tnx-scenario-wizard form { padding: 10px; }
+
+#tnx-scenario-wizard .sheet-footer {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 20px;
+    border-top: 1px solid var(--tnx2-border-subtle);
+    padding-top: 10px;
+}
+
+#tnx-scenario-wizard .form-group > label {
+    font-weight: bold;
+    color: var(--tnx2-text-primary);
+}
+
+#tnx-scenario-wizard p.notes { color: var(--tnx2-text-muted); }
+
+#tnx-scenario-wizard input[type="text"] { color: var(--tnx2-text-primary); }
+
+#tnx-scenario-wizard .form-group-checkbox {
+    display: flex;
+    align-items: center;
+    padding: 5px 0;
+}
+
+#tnx-scenario-wizard .form-group-checkbox input[type="checkbox"] {
+    margin-right: 10px;
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+}
+
+#tnx-scenario-wizard .form-group-checkbox label {
+    font-weight: normal;
+    cursor: pointer;
+    color: var(--tnx2-text-primary);
+}
+
+.tnx-btn--secondary {
+    background: var(--tnx2-bg-2);
+    border-color: var(--tnx2-border-subtle);
+    color: var(--tnx2-text-muted);
+}
+
+.tnx-btn--secondary:hover {
+    background: var(--tnx2-bg-hover);
+    border-color: var(--tnx2-border-active);
+}
+
+/* number-input-spinner を含む form-group を 1 行に（ウィザード・dialog 共通）
+   flex-wrap: wrap で notes など追加要素が次行に折り返す */
+#tnx-scenario-wizard .form-group:has(> .number-input-spinner),
+.tokyo-nova.dialog .form-group:has(> .number-input-spinner) {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 8px;
+}
+
+#tnx-scenario-wizard .form-group:has(> .number-input-spinner) > label,
+.tokyo-nova.dialog .form-group:has(> .number-input-spinner) > label {
+    flex: 1 1 0;
+    min-width: 160px;
+}
+
+/* notes は次行に折り返して全幅表示 */
+#tnx-scenario-wizard .form-group:has(> .number-input-spinner) > p.notes,
+.tokyo-nova.dialog .form-group:has(> .number-input-spinner) > p.notes {
+    flex-basis: 100%;
+    margin: 0;
+    color: var(--tnx2-text-muted);
+    font-size: 0.8em;
+}
+
+/* チェックボックスのみの行: core のラベル列(flex:1)では長いラベルが途中折り返しに
+   なるため、ラベルを内容幅で確保する。チェックボックスは .form-fields の右端のまま
+   =配置不変(登場判定「ゴーストとして登場する」等) */
+.tokyo-nova.dialog .form-group:has(> .form-fields > input[type="checkbox"]:only-child) > label {
+    flex: 0 0 auto;
+}
+
+/* ID セレクタで specificity を高め Foundry dialog CSS の上書きを防ぐ */
+#tnx-scenario-wizard .number-input-spinner input[type="number"] {
+    flex: 0 0 60px;
+    width: 60px;
+    height: 35px;
+    text-align: center;
+    font-size: 1.2em;
+    font-weight: bold;
+    border: 1px solid var(--tnx2-border-active);
+    border-left: none;
+    border-right: none;
+    border-radius: 0;
+    padding: 0 2px;
+    margin: 0;
+    -moz-appearance: textfield;
+    box-sizing: border-box;
+}
+
+#tnx-scenario-wizard .number-input-spinner .tnx-btn {
+    flex: 0 0 35px;
+    width: 35px;
+    height: 35px;
+    padding: 0;
+    font-size: 1.4em;
+    line-height: 1;
+    margin: 0;
+}
+
+/* ステップ3: 山札種別ごとの設定グループに枠と背景を付与してセクション境界を明示 */
+#tnx-scenario-wizard .deck-settings-group {
+    border: 1px solid var(--tnx2-border-active);
+    border-radius: var(--tnx2-radius);
+    padding: 10px 12px;
+    margin-bottom: 8px;
+    background: var(--tnx2-bg-3);
+}
+#tnx-scenario-wizard .deck-settings-group:last-child {
+    margin-bottom: 0;
+}
+#tnx-scenario-wizard .deck-settings-group h4 {
+    margin: 0 0 8px 0;
+    padding-bottom: 5px;
+    border-bottom: 1px solid var(--tnx2-border-subtle);
+    color: var(--tnx2-accent);
+    font-size: 0.9em;
+    font-family: var(--tnx2-font-mono);
+    font-weight: 700;
+    letter-spacing: 0.04em;
+}
+#tnx-scenario-wizard .deck-settings-group .form-group {
+    margin-bottom: 4px;
+}
+#tnx-scenario-wizard .deck-settings-group .form-group-checkbox {
+    margin-top: 4px;
+}
+
+/* ================================================================
+   32. ダイアログ個別調整
+   ================================================================ */
+
+/* カード選択ダイアログ: tnx.css 未読み込みのため全スタイルをここで定義
+   テンプレートは <label class="card-selection-item"> 構造（ラベルがアイテム本体） */
+.tokyo-nova.dialog:has(.card-selection-grid) {
+    width: 480px !important;
+}
+.card-selection-grid.discard-selection {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    max-height: 450px;
+    overflow-y: auto;
+    padding: 8px;
+    background: var(--tnx2-bg-2);
+    border: 1px solid var(--tnx2-border-active);
+    border-radius: var(--tnx2-radius);
+    margin-top: 10px;
+}
+.discard-selection .card-selection-item {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    cursor: pointer;
+    width: 100px;
+    border-radius: 6px;
+    border: 2px solid transparent;
+    padding: 2px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+.discard-selection .card-selection-item img {
+    width: 100%;
+    height: auto;
+    border-radius: 4px;
+    display: block;
+}
+.discard-selection .card-selection-item .card-name,
+.discard-selection .card-selection-item input[type="checkbox"] {
+    display: none;
+}
+.discard-selection .card-selection-item:has(input:checked) {
+    border-color: var(--tnx2-accent);
+    background-color: var(--tnx2-accent-glow-sm);
+    box-shadow: 0 0 10px var(--tnx2-accent-glow);
+    transform: translateY(-3px);
+}
+
+/* 数値入力ダイアログ: spinner を縮まないよう固定、label を上揃えで2行表示に */
+.tnx-amount-dialog .form-group:has(> .number-input-spinner) {
+    align-items: flex-start;
+}
+.tnx-amount-dialog .number-input-spinner {
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+/* 技能/対象選択ダイアログ: ラベルを全幅で上に置き(折り返さず読める)、プルダウンは広げない
+   (2026-07-15 ユーザー指摘: ラベル領域は広く・プルダウンは狭いまま) */
+.tnx-select-dialog .form-group {
+    flex-direction: column;
+    align-items: stretch;
+}
+.tnx-select-dialog .form-group > label {
+    flex: none;
+    width: 100%;
+    margin-bottom: 6px;
+    font-weight: 600;
+}
+/* ラベルの真下＝左端に置く。Foundry の .form-fields は flex-end のため、
+   幅を絞ったプルダウンだけが右へ飛んでラベルと縦がずれる */
+.tnx-select-dialog .form-fields {
+    flex: none;
+    justify-content: flex-start;
+}
+.tnx-select-dialog select {
+    max-width: 240px;
+}
+
+/* ================================================================
+   33. ジャーナルディレクトリ カスタムボタン
+   ================================================================ */
+
+/* アクトシートを作成ボタン — .action-buttons 内で flex-basis:100% により 2 段目に折り返す */
+button.tnx-create-act-button {
+    flex-basis: 100%;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    white-space: normal;
+    height: auto;
+    line-height: 1.4;
+    padding: 4px 8px;
+    gap: 6px;
+    margin-top: 2px;
+}
+
+button.tnx-create-act-button i {
+    flex-shrink: 0;
+}
+
+button.tnx-create-act-button span {
+    text-align: center;
+}
+
+/* ================================================================
+   33. ユーティリティ
+   ================================================================ */
+
+.tokyo-nova.sheet.tnx-no-transitions,
+.tokyo-nova.sheet.tnx-no-transitions * {
+    transition: none !important;
+    animation: none !important;
+}
+
+/* ================================================================
+   34. カードセットアップアプリ
+   ================================================================ */
+
+/* ルート <form>（standard-form の flex gap がヘッダーとコンテントの間に
+   空くため打ち消す） */
+#tnx-card-setup {
+    gap: 0;
+}
+
+/* ウィンドウ — フッターを下端に固定するためオーバーフローをフォーム側に委譲 */
+#tnx-card-setup .window-content {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-height: 0;
+    flex: 1;
+}
+
+/* part コンテナ（ルートは tag:"form" の <form>、その window-content 直下） */
+#tnx-card-setup [data-application-part="main"] {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+/* タブナビゲーション */
+#tnx-card-setup .tnx-setup-tabs {
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 2px;
+    padding: 4px 8px 0;
+    border-bottom: 1px solid var(--tnx-border-subtle, rgba(255,255,255,0.12));
+    flex-shrink: 0;
+}
+#tnx-card-setup .tnx-setup-tab-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    flex: 0 0 auto;
+    width: auto;
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 5px 12px;
+    font-size: 0.85em;
+    color: var(--color-text-light-6, #aaa);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: color 0.15s, border-color 0.15s;
+    margin-bottom: -1px;
+}
+#tnx-card-setup .tnx-setup-tab-btn:hover {
+    color: var(--color-text-light-1, #ddd);
+}
+#tnx-card-setup .tnx-setup-tab-btn.active {
+    color: var(--tnx-accent, #b08d57);
+    border-bottom-color: var(--tnx-accent, #b08d57);
+    font-weight: 600;
+}
+
+/* タブコンテンツ — 表示中のものだけスクロール領域を確保 */
+#tnx-card-setup .tnx-tab-content {
+    padding: 10px 12px;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+}
+#tnx-card-setup .tnx-hidden {
+    display: none !important;
+}
+
+/* ノート */
+#tnx-card-setup .tnx-setup-note {
+    font-size: 0.8em;
+    opacity: 0.65;
+    margin: 0 0 8px;
+    padding: 0;
+}
+
+/* グループ間の仕切り */
+#tnx-card-setup .tnx-setup-group {
+    border-bottom: 1px solid var(--tnx-border-subtle, rgba(255,255,255,0.06));
+    padding: 2px 0;
+}
+#tnx-card-setup .tnx-setup-group:last-of-type {
+    border-bottom: none;
+}
+#tnx-card-setup .tnx-setup-divider {
+    border: none;
+    border-top: 1px solid var(--tnx-border-subtle, rgba(255,255,255,0.12));
+    margin: 8px 0;
+}
+
+/* フッター — タブコンテンツの下に固定 */
+#tnx-card-setup .sheet-footer {
+    flex-shrink: 0;
+    display: flex;
+    justify-content: center;
+    padding: 8px 12px;
+    border-top: 1px solid var(--tnx-border-subtle, rgba(255,255,255,0.12));
+}
+
+/* 一括作成ボタン行 */
+#tnx-card-setup .tnx-setup-bulk-actions {
+    margin-bottom: 8px;
+}
+
+/* 共通カード行レイアウト（横並び） */
+#tnx-card-setup .tnx-card-row {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 0;
+}
+#tnx-card-setup .tnx-card-row-label {
+    flex-shrink: 0;
+    width: 9rem;
+    font-weight: 600;
+    font-size: 0.875em;
+    white-space: nowrap;
+}
+#tnx-card-setup .tnx-card-row-select-wrap {
+    flex: 1;
+    min-width: 0;
+}
+#tnx-card-setup .tnx-card-row-select-wrap select {
+    width: 100%;
+}
+
+/* デッキ数設定サブ行（ドロップダウン列と揃える） */
+#tnx-card-setup .tnx-card-row--sub {
+    padding-left: calc(9rem + 6px);
+}
+#tnx-card-setup .tnx-card-row--sub .tnx-sub-label {
+    flex: 1;
+    font-size: 0.82em;
+    color: var(--color-text-light-4, #888);
+}
+
+/* コンパクトスピナー（デッキ数） */
+#tnx-card-setup .tnx-spinner--sm {
+    display: flex;
+    flex-shrink: 0;
+}
+#tnx-card-setup .tnx-spinner--sm input[type="number"] {
+    width: 32px;
+    text-align: center;
+    padding: 0 2px;
+    font-size: 0.82em;
+}
+#tnx-card-setup .tnx-spinner--sm .tnx-btn {
+    min-width: 24px;
+    padding: 2px 5px;
+    font-size: 0.82em;
+}
+
+/* ユーザー行（手札・切り札タブ共通） */
+#tnx-card-setup .tnx-user-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+#tnx-card-setup .tnx-user-row {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 0;
+    border-bottom: 1px solid var(--tnx-border-subtle, rgba(255,255,255,0.06));
+}
+#tnx-card-setup .tnx-user-row:last-child {
+    border-bottom: none;
+}
+#tnx-card-setup .tnx-user-row-name {
+    flex-shrink: 0;
+    width: 9rem;
+    font-weight: 600;
+    font-size: 0.875em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+#tnx-card-setup .tnx-gm-badge {
+    opacity: 0.55;
+    font-size: 0.8em;
+    font-weight: normal;
+}
+
+/* ============================================================
+   § 35: ドロー表（コア RollTableSheet への注入 UI）
+   ============================================================ */
+
+/* 結果行の範囲欄に注入する値選択ドロップダウン */
+.roll-table-sheet td.range select.tnx-card-select {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.85em;
+}
+
+/* 概要タブのデッキ選択 */
+.roll-table-sheet .tnx-draw-table-deck select {
+    width: 100%;
+}
+
+/* 編集モードのカードラベル選択ドロップダウン横の枚数表示 */
+.roll-table-sheet td.range .tnx-draw-weight {
+    font-size: 0.8em;
+    color: var(--tnx2-text-secondary);
+    margin-left: 4px;
+    white-space: nowrap;
+}
+
+/* ドロー表チャットメッセージ */
+.chat-message .message-content .tnx-draw-table-chat {
+    font-size: 13px;
+    line-height: 1.4;
+    padding: 8px 10px;
+    background: var(--tnx2-bg-3);
+    border: 1px solid var(--tnx2-border-glow);
+    border-radius: var(--tnx2-radius);
+}
+.chat-message .message-content .tnx-draw-header {
+    margin: 0 0 6px;
+    font-size: 0.85em;
+    font-weight: bold;
+    color: var(--tnx2-text-secondary);
+}
+.chat-message .message-content .tnx-draw-card {
+    margin: 0 0 6px;
+    font-size: 1.1em;
+    font-weight: bold;
+    color: var(--tnx2-text-primary);
+}
+.chat-message .message-content .tnx-draw-results {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+.chat-message .message-content .tnx-draw-result {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 2px 0;
+    font-size: 0.95em;
+    color: var(--tnx2-text-primary);
+}
+.chat-message .message-content .tnx-draw-result-img {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+}
