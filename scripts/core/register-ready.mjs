@@ -8,7 +8,6 @@
 
 import { SYSTEM_ID, SOCKET_CHANNEL } from "../constants.mjs";
 import { TokyoNovaCastSheet } from "../actor/tnx-cast-sheet.mjs";
-import { canonicalizeSkillActions } from "./usage-type-migration.mjs";
 import { TnxHud } from "../app/tnx-hud.mjs";
 import { recordCastOwnerUser } from "./cast-ownership.mjs";
 import { enforceUsageChainDefaultsOnImport } from "./usage-derivation.mjs";
@@ -18,10 +17,9 @@ import { TnxCheckDialog } from "../app/tnx-check-dialog.mjs";
 import { sweepEffectScratchItems } from "./effect-authoring.mjs";
 import { getUserFlagData } from "./user-flag-schema.mjs";
 import { buildCastHistorySyncUpdate } from "../rules/exp-sync.mjs";
-import { initializeDefaultPartSlotPreset, migratePartSlotKeys } from "../app/part-slot-preset-app.mjs";
 import { autoAcquireForStyleSkill, autoImportDerivedData } from "./style-skill-acquisition.mjs";
-import { cleanupCapabilityTransferCopies } from "./item-transfer.mjs";
 import { syncCastExpToUser, performInitialHistorySync, performUnsyncSeparation } from "./exp-user-sync.mjs";
+import { applyPendingMigrations } from "./migrations.mjs";
 
 export async function onSystemReady() {
     game.tnx = game.tnx || {};
@@ -29,37 +27,10 @@ export async function onSystemReady() {
     // 効果シートを開いたままワールドを閉じた場合にだけ残る下書きの置き忘れを片づける
     await sweepEffectScratchItems();
 
-    // 部位スロットプリセット: ワールド初回ロードでデフォルト体部位を自動設定(GM のみ・1回)
-    await initializeDefaultPartSlotPreset();
-
-    // 部位キーの付与移行(フェーズ12・GM のみ・1回): プリセット設定と全アクターの partSlots に
-    // 無キー行のキーを永続化する(既定ラベル=対応表・カスタム=生成キー)
-    await migratePartSlotKeys();
-
-    // 技能・神業の上に残った転送コピーの一回限り掃除(2026-09-02 ユーザー確定・GM のみ・1回):
-    // 技能レベル等の効果はキャラクター付与(遠隔適用)へ移ったため、旧経路のコピーが残ると二重に乗る
-    await cleanupCapabilityTransferCopies();
-
-    // 正準名ブリッジの一回限り移行(2026-07-17 ユーザー承認・GM のみ・1回): 既定一般技能の用途を
-    // 行動種別タイプへ付け替える(回避→ドッジ・白兵→パリー・自我/信用→各リアクション・医療→治療・
-    // 操縦→移動/リアクション（移動妨害）の追加)。以後の資格・候補判定は用途タイプの所持のみ
-    // (skillRoles・正準名既定は廃止=この移行とインポート時正規化だけが対応表を使う)
-    if (game.user.isGM && !game.settings.get(SYSTEM_ID, "usageTypeCanonicalMigrated")) {
-        const migrateSkill = async (item) => {
-            if (item.type !== "generalSkill") return;
-            const src = item.toObject().system ?? {};
-            const next = canonicalizeSkillActions(
-                { name: item.name, identificationKey: src.identificationKey ?? "", actions: src.actions ?? [] },
-                () => foundry.utils.randomID());
-            if (next) await item.update({ "system.actions": next });
-        };
-        for (const it of game.items.contents) await migrateSkill(it);
-        for (const actor of game.actors.contents) {
-            for (const it of actor.items.contents) await migrateSkill(it);
-        }
-        await game.settings.set(SYSTEM_ID, "usageTypeCanonicalMigrated", true);
-        console.log("TNX | 用途タイプの正準名移行を完了しました");
-    }
+    // ワールドデータの一回限り移行(GM のみ)。個々の内容と順序は core/migrations.mjs の表が正本
+    // ——従来はここに 4 つの呼び出しが並び、それぞれ別のゲート(真偽の設定 2 つ・スキーム番号 2 つ)を
+    // 持っていた。版番号ひとつで管理する形へ寄せてある
+    await applyPendingMigrations();
 
     // 下バー展開時はホットバーを退避する。HUD 初期描画前に body クラスを付与して
     // 「ホットバー表示→直後に非表示」のチラつきを防ぐ(下バー収納の既定は false=展開)。

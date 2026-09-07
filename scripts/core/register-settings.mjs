@@ -37,11 +37,18 @@ export function registerSettings() {
         requiresReload: true
     });
 
-    // 正準名ブリッジの一回限り移行(2026-07-17)の実行済みフラグ(ready フックでゲート)
+    // ワールドデータの版番号(2026-09-07 統一)。core/migrations.mjs の表をここまで適用済み、を表す。
+    // 一回限りの移行はすべてこの 1 つで管理する——ゲートを移行ごとに増やさない
+    game.settings.register(SYSTEM_ID, "dataVersion", {
+        scope: "world", config: false, type: Number, default: 0,
+    });
+
+    // ── 以下は版番号より前に使っていた個別ゲート。**取り込みのためだけに残す** ──
+    // 版番号を持たない既存ワールドが「どこまで済んでいるか」を推定する材料(migrations.mjs の
+    // legacy)。新しい移行でこれらを増やさないこと。読み手が居なくなったら消してよい
     game.settings.register(SYSTEM_ID, "usageTypeCanonicalMigrated", {
         scope: "world", config: false, type: Boolean, default: false,
     });
-    // 技能・神業の上の転送コピーの一回限り掃除(2026-09-02)の版番号ゲート。部位キー移行と同じ作法
     game.settings.register(SYSTEM_ID, "capabilityTransferCleanupScheme", {
         scope: "world", config: false, type: Number, default: 0,
     });
