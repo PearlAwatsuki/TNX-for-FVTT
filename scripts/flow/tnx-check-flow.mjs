@@ -389,7 +389,11 @@ export class TnxCheckFlow {
                     action:   "cancel",
                     icon:     "fas fa-times",
                     label:    "キャンセル",
-                    callback: () => null,
+                    // null を返すと DialogV2 が action 文字列 "cancel" で解決してしまう(KI-056)。
+                    // 呼び出し側は 3 箇所とも `if (!declared)` で見るので false を返す——
+                    // 文字列だと分割代入で suit=undefined になり、スート不一致=判定不成立の
+                    // 失敗としてカードが投稿されていた(宣言を中止したのに判定が確定する)
+                    callback: () => false,
                 },
             ],
             close: () => null,
