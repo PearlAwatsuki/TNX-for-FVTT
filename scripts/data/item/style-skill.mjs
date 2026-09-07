@@ -155,7 +155,7 @@ export class StyleSkillDataModel extends SystemDataModel.mixin(BaseTemplate, Usa
       // **空ならどの神業でも**候補に出す(組み合わせの可否は卓が決めるという規範を残すため)。
       // 特定の1件への結線ではなく「どの神業か」の照合なので、uuid のドロップでなく識別キーで持つ
       // (ユーザー指示 2026-09-07)——アクターが持つのは辞典の写しで、写しの uuid は本体と別。
-      // シートは辞典の神業を並べたプルダウン(保存は識別キー・表示は名前)。
+      // シートは識別キーの直接入力(ユーザー指示 2026-09-07)——辞典に無い神業も指定できる。
       // condition = 独自効果型で取得条件も書き換えるときの条件文(神業の usageCondition と同じ器)。
       // アイテムには何も書き込まない実行時の差し替えで、《万能道具》の「実体を写す」(方針A)とは別物。
       // 旧 RewrittenTarget / rewritingMiracleName / rewritingMiracleId(template.json 時代の遺物・
