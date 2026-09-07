@@ -8,15 +8,21 @@ import { SLOT_KINDS } from "../data/item/common/extensible.mjs";
 import { HOUSING_AREA_RANKS, HOUSING_AREA_MOD_FIELDS } from "../data/item/housing-area.mjs";
 import { PART_KINDS, PART_REFERENCE_SUB_KINDS, PART_RELATIONS, SHIKI_TYPES } from "../data/item/common/outfit-base.mjs";
 import { getPartSlotPreset } from "../app/part-slot-preset-app.mjs";
-import { joinPartDesignations, PART_HOST_FEATURE_LABELS, resolvePartRowsForDisplay, resolvePartAdditions, findPartKeyByLabel, matchesHostDescriptor, OUTFIT_NAME_SLOT_KIND } from "../data/item/part-helpers.mjs";
+import {
+    PART_HOST_FEATURE_LABELS,
+    findPartKeyByLabel,
+    matchesHostDescriptor,
+    OUTFIT_NAME_SLOT_KIND,
+} from "../data/item/part-helpers.mjs";
 import { readFlag } from "../data/item/helpers.mjs";
 import { applyOutfitFlagToggle, isEquipStateFlag, canTogglePreplayPurchase } from "../core/outfit-flags.mjs";
 import { resolveItemNameByKey } from "../core/identification.mjs";
-import { hideLabel } from "../ui/outfit-view.mjs";
 import { loadSkillChoices, loadOnomasticChoices, STYLE_PACK, ORGANIZATION_PACK } from "../dictionary/skill-dictionary.mjs";
 import { loadOutfitHostChoices, loadOutfitDictNames } from "../dictionary/outfit-dictionary.mjs";
-import { buildOutfitSummaryRows, formatWeaponRangeLabel } from "../ui/outfit-view.mjs";
+import { buildOutfitSummaryRows } from "../ui/outfit-view.mjs";
 import { MODIFICATION_PARAMS } from "../data/item/modification-params.mjs";
+import { prepareCombinePreview, deactivateCombine, setupCombineSourceMenu }
+    from "./outfit-combine.mjs";
 
 /** 住宅エリア compendium の pack ID */
 const HOUSING_AREA_PACK = "tokyo-nova-axleration.housing-areas";
@@ -41,99 +47,6 @@ const MAJOR_FIXED_CATEGORIES = Object.freeze({
     tap:     "tron",
     vehicle: "vehicle",
 });
-
-/**
- * コンバイン元の比較対象パラメータ定義。
- * exists: 当該 system にフィールドが定義されているか(型依存)。
- * eq: 二値が等しいかの判定(等しければラジオ不要)。
- */
-/** {mode,value} 形式のフィールド用共通比較 */
-function modeValueEq(a, b) {
-    const mA = a?.mode ?? "none", mB = b?.mode ?? "none";
-    if (mA !== mB) return false;
-    if (mA !== "value") return true;
-    return (a?.value ?? 0) === (b?.value ?? 0);
-}
-function modeValueFmt(v) {
-    return v?.mode === "value" ? String(v.value ?? 0) : "-";
-}
-
-const COMBINE_PARAM_DEFS = Object.freeze([
-    {
-        key: "appearancePenalty", label: "危険値",
-        exists: () => true,
-        get: (s) => s.appearancePenalty,
-        fmt: modeValueFmt,
-        eq: modeValueEq,
-    },
-    {
-        key: "controlMod", label: "制御値修正",
-        exists: (s) => s.controlMod !== undefined,
-        get: (s) => s.controlMod,
-        fmt: modeValueFmt,
-        eq: modeValueEq,
-    },
-    {
-        key: "attack", label: "攻撃力",
-        exists: (s) => s.attack !== undefined,
-        get: (s) => s.attack,
-        // 表示は実効値(AE 込み・2026-07-13): 種別=damageTypeTotal・値=total
-        fmt: (v) => `${v.damageTypeTotal || v.damageType || ""}+${v.total ?? v.value ?? 0}`,
-        eq: (a, b) => a.damageType === b.damageType && (a.value ?? 0) === (b.value ?? 0),
-    },
-    {
-        key: "defence", label: "防御値",
-        exists: (s) => s.defence !== undefined,
-        get: (s) => s.defence,
-        fmt: (v) => v?.mode === "value"
-            ? `${v.S_defence ?? 0}／${v.P_defence ?? 0}／${v.I_defence ?? 0}` : "-",
-        eq: (a, b) => {
-            const mA = a?.mode ?? "none", mB = b?.mode ?? "none";
-            if (mA !== mB) return false;
-            if (mA !== "value") return true;
-            return (a.S_defence ?? 0) === (b.S_defence ?? 0)
-                && (a.P_defence ?? 0) === (b.P_defence ?? 0)
-                && (a.I_defence ?? 0) === (b.I_defence ?? 0);
-        },
-    },
-    {
-        key: "guardValue", label: "受け値",
-        exists: (s) => s.guardValue !== undefined,
-        get: (s) => s.guardValue,
-        fmt: modeValueFmt,
-        eq: modeValueEq,
-    },
-    {
-        key: "range", label: "射程",
-        exists: (s) => s.range !== undefined,
-        get: (s) => s.range,
-        fmt: (v) => formatWeaponRangeLabel(v),
-        eq: (a, b) => (a?.min ?? "none") === (b?.min ?? "none")
-                   && (a?.max ?? "none") === (b?.max ?? "none"),
-    },
-    {
-        key: "speedFactor", label: "SF",
-        exists: (s) => s.speedFactor !== undefined,
-        get: (s) => s.speedFactor,
-        fmt: modeValueFmt,
-        eq: modeValueEq,
-    },
-    {
-        key: "passenger", label: "乗員",
-        exists: (s) => s.passenger !== undefined,
-        get: (s) => s.passenger,
-        fmt: modeValueFmt,
-        eq: modeValueEq,
-    },
-    {
-        key: "combatSpeedMod", label: "CS修正",
-        exists: (s) => s.combatSpeedMod !== undefined,
-        get: (s) => s.combatSpeedMod,
-        fmt: modeValueFmt,
-        eq: modeValueEq,
-    },
-]);
-
 
 /**
  * アウトフィット(装備品)共通シート。
@@ -506,7 +419,7 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
 
         // コンバイナー: カテゴリ自動補正は BOTH_FIXED_CATEGORIES で処理済み
         if (context.isCombiner) {
-            context.combine = await this._prepareCombinePreview(system);
+            context.combine = await prepareCombinePreview(this, system);
             context.combine.isActive = system.isCombineActive;
         }
 
@@ -518,95 +431,6 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
 
         context.view = this._prepareView(system, type, areaMods, resolveHostName);
         return context;
-    }
-
-    /**
-     * コンバイン元二つを解決し、確定的な合成結果(部位/分類/電制/隠/常備化経験点)を組み立てる。
-     * 食い違うパラメータは paramRows として返し、テンプレート側でラジオ選択 UI を表示する。
-     * @param {Object} system コンバイナーの system データ
-     * @returns {Promise<Object>}
-     */
-    async _prepareCombinePreview(system) {
-        const num = (v) => (Number.isFinite(v) ? v : 0);
-        const resolve = async (uuid) => (uuid ? await fromUuid(uuid).catch(() => null) : null);
-        const s1 = await resolve(system.combine.source1);
-        const s2 = await resolve(system.combine.source2);
-
-        const hackOf = (it) => (it?.system?.hack?.mode === "value" ? num(it.system.hack.value) : null);
-        const hideOf = (sys) => hideLabel(sys?.hide);
-        const penaltyOf = (sys) => sys?.appearancePenalty?.mode === "value"
-            ? String(num(sys.appearancePenalty.value)) : "-";
-
-        const result = {
-            source1: s1 ? { name: s1.name, img: s1.img } : null,
-            source2: s2 ? { name: s2.name, img: s2.img } : null,
-            appearance: system.combine.appearance,
-        };
-
-        if (s1 && s2) {
-            // 常備化経験点: コンバイナー本体 + 元1 + 元2 の合計(2026-06-13 ユーザー確定)
-            const expNum = (s) => s?.preserveExp?.mode === "value" ? num(s.preserveExp.value) : 0;
-            const preserveExpTotal = expNum(system)
-                + expNum(s1.system)
-                + expNum(s2.system);
-
-            // 部位: 両方の指定部位を全て占有(merged.part で joinPartDesignations により併記)
-
-            // 食い違うパラメータのラジオ選択行を生成する
-            const params = system.combine.params ?? {};
-            const paramRows = [];
-            for (const def of COMBINE_PARAM_DEFS) {
-                const sy1 = s1.system, sy2 = s2.system;
-                if (!def.exists(sy1) || !def.exists(sy2)) continue;
-                const v1 = def.get(sy1), v2 = def.get(sy2);
-                if (def.eq(v1, v2)) continue; // 同値なら選択不要
-                paramRows.push({
-                    key:    def.key,
-                    label:  def.label,
-                    val1:   def.fmt(v1),
-                    val2:   def.fmt(v2),
-                    choice: params[def.key] ?? "1",
-                });
-            }
-
-            result.paramRows = paramRows;
-            const appearSrc = system.combine.appearance === "2" ? s2 : s1;
-            const appearSys = appearSrc.system;
-
-            // 分類: 大分類が同じ場合は短縮形(2026-06-13 ユーザー確定)。表示は label を引く
-            const maj1 = getMajorCategoryLabel(s1.system.majorCategory) || "-", min1 = getMinorCategoryLabel(s1.system.minorCategory) || "-";
-            const maj2 = getMajorCategoryLabel(s2.system.majorCategory) || "-", min2 = getMinorCategoryLabel(s2.system.minorCategory) || "-";
-            const category = s1.system.majorCategory === s2.system.majorCategory
-                ? `${maj1}／${min1}、${min2}`
-                : `${maj1}／${min1}、${maj2}／${min2}`;
-
-            const mergedSlotsCtx = this.item.parent?.system?.partSlotsEffective
-                ?? this.item.parent?.system?.partSlots ?? getPartSlotPreset();
-            const resolvedPartSys = (src) => ({
-                part: resolvePartRowsForDisplay(src.system.part, mergedSlotsCtx),
-                partRelation: src.system.partRelation,
-                partOptional: src.system.partOptional,
-                partAdditions: resolvePartAdditions(src.system.partAdded, mergedSlotsCtx),
-            });
-            result.merged = {
-                name: appearSrc.name,
-                part: joinPartDesignations([resolvedPartSys(s1), resolvedPartSys(s2)]),
-                category,
-                preserveExpTotal,
-                // 電制: どちらか高い方(両方なしなら -)
-                hack: (() => {
-                    const a = hackOf(s1), b = hackOf(s2);
-                    const vals = [a, b].filter((v) => v !== null);
-                    return vals.length ? String(Math.max(...vals)) : "-";
-                })(),
-                // 隠：見た目元の隠匿値(コンバイナーの隠匿値)／選択した元の危険値
-                hide: (() => {
-                    const penaltySrc = system.combine.params?.appearancePenalty === "2" ? s2 : s1;
-                    return `${hideOf(appearSys)}(${hideOf(system)})／${penaltyOf(penaltySrc.system)}`;
-                })(),
-            };
-        }
-        return result;
     }
 
     /**
@@ -683,8 +507,6 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         return view;
     }
 
-
-
     // ─── レンダリング後のイベント結線 ───────────────────────────────────────
 
     /** @override */
@@ -711,7 +533,7 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         }
 
         // コンバイン元ボタン: editable に関わらず閲覧コンテキストメニューを設置する
-        if (context.isCombiner) this._setupCombineSourceMenu();
+        if (context.isCombiner) setupCombineSourceMenu(this);
 
         // 住宅エリアリンクボタン: editable に関わらず閲覧コンテキストメニューを設置する
         if (context.isResidence) this._setupHousingAreaMenu();
@@ -854,7 +676,6 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
                 this._updateSlotCount(kind, (count) => ({ ...count, value }));
             });
         }
-
 
         // 部位行の入力(配列フィールドのため全体更新で保存する。種別連動で欄が変わるため、
         // 保存後の再描画は item.update のドキュメント更新フックに委ねる)
@@ -1184,7 +1005,7 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
     /** コンバイン元の紐づけを解除する。活性中の場合は完全解除する */
     static async _onClearCombineSource(_event, _target) {
         if (this.item.system.isCombineActive) {
-            await TokyoNovaOutfitSheet._deactivateCombine(this.item);
+            await deactivateCombine(this.item);
         } else {
             const key = _target.dataset.source === "2" ? "source2" : "source1";
             await this.item.update({ [`system.combine.${key}`]: "" });
@@ -1193,38 +1014,7 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
 
     /** コンバイン解除ボタン */
     static async _onDeactivateCombine(_event, _target) {
-        await TokyoNovaOutfitSheet._deactivateCombine(this.item);
-    }
-
-    /**
-     * コンバインを解除する共通処理。
-     * isCombineActive を false にし、source1/source2 をクリア、
-     * 関連ソースアイテムの combineGroupId をクリアする。
-     * @param {Item} combinerItem コンバイナーアイテム
-     */
-    static async _deactivateCombine(combinerItem) {
-        const actor = combinerItem.parent;
-        const s1Uuid = combinerItem.system.combine.source1;
-        const s2Uuid = combinerItem.system.combine.source2;
-        const updates = [{
-            _id: combinerItem.id,
-            "system.isCombineActive": false,
-            "system.combine.source1": "",
-            "system.combine.source2": "",
-        }];
-        if (actor?.documentName === "Actor") {
-            for (const uuid of [s1Uuid, s2Uuid].filter(Boolean)) {
-                const src = actor.items.find(i => i.uuid === uuid);
-                if (src) updates.push({ _id: src.id, "system.combineGroupId": "" });
-            }
-            await actor.updateEmbeddedDocuments("Item", updates);
-        } else {
-            await combinerItem.update({
-                "system.isCombineActive": false,
-                "system.combine.source1": "",
-                "system.combine.source2": "",
-            });
-        }
+        await deactivateCombine(this.item);
     }
 
     /** コンバイン元を閲覧モードで開く(左クリックアクション) */
@@ -1235,47 +1025,6 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         if (!uuid) return;
         const item = await fromUuid(uuid).catch(() => null);
         if (item) item.sheet.render(true, { editable: false });
-    }
-
-    /**
-     * コンバイン元ボタンの右クリックコンテキストメニューを設置する。
-     * editable に関わらず閲覧は可能。リンク解除は condition で制御する。
-     */
-    _setupCombineSourceMenu() {
-        const CM = foundry.applications.ux.ContextMenu.implementation;
-        new CM(this.element, '[data-context-menu="combine-source"]', [
-            {
-                name: "閲覧",
-                icon: '<i class="fas fa-eye"></i>',
-                callback: async (target) => {
-                    const uuid = target.dataset.source === "2"
-                        ? this.item.system.combine.source2
-                        : this.item.system.combine.source1;
-                    const item = uuid ? await fromUuid(uuid).catch(() => null) : null;
-                    if (item) item.sheet.render(true, { editable: false });
-                },
-            },
-            {
-                name: "編集",
-                icon: '<i class="fas fa-edit"></i>',
-                callback: async (target) => {
-                    const uuid = target.dataset.source === "2"
-                        ? this.item.system.combine.source2
-                        : this.item.system.combine.source1;
-                    const item = uuid ? await fromUuid(uuid).catch(() => null) : null;
-                    if (item) item.sheet.render(true);
-                },
-            },
-            {
-                name: "リンク解除",
-                icon: '<i class="fas fa-unlink"></i>',
-                condition: () => this.isEditable,
-                callback: (target) => {
-                    const key = target.dataset.source === "2" ? "source2" : "source1";
-                    this.item.update({ [`system.combine.${key}`]: "" });
-                },
-            },
-        ], { jQuery: false, fixed: true });
     }
 
     // ─── ヘッダーの状態トグル(準備済み/携帯中/プリプレイ購入) ────────────────
