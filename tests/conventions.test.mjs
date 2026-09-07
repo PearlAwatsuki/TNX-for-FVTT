@@ -148,9 +148,10 @@ describe("規約: 参照されない export を残さない", () => {
 describe("規約: 共通の置き場を迂回しない(ラチェット=増やさない)", () => {
   // ダイアログは tnx-dialog.mjs が置き場だが、既存の抽象(TargetSelectionDialog は <select>)が
   // 目の前の形(ラジオ行)に合わなかったとき、広げずにその場で DialogV2 を書く、が繰り返された。
-  // 2026-09-07 に ListSelectionDialog を置き場へ足し、修理・改造(対象/ドラッグ)を差し替えた。
-  // TODO(18-4): 残る複製(使用回数の消費・回復の2群選択)も寄せて、さらに下げる。
-  const DIALOG_LIMIT = 29;
+  // 2026-09-07 に ListSelectionDialog を置き場へ足し、修理・改造(対象/ドラッグ)・使用回数の
+  // 消費を差し替えた。回復の2群選択は形が違う(独立した2つの複数選択＋全選択の強制)ため
+  // 無理に寄せていない。
+  const DIALOG_LIMIT = 28;
   it(`DialogV2 を直接呼ぶファイルが ${DIALOG_LIMIT} を超えない`, () => {
     const files = SRC.filter(p => !p.endsWith("tnx-dialog.mjs")
       && /DialogV2\.(wait|prompt|confirm)\s*\(/.test(text.get(p)));

@@ -35,6 +35,7 @@
  */
 
 import { usesMaxTotalOf } from "../data/item/uses.mjs";
+import { ListSelectionDialog } from "./tnx-dialog.mjs";
 
 /**
  * 消費できるアイテム資源(2026-07-19)。使用回数・残弾・個数の3つ。
@@ -305,59 +306,46 @@ export async function promptConsumption(actor, rows, { title = "使用回数の�
     const PROBLEM_LABEL = {
         notFound: "対象が見つかりません",
     };
-    const htmlRows = [
-        ...consumable.map(r => {
-            const out = r.remaining < r.amount;
-            const amountLabel = r.amount > 1 ? `×${r.amount}` : "";
-            const sharedLabel = r.shared ? `（本体「${esc(r.sharedOwnerName)}」と共有）` : "";
-            // AR 行は資源名でなくアクターの AR を消費する文言にする。
-            // カット進行外は消費不可(残量 0 扱い=原則ブロック)である旨を残量欄に示す。
-            // 資源名は行が持つ(使用回数/残弾)。消費(正)/回復(負=リロード等)で文言を分ける
-            const resLabel = esc(r.resourceLabel ?? "使用回数");
-            const text = r.kind === "ar"
+    // ラベルは**素のテキスト**で組む(エスケープは ListSelectionDialog が行う)
+    const options = consumable.map(r => {
+        const amountLabel = r.amount > 1 ? `×${r.amount}` : "";
+        const sharedLabel = r.shared ? `（本体「${r.sharedOwnerName}」と共有）` : "";
+        // AR 行は資源名でなくアクターの AR を消費する文言にする。
+        // 資源名は行が持つ(使用回数/残弾)。消費(正)/回復(負=リロード等)で文言を分ける
+        const resLabel = r.resourceLabel ?? "使用回数";
+        return {
+            value:   r.key ?? r.itemId,
+            checked: true,
+            label: r.kind === "ar"
                 ? `AR を消費${amountLabel || "×1"}`
                 : r.amount < 0
-                    ? `「${esc(r.label)}」の${resLabel}を回復${r.amount < -1 ? `×${-r.amount}` : ""}${sharedLabel}`
-                    : `「${esc(r.label)}」の${resLabel}を消費${amountLabel}${sharedLabel}`;
-            const count = r.kind === "ar" && r.outOfCombat
+                    ? `「${r.label}」の${resLabel}を回復${r.amount < -1 ? `×${-r.amount}` : ""}${sharedLabel}`
+                    : `「${r.label}」の${resLabel}を消費${amountLabel}${sharedLabel}`,
+            // カット進行外は消費不可(残量 0 扱い=原則ブロック)である旨を残量欄に示す
+            trailing: r.kind === "ar" && r.outOfCombat
                 ? "カット進行外（消費不可）"
-                : `残り ${r.remaining}/${r.maxDisplay}`;
-            return `<div class="tnx-uses-row">
-                <label>
-                    <input type="checkbox" name="consume" value="${esc(r.key ?? r.itemId)}" checked>
-                    <span>${text}</span>
-                </label>
-                <span class="tnx-uses-count${out ? " tnx-uses-out" : ""}">${count}</span>
-            </div>`;
-        }),
-        ...problems.map(r => `<div class="tnx-uses-row tnx-uses-problem">
-            <span>「${esc(r.label)}」: ${PROBLEM_LABEL[r.problem] ?? "消費先を解決できません"}（消費されません）</span>
-        </div>`),
-    ].join("");
-
-    const content = `<div class="tnx-uses-consume">
-        <p class="tnx-uses-note">チェックを外すと消費せずに実行します。</p>
-        ${htmlRows}
-    </div>`;
-
-    const result = await foundry.applications.api.DialogV2.wait({
-        window:   { title },
-        classes:  ["tokyo-nova", "tnx-dialog", "tnx-uses-dialog"],
-        position: { width: 400 },
-        content,
-        buttons: [
-            {
-                action: "ok", icon: "fas fa-check", label: "実行する", default: true,
-                callback: (_event, _button, dialog) =>
-                    [...dialog.element.querySelectorAll('input[name="consume"]:checked')].map(cb => cb.value),
-            },
-            { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => null },
-        ],
-        close: () => null,
+                : `残り ${r.remaining}/${r.maxDisplay}`,
+            trailingWarn: r.remaining < r.amount,
+        };
     });
-    if (!result) return null;
+    // 消費先を解決できない行は選ばせず、注記として並べる
+    const extraHtml = problems.map(r =>
+        `<div class="tnx-uses-row tnx-uses-problem"><span>「${esc(r.label)}」: `
+        + `${PROBLEM_LABEL[r.problem] ?? "消費先を解決できません"}（消費されません）</span></div>`).join("");
 
-    const built = buildConsumptionPlan(rows, new Set(result), actor?.id ?? "");
+    const picked = await ListSelectionDialog.prompt({
+        title, options, extraHtml,
+        note:         "チェックを外すと消費せずに実行します。",
+        multi:        true,
+        width:        400,
+        confirmLabel: "実行する",
+    });
+    // 中止(キャンセル / × で閉じる)は null。従来は `!result` で見ていたが、DialogV2 は
+    // コールバックの戻り値が無いと action 文字列("cancel")を返すため中止と判定されず、
+    // `new Set("cancel")` が一致しないまま**消費せずに実行**へ進む恐れがあった(2026-09-07)
+    if (picked === null) return null;
+
+    const built = buildConsumptionPlan(rows, new Set(picked), actor?.id ?? "");
     if (built.shortage) {
         const s = built.shortage;
         ui.notifications.warn(s.kind === "ar"
