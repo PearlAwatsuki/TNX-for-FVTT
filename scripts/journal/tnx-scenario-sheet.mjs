@@ -10,7 +10,7 @@ import { promptEffectData } from '../module/effect-authoring.mjs';
 import { describeEffectData } from '../rules/effect-source.mjs';
 import { captureScrollTop, restoreScrollTop } from '../module/scroll-preserve.mjs';
 import { conditionStatusLabels } from '../module/conditions.mjs';
-import { checkTypeOptions } from '../module/tnx-rl-request-app.mjs';
+import { checkTypeOptions } from '../app/tnx-rl-request-app.mjs';
 import {
     SCENE_AREA_OPTIONS, SCENE_KIND_OPTIONS, SCENE_PLAYER_RULER, HANDOUT_SUIT_OPTIONS,
     HANDOUT_STYLE_COMMON, HANDOUT_STYLE_FREE,

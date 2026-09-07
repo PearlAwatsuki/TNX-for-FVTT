@@ -15,7 +15,7 @@ import { OUTFIT_CATEGORIES, getMinorCategoryLabel, getMajorCategoryLabel, isMajo
 import { formatWeaponRangeLabel } from '../module/outfit-view.mjs';
 import { formatPartDesignation, joinPartDesignations, computePartOccupancy, computeHostOccupancy, resolvePartRowsForDisplay, resolvePartAdditions, OUTFIT_NAME_SLOT_KIND } from '../data/item/part-helpers.mjs';
 import { SLOT_KINDS } from '../data/item/common/extensible.mjs';
-import { getPartSlotPreset, PartSlotPresetApp } from '../module/part-slot-preset-app.mjs';
+import { getPartSlotPreset, PartSlotPresetApp } from '../app/part-slot-preset-app.mjs';
 import { OUTFIT_ITEM_TYPES, findDepartmentSkillName } from '../data/helpers.mjs';
 import { readFlag, isOutfitUnusable, isOutfitDestroyed, isOutfitMalfunctioning } from '../data/item/helpers.mjs';
 import { applyOutfitFlagToggle } from '../module/outfit-flags.mjs';
@@ -2811,7 +2811,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         if (selectedUsage.type === "miracleDeclaration" && selectedUsage.miracleEffect) {
             const effect = selectedUsage.miracleEffect;
             if (effect === "acquireOutfit" && !openExtra.purchase) {
-                const { TnxDictionaryBrowser } = await import("../module/tnx-dictionary-browser.mjs");
+                const { TnxDictionaryBrowser } = await import("../app/tnx-dictionary-browser.mjs");
                 TnxDictionaryBrowser.openOutfitPicker({
                     actorId: actor.id, itemId: item.id, usageId: selectedUsage._id, miracle: true,
                     asOtherUuid: asOther?.uuid ?? "", rewriteId: asOther?.via?.itemId ?? "",

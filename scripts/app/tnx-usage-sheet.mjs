@@ -13,28 +13,28 @@
  */
 
 import { SYSTEM_ID } from "../constants.mjs";
-import { TnxSkillUtils } from "./tnx-skill-utils.mjs";
-import { getComboSuits } from "./tnx-check-engine.mjs";
-import { resolveUsageSkills, comboLockAnalysis, isComboRequired } from "./skill-chain-resolution.mjs";
-import { deriveConsumeTargets } from "./usage-consumption.mjs";
-import { CONDITION_KINDS , conditionDisplayName } from "./conditions.mjs";
+import { TnxSkillUtils } from "../module/tnx-skill-utils.mjs";
+import { getComboSuits } from "../module/tnx-check-engine.mjs";
+import { resolveUsageSkills, comboLockAnalysis, isComboRequired } from "../module/skill-chain-resolution.mjs";
+import { deriveConsumeTargets } from "../module/usage-consumption.mjs";
+import { CONDITION_KINDS , conditionDisplayName } from "../module/conditions.mjs";
 import { ATTACK_DAMAGE_TYPES } from "../data/item/helpers.mjs";
 import { OUTFIT_ITEM_TYPES } from "../data/helpers.mjs";
 import { readFlag } from "../data/item/helpers.mjs";
 import { buildCategoryKeyGroups, categoryKeyLabel, ALL_CATEGORIES_KEY } from "../data/item/outfit-categories.mjs";
-import { resolveAttackWeapons, attackWeaponDisplayName, resolveAttackRangeSpan, attackWeaponKindEligible } from "./attack-weapons.mjs";
-import { captureScrollTop, restoreScrollTop } from "./scroll-preserve.mjs";
-import { applyTriggerDisable } from "./ui-trigger-disable.mjs";
-import { TARGET_CONDITION_KINDS, TARGET_CONDITION_MODES } from "./target-condition.mjs";
+import { resolveAttackWeapons, attackWeaponDisplayName, resolveAttackRangeSpan, attackWeaponKindEligible } from "../module/attack-weapons.mjs";
+import { captureScrollTop, restoreScrollTop } from "../module/scroll-preserve.mjs";
+import { applyTriggerDisable } from "../module/ui-trigger-disable.mjs";
+import { TARGET_CONDITION_KINDS, TARGET_CONDITION_MODES } from "../module/target-condition.mjs";
 import { WEAPON_RANGE_MAX_OPTIONS } from "../data/item/weapon.mjs";
-import { loadSkillChoices, loadCascadeData, buildSkillCascadeSteps, loadSkillUsageTypeIndex, loadDictionarySkillItems, SKILL_PACKS, STYLE_PACK, ORGANIZATION_PACK } from "./skill-dictionary.mjs";
+import { loadSkillChoices, loadCascadeData, buildSkillCascadeSteps, loadSkillUsageTypeIndex, loadDictionarySkillItems, SKILL_PACKS, STYLE_PACK, ORGANIZATION_PACK } from "../module/skill-dictionary.mjs";
 import {
     USAGE_TYPE_LABELS, isAttackType, attackCategoryOf, isReactionType, isMiracleType,
     executionFormOf, defaultConfrontationForType, usageDisplayName, effectiveBaseSkillId,
-} from "./usage-types.mjs";
+} from "../module/usage-types.mjs";
 import { USAGE_CONFRONTATION_OPTIONS, mergeConfrontationRows } from "../rules/confrontation.mjs";
-import { findItemByIdentificationKey, formatSkillName, itemDisplayName } from "./identification.mjs";
-import { orderSkills } from "./skill-select.mjs";
+import { findItemByIdentificationKey, formatSkillName, itemDisplayName } from "../module/identification.mjs";
+import { orderSkills } from "../module/skill-select.mjs";
 import {
     RANGE_SPAN_CAPABLE, resolveTarget, resolveRange, resolveTargetValue, resolveTiming,
     normalizeUsageExplanation,
@@ -100,7 +100,7 @@ export async function resolveUsageSiblingSkills(item) {
     return dict;
 }
 
-import { runSerial } from "./serial-queue.mjs";
+import { runSerial } from "../module/serial-queue.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 

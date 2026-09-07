@@ -66,7 +66,7 @@ export async function resolveDesignationResponse(actor, rows, { checkKind = null
 
     if (chosen.kind === "direct") return { row, direct: true, label: chosen.label };
 
-    const { TnxRlRequestApp } = await import("./tnx-rl-request-app.mjs");
+    const { TnxRlRequestApp } = await import("../app/tnx-rl-request-app.mjs");
 
     if (chosen.kind === "substitution") {
         // 代用判定は**指定(の束)の代用**(2026-08-25 ユーザー是正)。requestedLabel は行の束ね表記

@@ -13,23 +13,23 @@
  */
 
 import { SYSTEM_ID } from "../constants.mjs";
-import { bindTargetPicker } from "./target-picker.mjs";
+import { bindTargetPicker } from "../module/target-picker.mjs";
 import {
     buildRlDamageStagingFlag, buildConditionGrantData, rlConditionChoices,
     RL_DAMAGE_TYPES, RL_DAMAGE_CATEGORIES, RL_DAMAGE_MODES,
 } from "../rules/rl-grant.mjs";
 import { formatAttackLabel } from "../rules/attack-flow.mjs";
-import { buildGrantedEffectData, buildGrantedEffectDataFrom } from "./usage-effects.mjs";
+import { buildGrantedEffectData, buildGrantedEffectDataFrom } from "../module/usage-effects.mjs";
 import { buildBountyGrantData } from "../rules/bounty-grant.mjs";
 import {
     listBountyPresets, listDamageGrantPresets, listEffectGrantPresets,
     presetLabel, bountyPresetToForm, damagePresetToForm, effectPresetIsEmpty,
-} from "./request-presets.mjs";
+} from "../module/request-presets.mjs";
 import { buildEffectSourceGroups, parseEffectSourceKey, describeEffectData } from "../rules/effect-source.mjs";
-import { conditionStatusLabels } from "./conditions.mjs";
-import { promptEffectData } from "./effect-authoring.mjs";
-import { itemDisplayName } from "./identification.mjs";
-import { spinnerDialogActions } from "./tnx-dialog.mjs";
+import { conditionStatusLabels } from "../module/conditions.mjs";
+import { promptEffectData } from "../module/effect-authoring.mjs";
+import { itemDisplayName } from "../module/identification.mjs";
+import { spinnerDialogActions } from "../module/tnx-dialog.mjs";
 
 const CATEGORY_LABELS = { physical: "肉体", mental: "精神", social: "社会" };
 

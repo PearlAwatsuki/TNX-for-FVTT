@@ -13,7 +13,7 @@
  */
 
 import { SYSTEM_ID } from "../constants.mjs";
-import { processLabel, footerPlan, rowActions } from "./combat-tracker-view.mjs";
+import { processLabel, footerPlan, rowActions } from "../module/combat-tracker-view.mjs";
 import { participantOf } from "../combat/tnx-combat.mjs";
 
 const { CombatTracker } = foundry.applications.sidebar.tabs;

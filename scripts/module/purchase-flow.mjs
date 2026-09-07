@@ -203,7 +203,7 @@ async function noCardPurchase(actor, doc, uuid, targetValue, mundane) {
  * ブラウザと同型)。対象の購入ボタンで startPurchaseWithUsage に合流する。
  */
 export async function startPurchasePicker(actor, item, usage) {
-    const { TnxDictionaryBrowser } = await import("./tnx-dictionary-browser.mjs");
+    const { TnxDictionaryBrowser } = await import("../app/tnx-dictionary-browser.mjs");
     TnxDictionaryBrowser.openOutfitPicker({ actorId: actor.id, itemId: item.id, usageId: usage._id });
 }
 

@@ -14,8 +14,8 @@
  * ×ボタンで閉じると判定をキャンセルする。
  */
 
-import { TnxCheckFlow } from './tnx-check-flow.mjs';
-import { getUserFlagData } from './user-flag-schema.mjs';
+import { TnxCheckFlow } from '../module/tnx-check-flow.mjs';
+import { getUserFlagData } from '../module/user-flag-schema.mjs';
 
 const { HandlebarsApplicationMixin, ApplicationV2 } = foundry.applications.api;
 

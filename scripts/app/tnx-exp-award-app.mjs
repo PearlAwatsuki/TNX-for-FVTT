@@ -14,8 +14,8 @@ import {
     EXP_AWARD_CHECKS, calcPlayerExpTotal, calcRlExpBreakdown, awardEntryDate,
     sumMiracleSpent, buildAutoFilledRow,
 } from "../rules/exp-award.mjs";
-import { getUserFlagData, historyAdd, saveUserFlagHistory } from "./user-flag-schema.mjs";
-import { getSessionState } from "./session-state.mjs";
+import { getUserFlagData, historyAdd, saveUserFlagHistory } from "../module/user-flag-schema.mjs";
+import { getSessionState } from "../module/session-state.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 

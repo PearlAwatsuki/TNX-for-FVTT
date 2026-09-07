@@ -13,15 +13,15 @@
  */
 
 import { SYSTEM_ID } from "../constants.mjs";
-import { ALL_SUITS } from './tnx-check-engine.mjs';
-import { TnxCheckFlow } from './tnx-check-flow.mjs';
-import { buildSkillOptions } from './skill-select.mjs';
-import { formatSkillName } from './identification.mjs';
+import { ALL_SUITS } from '../module/tnx-check-engine.mjs';
+import { TnxCheckFlow } from '../module/tnx-check-flow.mjs';
+import { buildSkillOptions } from '../module/skill-select.mjs';
+import { formatSkillName } from '../module/identification.mjs';
 import {
     loadGroupedGeneralSkillChoices, loadSkillChoices, SKILL_PACKS, formatDesignatedSkills,
-} from './skill-dictionary.mjs';
-import { listCheckRequestPresets, presetLabel, checkRequestPresetToForm } from './request-presets.mjs';
-import { bindTargetPicker } from './target-picker.mjs';
+} from '../module/skill-dictionary.mjs';
+import { listCheckRequestPresets, presetLabel, checkRequestPresetToForm } from '../module/request-presets.mjs';
+import { bindTargetPicker } from '../module/target-picker.mjs';
 
 /** 指定技能になりうるアイテム種別(一般技能とスタイル技能。ワークス専用技能も styleSkill)。 */
 const REQUEST_SKILL_TYPES = ["generalSkill", "styleSkill"];
@@ -427,7 +427,7 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
             if (flagData.focusSystemKind === "support") {
                 let picked = [...(game.user?.targets ?? [])];
                 if (picked.length !== 1) {
-                    const { promptTargetToken } = await import("./target-resolution.mjs");
+                    const { promptTargetToken } = await import("../module/target-resolution.mjs");
                     const refs = await promptTargetToken(actor);
                     if (!refs?.length) return; // キャンセルは中止
                     picked = [...(game.user?.targets ?? [])]; // ダイアログが選んだ対象にレティクルを付与済み
@@ -499,7 +499,7 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
         const esc = foundry.utils.escapeHTML;
         const options = buildSkillOptions(skills)
             .map(o => `<option value="${o.value}">${esc(o.label)}</option>`).join("");
-        const { spinnerDialogActions } = await import("./tnx-dialog.mjs");
+        const { spinnerDialogActions } = await import("../module/tnx-dialog.mjs");
         const res = await foundry.applications.api.DialogV2.wait({
             window: { title: `代用判定: ${requestedLabel}` },
             classes: ["tokyo-nova", "tnx-dialog"],

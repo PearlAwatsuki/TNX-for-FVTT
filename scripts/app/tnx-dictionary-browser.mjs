@@ -18,16 +18,16 @@
  * データはすべて getIndex 由来(KI-026)・カードは dictionary-cards.mjs の共用ビルダー。
  */
 
-import { BROWSER_TABS, loadTabEntries, buildFilterGroups, filterEntries, groupOutfitEntries, groupStyleSkillEntries, groupLifePathEntries, loadOrderedNames, NPC_TYPE_LABELS } from "./dictionary-browser-data.mjs";
-import { buildDictionaryCard } from "./dictionary-cards.mjs";
-import { loadSkillChoices, SKILL_PACKS, STYLE_PACK, ORGANIZATION_PACK } from "./skill-dictionary.mjs";
-import { loadOutfitDictNames } from "./outfit-dictionary.mjs";
+import { BROWSER_TABS, loadTabEntries, buildFilterGroups, filterEntries, groupOutfitEntries, groupStyleSkillEntries, groupLifePathEntries, loadOrderedNames, NPC_TYPE_LABELS } from "../module/dictionary-browser-data.mjs";
+import { buildDictionaryCard } from "../module/dictionary-cards.mjs";
+import { loadSkillChoices, SKILL_PACKS, STYLE_PACK, ORGANIZATION_PACK } from "../module/skill-dictionary.mjs";
+import { loadOutfitDictNames } from "../module/outfit-dictionary.mjs";
 import { getPartSlotPreset } from "./part-slot-preset-app.mjs";
-import { resolveItemNameByKey } from "./identification.mjs";
+import { resolveItemNameByKey } from "../module/identification.mjs";
 import { readFlag } from "../data/item/helpers.mjs";
-import { applyTriggerDisable } from "./ui-trigger-disable.mjs";
+import { applyTriggerDisable } from "../module/ui-trigger-disable.mjs";
 import { purchaseUnavailableReason, preActUnavailableReason } from "../rules/purchase.mjs";
-import { getSessionState } from "./session-state.mjs";
+import { getSessionState } from "../module/session-state.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -301,7 +301,7 @@ export class TnxDictionaryBrowser extends HandlebarsApplicationMixin(Application
         });
 
         // @UUID コンテンツリンクのカード・ツールチップ(16-x): カード解説内のリンクに適用
-        import("./item-card-tooltips.mjs").then((m) => m.applyContentLinkCardTooltips(this.element));
+        import("../module/item-card-tooltips.mjs").then((m) => m.applyContentLinkCardTooltips(this.element));
 
         // 固定高さカード: 入りきらない解説は文字サイズを縮小して収める(ルルブ同様・
         // 2026-08-31 ユーザー指定)。レイアウト確定後に実測するため rAF 越しに実行
@@ -346,12 +346,12 @@ export class TnxDictionaryBrowser extends HandlebarsApplicationMixin(Application
         if (!uuid) return;
         try {
             if (this._purchaseOrigin) {
-                const { startPurchaseWithUsage } = await import("./purchase-flow.mjs");
+                const { startPurchaseWithUsage } = await import("../module/purchase-flow.mjs");
                 const started = await startPurchaseWithUsage(uuid, this._purchaseOrigin);
                 if (started) await this.close();
                 return;
             }
-            const { startPurchaseFromBrowser } = await import("./purchase-flow.mjs");
+            const { startPurchaseFromBrowser } = await import("../module/purchase-flow.mjs");
             await startPurchaseFromBrowser(uuid);
         } catch (err) {
             console.error("TNX | 購入の実行に失敗しました", err);

@@ -12,7 +12,7 @@
 import {
     listSubScenes, isCurrentSubScene, createSubScene, updateSubScene,
     deleteSubScene, moveSubSceneBy, moveSubSceneTo, applySubScene, clearSubSceneOverride,
-} from "./subscenes.mjs";
+} from "../module/subscenes.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin, DialogV2 } = foundry.applications.api;
 

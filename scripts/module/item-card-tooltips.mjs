@@ -12,10 +12,10 @@
  */
 
 import { buildDictionaryCard, cardKindOf, DICTIONARY_CARD_TEMPLATE } from "./dictionary-cards.mjs";
-import { fitDictionaryCard } from "./tnx-dictionary-browser.mjs";
+import { fitDictionaryCard } from "../app/tnx-dictionary-browser.mjs";
 import { loadSkillChoices, SKILL_PACKS, STYLE_PACK } from "./skill-dictionary.mjs";
 import { loadOutfitDictNames } from "./outfit-dictionary.mjs";
-import { getPartSlotPreset } from "./part-slot-preset-app.mjs";
+import { getPartSlotPreset } from "../app/part-slot-preset-app.mjs";
 import { resolveItemNameByKey } from "./identification.mjs";
 import { readFlag } from "../data/item/helpers.mjs";
 

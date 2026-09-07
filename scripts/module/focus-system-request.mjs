@@ -9,7 +9,7 @@
  * 参加者という概念自体ではない。したがって宛先の解決はこの時点で可能。
  */
 
-import { postCheckRequest } from "./tnx-rl-request-app.mjs";
+import { postCheckRequest } from "../app/tnx-rl-request-app.mjs";
 import { buildProgressRequest, buildSupportRequest } from "../rules/focus-system-request.mjs";
 import { loadSkillEntries, SKILL_PACKS, formatDesignatedSkills } from "./skill-dictionary.mjs";
 import { listActiveFocusSystems } from "./focus-system-state.mjs";
