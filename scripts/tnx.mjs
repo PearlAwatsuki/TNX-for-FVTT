@@ -53,7 +53,7 @@ import { TnxHud } from './app/tnx-hud.mjs';
 import { TnxRecordSheet } from './app/tnx-record-sheet.mjs';
 import { registerDrawTableHooks } from './cards/tnx-draw-table.mjs';
 import { recordCastOwnerUser } from './core/cast-ownership.mjs';
-import { enforceUsageChainDefaultsOnImport } from './app/tnx-usage-sheet.mjs';
+import { enforceUsageChainDefaultsOnImport } from './core/usage-derivation.mjs';
 import { renderAttackCard, renderReactionCard } from './flow/attack-flow.mjs';
 import { renderDamageCard } from './flow/damage-flow.mjs';
 import { renderUsageEffectButton } from './flow/usage-effects.mjs';

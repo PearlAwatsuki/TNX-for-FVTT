@@ -1,5 +1,6 @@
 import { EffectsSheetMixin } from "../ui/effects-sheet-mixin.mjs";
-import { TnxUsageSheet, USAGE_TYPES, deriveUsageAutoFill, updateUsageActions } from "../app/tnx-usage-sheet.mjs";
+import { TnxUsageSheet, USAGE_TYPES } from "../app/tnx-usage-sheet.mjs";
+import { deriveUsageAutoFill, updateUsageActions } from "../core/usage-derivation.mjs";
 import { usageTypeLabelsFor, defaultUsageTypeFor } from "../rules/usage-types.mjs";
 import { defaultConfrontationForType, executionFormOf, usageDisplayName, usesVehicle } from "../rules/usage-types.mjs";
 import { resolveBunshinOwner } from "../flow/usage-consumption.mjs";
