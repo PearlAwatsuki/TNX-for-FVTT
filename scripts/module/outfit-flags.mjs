@@ -45,6 +45,20 @@ export async function applyOutfitFlagToggle(item, flag, actor) {
     return true;
 }
 
+/**
+ * プレアクト購入を切り替えられるか。経験点保全が「数値」のときだけ意味を持つ。
+ *
+ * 従来この条件は描画側(グレーアウトの判定)にしか無く、実際にクリックを止めていたのは
+ * CSS の `pointer-events: none` だった。押せてしまう不具合は起きていないが、規則が意匠に
+ * しか無い状態なので、描画とハンドラの両方がこの述語を参照する形にする(2026-09-07)。
+ *
+ * @param {object} system アウトフィットの system
+ * @returns {boolean}
+ */
+export function canTogglePreplayPurchase(system) {
+    return system?.preserveExp?.mode === "value";
+}
+
 /** そのフラグが不変条件の対象か(対象外は呼び出し側が素で反転してよい)。 */
 export function isEquipStateFlag(flag) {
     return flag === "isCarrying" || flag === "isPrepared";

@@ -90,6 +90,18 @@ describe("携帯中/準備済みの切り替えは両方のシートが共用関
     expect(body).not.toContain("majorCategory");
   });
 
+  it("プレアクト購入の可否は描画とハンドラが同じ述語を見る", () => {
+    // 従来この条件は描画側にしか無く、クリックを止めていたのは CSS の pointer-events だった。
+    // 押せてしまう不具合は起きていなかったが、規則が意匠にしか無い状態を解消した
+    // ハンドラ(クリックを止める)と描画(グレーアウトする)の 2 箇所が同じ述語を見る
+    const uses = sheetSrc.split("canTogglePreplayPurchase(this.item.system)").length - 1;
+    expect(uses).toBe(2);
+    expect(methodBody(sheetSrc, "static async _onToggleFlag"))
+      .toContain("canTogglePreplayPurchase(this.item.system)");
+    // 述語を経由せず mode を直に見ていないこと
+    expect(sheetSrc).not.toContain('preserveExp?.mode !== "value"');
+  });
+
   it("規則の正本は純関数が持ち、適用層は書き込みだけを担う", () => {
     expect(read("scripts/data/item/helpers.mjs")).toContain("export function planOutfitFlagToggle(");
     const flags = read("scripts/module/outfit-flags.mjs");

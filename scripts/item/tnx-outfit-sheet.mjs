@@ -9,7 +9,7 @@ import { PART_KINDS, PART_REFERENCE_SUB_KINDS, PART_RELATIONS, SHIKI_TYPES } fro
 import { getPartSlotPreset } from "../module/part-slot-preset-app.mjs";
 import { joinPartDesignations, PART_HOST_FEATURE_LABELS, resolvePartRowsForDisplay, resolvePartAdditions, findPartKeyByLabel, matchesHostDescriptor, OUTFIT_NAME_SLOT_KIND } from "../data/item/part-helpers.mjs";
 import { readFlag } from "../data/item/helpers.mjs";
-import { applyOutfitFlagToggle, isEquipStateFlag } from "../module/outfit-flags.mjs";
+import { applyOutfitFlagToggle, isEquipStateFlag, canTogglePreplayPurchase } from "../module/outfit-flags.mjs";
 import { resolveItemNameByKey } from "../module/identification.mjs";
 import { hideLabel } from "../module/outfit-view.mjs";
 import { loadSkillChoices, loadOnomasticChoices, STYLE_PACK, ORGANIZATION_PACK } from "../module/skill-dictionary.mjs";
@@ -749,10 +749,10 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
              .filter(t => !(t.flag === "isPrepared" && this.item.system.isPartless === true))
              .filter(t => !((t.flag === "isCarrying" || t.flag === "isPrepared") && isBackground))
              .filter(t => !((t.flag === "isMalfunction" || t.flag === "isDestroyed") && isServiceImmune));
-            const noPreserveExp = this.item.system.preserveExp?.mode !== "value";
             for (const t of toggles) {
                 const a = document.createElement("a");
-                const isDisabled = t.flag === "isPre-play" && noPreserveExp;
+                const isDisabled = t.flag === "isPre-play"
+                    && !canTogglePreplayPurchase(this.item.system);
                 const cls = ["outfit-flag-toggle"];
                 if (this.item.system[t.flag] === true) cls.push("active");
                 if (isDisabled) cls.push("disabled");
@@ -1290,6 +1290,9 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         // 素で反転しており、アイテムシートのヘッダからだけ「携帯していないのに準備済み」を
         // 作れていた(防御力の合算は isPrepared を見るため実効値に乗っていた)。
         // 無所属アイテム(辞典の原本など)は装備先も配下も無いので従来どおり素で反転する
+        // プレアクト購入は経験点保全が数値のときだけ。従来は CSS の pointer-events でしか
+        // 止まっておらず、規則が意匠にしか無かった(2026-09-07)
+        if (flag === "isPre-play" && !canTogglePreplayPurchase(this.item.system)) return;
         const actor = this.item.actor;
         if (actor && isEquipStateFlag(flag)) {
             await applyOutfitFlagToggle(this.item, flag, actor);
