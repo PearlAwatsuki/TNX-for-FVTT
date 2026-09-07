@@ -84,7 +84,6 @@ import { TnxSkillUtils } from './module/tnx-skill-utils.mjs';
 import { CONDITION_KINDS, CONDITION_GROUP_LABELS, conditionDisplayName, getConditionKinds, buildInflictedEffectsData, applyDamageTagMods, readConditions, blocksMainProcess, actorCannotMainProcess } from './module/conditions.mjs';
 import { gatherDamageTagMods, parseEffectTargetKey, buildTransferredEffectData, planTransferCopySync, isOutfitItem, planCapabilityTransferCleanup, AE_FLAG_PARAMS } from './data/item/helpers.mjs';
 import { runSerial } from './module/serial-queue.mjs';
-import { registerDamageChartTextSetting } from './module/damage-chart-text-app.mjs';
 import { registerPartSlotPresetSetting, getPartSlotPreset, initializeDefaultPartSlotPreset, migratePartSlotKeys } from './module/part-slot-preset-app.mjs';
 import { autoAcquireForStyleSkill, autoImportDerivedData } from './module/style-skill-acquisition.mjs';
 import { conditionNeedsDraw, postDrawPrompt, postControlNegatePrompt, promptWoundSkillSelection, bindConditionChatButtons, renderConditionDrawCard } from './module/condition-resolution.mjs';
@@ -1447,7 +1446,6 @@ Hooks.once("init", async function() {
 
     // --- システム設定の登録 ---
     // ダメージチャート効果文(ワールド設定＋編集アプリメニュー)
-    registerDamageChartTextSetting();
 
     // 部位スロットプリセット(ワールド設定＋編集アプリメニュー。新規キャストへ流し込む)
     registerPartSlotPresetSetting();
