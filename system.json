@@ -4,7 +4,7 @@
     "description": "「災厄の街」トーキョーN◎VAを舞台に自分のスタイルを貫く、サイバーアクションTRPG",
     "version": "0.17.0",
     "compatibility": {
-      "minimum": 11,
+      "minimum": 13,
       "verified": "13.351"
     },
     "authors": [{
@@ -167,7 +167,7 @@
     ],
     "packFolders": [
         {
-          "name": "トーキョーN◎VA THE AXELERATION",
+          "name": "トーキョーN◎VA THE AXLERATION",
           "sorting": "m",
           "packs": [
               "styles",
@@ -232,7 +232,10 @@
         "distance": 1,
         "units": "m"
     },
-    "url": "",
-    "manifest": "",
-    "download": ""
+    "url": "https://github.com/PearlAwatsuki/TNX-for-FVTT",
+    "manifest": "https://github.com/PearlAwatsuki/TNX-for-FVTT/releases/latest/download/system.json",
+    "download": "https://github.com/PearlAwatsuki/TNX-for-FVTT/releases/download/v0.17.0/tokyo-nova-axleration.zip",
+    "license": "LICENSE",
+    "readme": "README.md",
+    "bugs": "https://github.com/PearlAwatsuki/TNX-for-FVTT/issues"
 }
