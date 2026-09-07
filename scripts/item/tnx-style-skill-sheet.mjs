@@ -143,7 +143,7 @@ export class TokyoNovaStyleSkillSheet extends TokyoNovaItemSheet {
     });
 
     /**
-     * 辞典の神業を並べた選択肢(値＝識別キー・表示＝名前)。先頭は「すべての神業」(＝指定なし)。
+     * 辞典の神業を並べた選択肢(値＝識別キー・表示＝名前)。先頭は未設定の枠「—」。
      * インデックスで読む(getDocuments 禁止・KI-026)。用途シートの「打ち消せる神業」と同じ作り。
      * @param {string} current 現在の識別キー
      * @returns {Promise<Array<{value: string, label: string, selected: boolean}>>}
@@ -160,7 +160,7 @@ export class TokyoNovaStyleSkillSheet extends TokyoNovaItemSheet {
         const unknown = current && !rows.some(r => r.value === current)
             ? [{ value: current, label: current, selected: true }] : [];
         return [
-            { value: "", label: "すべての神業", selected: !current },
+            { value: "", label: "—", selected: !current },
             ...unknown,
             ...rows.map(r => ({ ...r, selected: r.value === current })),
         ];

@@ -745,11 +745,9 @@ describe("miracleRewriteCandidates()（その神業をロールしたときに�
         expect(miracleRewriteCandidates([skill()], chai).map(i => i.id)).toEqual(["s1"]);
     });
 
-    it("対応する神業を指定していない（すべての神業）技能は、どの神業でも候補になる", () => {
-        const any = skill({ miracleRewrite: { targetKey: "", effect: "own" } });
-        expect(miracleRewriteCandidates([any], chai).map(i => i.id)).toEqual(["s1"]);
-        expect(miracleRewriteCandidates([any], { id: "m2", name: "平和", type: "miracle", system: { identificationKey: "peace" } })
-            .map(i => i.id)).toEqual(["s1"]);
+    it("対応する神業を指定していない技能は候補にならない（対象の指定は必須）", () => {
+        const unset = skill({ miracleRewrite: { targetKey: "", effect: "own" } });
+        expect(miracleRewriteCandidates([unset], chai)).toEqual([]);
     });
 
     it("対応する神業が違えば候補にならない", () => {
@@ -773,8 +771,8 @@ describe("miracleRewriteCandidates()（その神業をロールしたときに�
     });
 
     it("書き換えの設定が未了なら候補にならない（効果の出どころが空／参照型で参照先が空）", () => {
-        const blank = skill({ miracleRewrite: { targetKey: "", effect: "" } });
-        const refNothing = skill({ miracleRewrite: { targetKey: "", effect: "ref", refUuid: "" } });
+        const blank = skill({ miracleRewrite: { targetKey: "chai", effect: "" } });
+        const refNothing = skill({ miracleRewrite: { targetKey: "chai", effect: "ref", refUuid: "" } });
         expect(miracleRewriteCandidates([blank, refNothing], chai)).toEqual([]);
     });
 
