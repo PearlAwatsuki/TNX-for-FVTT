@@ -9,7 +9,6 @@ import {
   buildSkillCascadeSteps,
   resolveComboSkillName,
   formatGroupedSkillNames,
-  mergeContactEntries,
   mergeSkillEntries,
 } from "../../scripts/module/skill-dictionary.mjs";
 import { styleSortPosition } from "../../scripts/module/identification.mjs";
@@ -131,77 +130,6 @@ describe("mergeSkillEntries()（技能の源＝辞典＋ワールド直下・202
   it("空・未指定の入力は空配列", () => {
     expect(mergeSkillEntries()).toEqual([]);
     expect(mergeSkillEntries(null, null)).toEqual([]);
-  });
-});
-
-describe("mergeContactEntries()（コネ技能＝辞典＋ワールド直下・2026-08-12 指示）", () => {
-  const pack = [
-    { identificationKey: "contact_keith", name: "コネ：キース", uuid: "Compendium.x.Item.k",
-      generalSkillCategory: "onomasticSkill" },
-    { identificationKey: "society_nova",  name: "社会：N◎VA", uuid: "Compendium.x.Item.s",
-      generalSkillCategory: "onomasticSkill" },
-    { identificationKey: "medicine",      name: "医療",        uuid: "Compendium.x.Item.m",
-      generalSkillCategory: "initialSkill" },
-  ];
-
-  it("両者からコネ技能だけを集める（他の小分類・無条件取得技能は落ちる）", () => {
-    const world = [
-      { identificationKey: "contact_akira", name: "コネ：アキラ", uuid: "Item.w1",
-        generalSkillCategory: "onomasticSkill" },
-      { identificationKey: "society_street", name: "社会：ストリート", uuid: "Item.w2",
-        generalSkillCategory: "onomasticSkill" },
-    ];
-    expect([...mergeContactEntries(pack, world).keys()])
-      .toEqual(["contact_akira", "contact_keith"]);
-  });
-
-  it("同じ識別キーは辞典を優先する（ワールド側で上書きしない）", () => {
-    const world = [
-      { identificationKey: "contact_keith", name: "コネ：キース（ワールド）", uuid: "Item.w1",
-        generalSkillCategory: "onomasticSkill" },
-    ];
-    const merged = mergeContactEntries(pack, world);
-    expect(merged.size).toBe(1);
-    expect(merged.get("contact_keith")).toEqual({ name: "コネ：キース", uuid: "Compendium.x.Item.k" });
-  });
-
-  it("小分類が固有名詞技能でないものは contact_ で始まっても採らない（辞典と同じ条件）", () => {
-    const world = [
-      { identificationKey: "contact_ghost", name: "コネ：ゴースト", uuid: "Item.w1",
-        generalSkillCategory: "initialSkill" },
-    ];
-    expect([...mergeContactEntries([], world).keys()]).toEqual([]);
-  });
-
-  it("識別キーの無いワールドアイテムは候補にならない（コネかどうかを判定できない）", () => {
-    const world = [
-      { identificationKey: "", name: "コネ：無名", uuid: "Item.w1", generalSkillCategory: "onomasticSkill" },
-      { name: "コネ：キー未設定", uuid: "Item.w2", generalSkillCategory: "onomasticSkill" },
-    ];
-    expect([...mergeContactEntries([], world).keys()]).toEqual([]);
-  });
-
-  it("並びは名前順（出所で分けない＝辞典とワールドが混ざる）", () => {
-    const world = [
-      { identificationKey: "contact_ka", name: "コネ：か", uuid: "Item.w1",
-        generalSkillCategory: "onomasticSkill" },
-      { identificationKey: "contact_sa", name: "コネ：さ", uuid: "Item.w2",
-        generalSkillCategory: "onomasticSkill" },
-    ];
-    const packJa = [
-      { identificationKey: "contact_a", name: "コネ：あ", uuid: "Compendium.x.Item.a",
-        generalSkillCategory: "onomasticSkill" },
-      { identificationKey: "contact_ki", name: "コネ：き", uuid: "Compendium.x.Item.b",
-        generalSkillCategory: "onomasticSkill" },
-    ];
-    expect([...mergeContactEntries(packJa, world).values()].map(v => v.name))
-      .toEqual(["コネ：あ", "コネ：か", "コネ：き", "コネ：さ"]);
-  });
-
-  it("空・未指定の入力は空の Map", () => {
-    expect(mergeContactEntries().size).toBe(0);
-    expect(mergeContactEntries([], []).size).toBe(0);
-    expect(mergeContactEntries(null, null).size).toBe(0);
   });
 });
 
