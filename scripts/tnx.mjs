@@ -49,7 +49,6 @@ import { TokyoNovaHousingAreaSheet } from './item/tnx-housing-area-sheet.mjs';
 import { TnxScenarioSheet } from './journal/tnx-scenario-sheet.mjs';
 import { TnxFocusSystemSheet } from './journal/tnx-focus-system-sheet.mjs';
 import { TnxCardSetupApp } from './module/tnx-card-setup-app.mjs';
-import { TnxActionHandler } from './module/tnx-action-handler.mjs';
 import { TnxHud } from './module/tnx-hud.mjs';
 import { TnxRecordSheet } from './module/tnx-record-sheet.mjs';
 import { registerDrawTableHooks } from './module/tnx-draw-table.mjs';
@@ -155,11 +154,7 @@ async function preloadHandlebarsTemplates() {
         "systems/tokyo-nova-axleration/templates/dialog/amount-input-dialog.hbs",
         "systems/tokyo-nova-axleration/templates/dialog/card-selection-dialog.hbs",
         "systems/tokyo-nova-axleration/templates/dialog/deal-trump-dialog.hbs",
-        "systems/tokyo-nova-axleration/templates/dialog/deck-creation-dialog.hbs",
-        "systems/tokyo-nova-axleration/templates/dialog/rich-confirm-dialog.hbs",
         "systems/tokyo-nova-axleration/templates/dialog/target-selection-dialog.hbs",
-        "systems/tokyo-nova-axleration/templates/dialog/unlink-confirm-dialog.hbs",
-        "systems/tokyo-nova-axleration/templates/dialog/usage-creation-dialog.hbs",
 
         // === Partials ===
         // アクターシート共通部品(フェーズ11-2。cast/guest 等で共有・features フラグで差異をゲート)
@@ -1635,7 +1630,7 @@ Hooks.once("init", async function() {
     });
 
     // v13: 標準ボタン行(header-actions)の直後に「アクトシートを作成」ボタンを 2 段目として挿入する。
-    Hooks.on("renderJournalDirectory", (app, html, data) => {
+    Hooks.on("renderJournalDirectory", (app, html) => {
         if (!game.user.isGM) return;
 
         const createEntryButton = html.querySelector('[data-action="createEntry"]');
@@ -1772,7 +1767,7 @@ Hooks.once("init", async function() {
         item.updateSource({ ownership: ownership });
     });
 
-    Hooks.on("preCreateCard", (card, data, options, userId) => {
+    Hooks.on("preCreateCard", (card) => {
         const parentPile = card.parent;
 
         // 既存の切り札上限チェック処理
@@ -1831,7 +1826,7 @@ Hooks.once("init", async function() {
     // `return false` が Promise になり削除を止められない。止めたつもりの削除がそのまま通り、
     // 後から届く update が「もう無い文書」に当たってサーバがエラーを返していた(KI-051・2026-09-05)。
     // 中で必要な非同期処理は投げっぱなしにする(止める判断は同期で済ませてから行う)。
-    Hooks.on("preDeleteItem", (item, options, userId) => {
+    Hooks.on("preDeleteItem", (item) => {
         if (item.type === "miracle" && item.actor) {
             // 母数(uses.max)が2以上なら削除でなく-1(多重取得の1つを外す)。2026-07-18 uses 一本化
             const update = miracleRemovalUpdate(item.system);
@@ -2099,7 +2094,7 @@ Hooks.once("init", async function() {
         }
     });
 
-    Hooks.on("createCard", (cardDocument, options, userId) => {
+    Hooks.on("createCard", (cardDocument) => {
         console.log(`TokyoNOVA | Card created in ${cardDocument.parent.name}. Refreshing UIs.`);
         setTimeout(() => game.tnx.refreshSheets(), 50);
     });
@@ -2108,7 +2103,7 @@ Hooks.once("init", async function() {
      * Cardの子ドキュメントが削除された際にUIを更新するフック。
      * カードが山札や手札から移動した（描画された、プレイされた）場合などに作動します。
      */
-    Hooks.on("deleteCard", (cardDocument, options, userId) => {
+    Hooks.on("deleteCard", (cardDocument) => {
         console.log(`TokyoNOVA | Card deleted from ${cardDocument.parent.name}. Refreshing UIs.`);
         setTimeout(() => game.tnx.refreshSheets(), 50);
     });
@@ -2273,7 +2268,7 @@ Hooks.once("ready", async function() {
 
     Hooks.on('createItem', (item) => recalcActorExp(item));
     Hooks.on('deleteItem', (item) => recalcActorExp(item));
-    Hooks.on('updateItem', (item, diff, options) => recalcActorExp(item));
+    Hooks.on('updateItem', (item) => recalcActorExp(item));
 
     // スタイル技能をアクターに取得(インポート/ドロップ)した時、自動取得対象の武器を複製生成(10-2)。
     // 多重生成を避けるため作成したユーザーのみ実行。
@@ -2308,7 +2303,7 @@ Hooks.once("ready", async function() {
         );
     }
 
-    Hooks.on('updateActor', async (actor, diff, options, userId) => {
+    Hooks.on('updateActor', async (actor, diff, options) => {
         if (actor.type === 'cast' && options.calcExp !== false && !options.syncing) {
             if (diff.system) {
                  await TokyoNovaCastSheet.updateCastExp(actor);

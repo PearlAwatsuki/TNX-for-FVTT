@@ -20,7 +20,7 @@ import { listAppearingActors } from "./appearance-state.mjs";
 import {
     normalizeSceneRow, normalizeHandoutRow, findSceneRow, firstSceneRow,
     buildPreActInit, planSceneSwitchEvents, planActEndEvents,
-    teamCreate, teamJoin, teamLeave, teamDelete, teamOf,
+    teamCreate, teamJoin, teamLeave, teamDelete,
     hasBackstage, backstageQueue, nextBackstageSpot, isBackstageFinished,
     findDuplicateKeys, matchTrumpCard,
     rotationOrder, resolveRotationDefault, stageCandidateActorIds,
@@ -898,10 +898,6 @@ export function recordCurrentSceneCard(cardId) {
 
 export function getTeams() {
     return getSessionState().teams;
-}
-
-export function teamOfActor(actorId) {
-    return teamOf(getTeams(), actorId);
 }
 
 export async function createTeam(name = "") {

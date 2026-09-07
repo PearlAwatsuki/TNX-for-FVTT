@@ -84,10 +84,6 @@ export function drawVirtualTrump() {
 }
 
 /** @deprecated drawVirtualTrump を使用すること */
-export function drawVirtualDocValue() {
-    return drawVirtualTrump().value;
-}
-
 /**
  * ドロー表専用チャットメッセージを投稿する。
  * コアの「ロール表」メッセージを抑制し代わりに投稿する。ダイス音なし。

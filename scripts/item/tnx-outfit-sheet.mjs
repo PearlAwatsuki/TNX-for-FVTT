@@ -522,12 +522,6 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         const s1 = await resolve(system.combine.source1);
         const s2 = await resolve(system.combine.source2);
 
-        const categoryOf = (it) => {
-            if (!it) return "";
-            const majL = getMajorCategoryLabel(it.system.majorCategory);
-            const minL = getMinorCategoryLabel(it.system.minorCategory);
-            return majL && minL ? `${majL}／${minL}` : (majL || minL || "-");
-        };
         const hackOf = (it) => (it?.system?.hack?.mode === "value" ? num(it.system.hack.value) : null);
         const hideOf = (sys) => sys?.hide?.mode === "reference" ? "解説参照"
             : sys?.hide?.mode === "value" ? String(num(sys.hide.value)) : "-";

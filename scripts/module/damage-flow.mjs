@@ -1521,7 +1521,6 @@ async function applyDerivedDamage(target, derived) {
     // 軽減を挟まず直接チャート適用(applyDamageToTarget を再帰・型分岐/更なる派生も自然に連鎖)
     const applyText = await applyDamageToTarget(target, derived.category, total, stage);
     const label = CATEGORY_LABELS[derived.category] ?? derived.category;
-    const esc = foundry.utils.escapeHTML;
     await ChatMessage.create({
         speaker: ChatMessage.getSpeaker({ actor: target }),
         content: await foundry.applications.handlebars.renderTemplate(

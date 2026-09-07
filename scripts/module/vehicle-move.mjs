@@ -12,21 +12,9 @@
  */
 
 import { movementStagesFromAchievement } from "./vehicle-move-logic.mjs";
-import { findItemByIdentificationKey } from "./identification.mjs";
 import { buildCheckCardContext } from "./check-card-context.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
-
-/**
- * ヴィークルの対応操縦キー(operateSkillKey)から、アクターの操縦技能を解決する。
- * (搭乗時の対決置き換え「〈操縦〉※」の解決と同じキーを使う)
- * @param {Actor} actor
- * @param {Item} vehicle
- * @returns {Item|null}
- */
-export function resolveOperateSkill(actor, vehicle) {
-  return findItemByIdentificationKey(actor, vehicle?.system?.operateSkillKey || "", { type: "generalSkill" });
-}
 
 /**
  * 移動結果カードを投稿する(判定完了時・TnxCheckFlow._execute から。通常の結果カードの代わり)。
