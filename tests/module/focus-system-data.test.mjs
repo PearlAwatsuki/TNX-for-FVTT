@@ -4,7 +4,7 @@ import {
   readFocusSystemData,
   newProgressRow,
   isFocusSystemJournal,
-} from "../../scripts/module/focus-system-data.mjs";
+} from "../../scripts/focus-system/data.mjs";
 
 const SCOPE = "tokyo-nova-axleration";
 

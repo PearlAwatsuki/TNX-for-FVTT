@@ -10,9 +10,8 @@
  * 正本はワールド設定側にあり、起動時にスナップショットを取り込む。
  */
 
-import { readFocusSystemData, FOCUS_SYSTEM_FLAG } from "../module/focus-system-data.mjs";
-import { buildFocusSystemEditorContext } from "../module/focus-system-form.mjs";
-import { bindFocusSystemEditor } from "../module/focus-system-editor.mjs";
+import { readFocusSystemData, FOCUS_SYSTEM_FLAG } from "../focus-system/data.mjs";
+import { buildFocusSystemEditorContext, bindFocusSystemEditor } from "../focus-system/editor.mjs";
 import { captureScrollTop, restoreScrollTop } from "../module/scroll-preserve.mjs";
 
 const { HandlebarsApplicationMixin, DocumentSheetV2 } = foundry.applications.api;

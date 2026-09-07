@@ -11,10 +11,9 @@
  * シートを編集しても実行中の FS は変わらない。
  */
 
-import { readFocusSystemData, defaultFocusSystemData, isFocusSystemJournal } from "./focus-system-data.mjs";
-import { buildFocusSystemEditorContext, readFocusSystemForm } from "./focus-system-form.mjs";
-import { bindFocusSystemEditor } from "./focus-system-editor.mjs";
-import { captureScrollTop, restoreScrollTop } from "./scroll-preserve.mjs";
+import { readFocusSystemData, defaultFocusSystemData, isFocusSystemJournal } from "../focus-system/data.mjs";
+import { buildFocusSystemEditorContext, readFocusSystemForm, bindFocusSystemEditor } from "../focus-system/editor.mjs";
+import { captureScrollTop, restoreScrollTop } from "../module/scroll-preserve.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 

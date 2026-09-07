@@ -11,8 +11,8 @@
 
 import { postCheckRequest } from "../app/tnx-rl-request-app.mjs";
 import { buildProgressRequest, buildSupportRequest } from "../rules/focus-system-request.mjs";
-import { loadSkillEntries, SKILL_PACKS, formatDesignatedSkills } from "./skill-dictionary.mjs";
-import { listActiveFocusSystems } from "./focus-system-state.mjs";
+import { loadSkillEntries, SKILL_PACKS, formatDesignatedSkills } from "../module/skill-dictionary.mjs";
+import { listActiveFocusSystems } from "./state.mjs";
 
 /**
  * 参加アクターの候補。コンバットに登録されたキャストを既定とし、コンバットが無ければ

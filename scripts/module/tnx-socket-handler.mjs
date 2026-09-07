@@ -188,7 +188,7 @@ export class TnxSocketHandler {
         // 付与。AR−1＋CS0 はイニシアチブ終了時に一般則で適用・2026-07-26/08-05)。手動ボタンではなく機械的な
         // 帰結のため(2026-07-24 ユーザー確定)。他の checkRequest では no-op。
         if (flags.focusSystemKind === "support") {
-            const { autoApplyFocusSupport } = await import("./focus-system-result.mjs");
+            const { autoApplyFocusSupport } = await import("../focus-system/result.mjs");
             await autoApplyFocusSupport(message, actorId);
         }
     }

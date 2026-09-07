@@ -22,7 +22,7 @@ const {
   buildProgressModChoices,
   resolveProgressMod,
   outfitFieldNumber,
-} = await import("../../scripts/module/progress-mod.mjs");
+} = await import("../../scripts/focus-system/progress-mod.mjs");
 
 describe("PROGRESS_MOD_SOURCES（進行修正の参照元）", () => {
   it("なし・アウトフィット・キャラクターの3つ", () => {
