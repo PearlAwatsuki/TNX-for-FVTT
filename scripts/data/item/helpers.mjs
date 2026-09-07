@@ -680,6 +680,48 @@ export function planTransferCopySync(copies, wanted) {
 }
 
 /**
+ * 転送コピーが既に現在の定義と一致しているか(2026-09-07)。
+ *
+ * 供給元が正なので同期のたびにコピーを上書きしていたが、**内容が同じでも書いていた**。
+ * 埋め込み効果の update は派生再計算とシート再描画を伴い、アイテム追加のたびに全コピーを
+ * 書き直すと一括インポート(初期技能・辞典からのドラッグ)で累積する。同一なら書かない。
+ *
+ * 比較するのは {@link buildTransferredEffectData} が設定する項目だけ。それ以外はこの機構の
+ * 管理外なので見ない。
+ *
+ * @param {{name?:string, img?:string, disabled?:boolean, transfer?:boolean, origin?:string,
+ *          changes?:Array<object>, flags?:object}|null} copy 現在のコピー
+ * @param {object|null} data 現在の定義から組んだ望ましい内容
+ * @param {string} [scope]
+ * @returns {boolean} 一致していれば true(書き込み不要)
+ */
+export function transferCopyIsCurrent(copy, data, scope = "tokyo-nova-axleration") {
+  if (!copy || !data) return false;
+  if ((copy.name ?? "") !== (data.name ?? "")) return false;
+  if ((copy.img ?? "") !== (data.img ?? "")) return false;
+  if ((copy.disabled === true) !== (data.disabled === true)) return false;
+  if ((copy.transfer !== false) !== (data.transfer !== false)) return false;
+  if ((copy.origin ?? "") !== (data.origin ?? "")) return false;
+
+  const a = copy.changes ?? [], b = data.changes ?? [];
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if ((a[i]?.key ?? "") !== (b[i]?.key ?? "")) return false;
+    if (String(a[i]?.value ?? "") !== String(b[i]?.value ?? "")) return false;
+    if ((a[i]?.mode ?? null) !== (b[i]?.mode ?? null)) return false;
+    if ((a[i]?.priority ?? null) !== (b[i]?.priority ?? null)) return false;
+  }
+
+  // 自スコープのフラグは供給元名・stackable・effectId 等が条件つきで載るため、
+  // 片側にしか無いキーも差分として扱う(和集合で突き合わせる)
+  const fa = copy.flags?.[scope] ?? {}, fb = data.flags?.[scope] ?? {};
+  for (const k of new Set([...Object.keys(fa), ...Object.keys(fb)])) {
+    if (String(fa[k] ?? "") !== String(fb[k] ?? "")) return false;
+  }
+  return true;
+}
+
+/**
  * キャラクターの一部を表すアイテム(技能・神業等)の上に残っている**転送コピー**を、アイテムごとに
  * 列挙する(2026-09-02・起動時の一回限り掃除用)。
  *

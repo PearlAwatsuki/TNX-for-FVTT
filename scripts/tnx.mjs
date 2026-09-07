@@ -82,7 +82,7 @@ import { getUserFlagData, calcHistoryExpTotal, TNX_FLAG_SCOPE } from './module/u
 import { calcSharedSpent, buildCastHistorySyncUpdate, mergeHistories, separateHistoryByOrigin } from './module/exp-sync.mjs';
 import { TnxSkillUtils } from './module/tnx-skill-utils.mjs';
 import { CONDITION_KINDS, CONDITION_GROUP_LABELS, conditionDisplayName, getConditionKinds, buildInflictedEffectsData, applyDamageTagMods, readConditions, blocksMainProcess, actorCannotMainProcess } from './module/conditions.mjs';
-import { gatherDamageTagMods, parseEffectTargetKey, buildTransferredEffectData, planTransferCopySync, isOutfitItem, planCapabilityTransferCleanup, AE_FLAG_PARAMS } from './data/item/helpers.mjs';
+import { gatherDamageTagMods, parseEffectTargetKey, buildTransferredEffectData, planTransferCopySync, transferCopyIsCurrent, isOutfitItem, planCapabilityTransferCleanup, AE_FLAG_PARAMS } from './data/item/helpers.mjs';
 import { runSerial } from './module/serial-queue.mjs';
 import { registerPartSlotPresetSetting, getPartSlotPreset, initializeDefaultPartSlotPreset, migratePartSlotKeys } from './module/part-slot-preset-app.mjs';
 import { autoAcquireForStyleSkill, autoImportDerivedData } from './module/style-skill-acquisition.mjs';
@@ -888,8 +888,14 @@ async function materializeItemTransfers(actor, effect, bearer) {
             const plan = planTransferCopySync(copies, !!data);
             // 狙わなくなった/余分なコピーを先に除去してから、残す1つを現在値へ揃える
             if (plan.delete.length) await item.deleteEmbeddedDocuments("ActiveEffect", plan.delete);
-            if (plan.update) await item.effects.get(plan.update)?.update(data); // 供給元が正
-            else if (plan.create) await item.createEmbeddedDocuments("ActiveEffect", [data]);
+            if (plan.update) {
+                // 供給元が正。ただし**同じ内容なら書かない**(2026-09-07)——埋め込み効果の update は
+                // 派生再計算とシート再描画を伴い、アイテム追加のたびに全コピーを書き直していた
+                const copy = item.effects.get(plan.update);
+                if (copy && !transferCopyIsCurrent(copy, data)) await copy.update(data);
+            } else if (plan.create) {
+                await item.createEmbeddedDocuments("ActiveEffect", [data]);
+            }
         }
     });
 }

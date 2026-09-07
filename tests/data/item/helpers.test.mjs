@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { MockNumberField, MockSchemaField, MockStringField } from "../../setup.mjs";
 
-const { defenceField, attackField, modeValueField, computeItemEffectiveValues, parseEffectTargetKey, parseEffectConditions, evalEffectConditions, resolveItemTotalPath, checkChangeMatches, computeCheckBonus, gatherCheckBonusSources, damageVsChangeMatches, gatherDamageVsSources, damageDealtChangeMatches, gatherDamageDealtSources, damageTakenChangeMatches, gatherDamageTakenSources, collectActorEffectBuffs, targetStyleWorksKeys, actorCardValueOverride, itemChangeTargets, buildTransferredEffectData, planTransferCopySync, isOutfitItem, planCapabilityTransferCleanup, effectAutoApplies, analyzeGrantLanding, itemGrantCandidates, rewriteGrantChangesForItem, AE_FLAG_PARAMS, flagTotalPath, readFlag, computeFlagEffectiveValues, parseBooleanFlagValue, isOutfitServiceImmune, isOutfitMalfunctioning, isOutfitDestroyed, isOutfitUnusable, itemKindLabel } = await import("../../../scripts/data/item/helpers.mjs");
+const { defenceField, attackField, modeValueField, computeItemEffectiveValues, parseEffectTargetKey, parseEffectConditions, evalEffectConditions, resolveItemTotalPath, checkChangeMatches, computeCheckBonus, gatherCheckBonusSources, damageVsChangeMatches, gatherDamageVsSources, damageDealtChangeMatches, gatherDamageDealtSources, damageTakenChangeMatches, gatherDamageTakenSources, collectActorEffectBuffs, targetStyleWorksKeys, actorCardValueOverride, itemChangeTargets, buildTransferredEffectData, planTransferCopySync, transferCopyIsCurrent, isOutfitItem, planCapabilityTransferCleanup, effectAutoApplies, analyzeGrantLanding, itemGrantCandidates, rewriteGrantChangesForItem, AE_FLAG_PARAMS, flagTotalPath, readFlag, computeFlagEffectiveValues, parseBooleanFlagValue, isOutfitServiceImmune, isOutfitMalfunctioning, isOutfitDestroyed, isOutfitUnusable, itemKindLabel } = await import("../../../scripts/data/item/helpers.mjs");
 
 describe("defenceField()", () => {
   it("呼び出せる", () => {
@@ -945,6 +945,69 @@ describe("planTransferCopySync()（供給元×アイテムごとの転送コピ�
 
   it("狙っておらずコピーも無ければ何もしない", () => {
     expect(planTransferCopySync([], false)).toEqual({ update: null, create: false, delete: [] });
+  });
+});
+
+// 供給元が正なので同期のたびにコピーを上書きしていたが、内容が同じでも書いていた(2026-09-07)。
+// 埋め込み効果の update は派生再計算とシート再描画を伴い、アイテムを 1 つ足すたびに全コピーを
+// 書き直すため、初期技能の一括インポートや辞典からの連続ドラッグで累積していた。
+describe("transferCopyIsCurrent()（同じ内容なら書かない・2026-09-07）", () => {
+  const data = () => ({
+    name: "強化", img: "icons/a.webp", disabled: false, transfer: false, origin: "Item.s.ActiveEffect.e",
+    changes: [{ key: "system.attack.value", value: "2", mode: 2, priority: null }],
+    flags: { "tokyo-nova-axleration": { transferredFrom: "Item.s.ActiveEffect.e", transferredSourceName: "オプション" } },
+  });
+
+  it("同じ内容なら現在値と見なす", () => {
+    expect(transferCopyIsCurrent(data(), data())).toBe(true);
+  });
+
+  it.each([
+    ["name",     (d) => { d.name = "別名"; }],
+    ["img",      (d) => { d.img = "icons/b.webp"; }],
+    ["disabled", (d) => { d.disabled = true; }],
+    ["origin",   (d) => { d.origin = "Item.x.ActiveEffect.y"; }],
+  ])("%s が違えば書き直す", (_label, mutate) => {
+    const copy = data();
+    mutate(copy);
+    expect(transferCopyIsCurrent(copy, data())).toBe(false);
+  });
+
+  it("changes の件数が違えば書き直す", () => {
+    const copy = data();
+    copy.changes.push({ key: "system.guard.value", value: "1", mode: 2, priority: null });
+    expect(transferCopyIsCurrent(copy, data())).toBe(false);
+  });
+
+  it.each([["key", "system.guard.value"], ["value", "3"], ["mode", 5]])(
+    "changes の %s が違えば書き直す", (field, next) => {
+      const copy = data();
+      copy.changes[0][field] = next;
+      expect(transferCopyIsCurrent(copy, data())).toBe(false);
+    });
+
+  it("値は文字列と数値の差では書き直さない(保存で文字列化されるため)", () => {
+    const copy = data();
+    copy.changes[0].value = 2;
+    expect(transferCopyIsCurrent(copy, data())).toBe(true);
+  });
+
+  it("自スコープのフラグが片側にしか無ければ書き直す", () => {
+    const want = data();
+    want.flags["tokyo-nova-axleration"].stackable = true;
+    expect(transferCopyIsCurrent(data(), want)).toBe(false);
+    expect(transferCopyIsCurrent(want, data())).toBe(false);
+  });
+
+  it("供給元の表示名が変わったら書き直す", () => {
+    const copy = data();
+    copy.flags["tokyo-nova-axleration"].transferredSourceName = "別のオプション";
+    expect(transferCopyIsCurrent(copy, data())).toBe(false);
+  });
+
+  it("欠けた入力は現在値と見なさない(書きに行く)", () => {
+    expect(transferCopyIsCurrent(null, data())).toBe(false);
+    expect(transferCopyIsCurrent(data(), null)).toBe(false);
   });
 });
 
