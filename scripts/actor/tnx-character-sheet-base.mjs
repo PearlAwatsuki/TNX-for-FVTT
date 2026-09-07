@@ -2939,13 +2939,13 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         // 判定を行わず組み合わせも無いため、効果文=解説をカードで卓に提示する。適用効果が
         // あれば効果セクション(トレイ)が末尾に注入され、無くてもカードは出す
         // (旧・実行者ローカル通知はカード化に伴い廃止=他クライアントに見えなかった)。
-        // 神業は神業カード(印つき・条件と残り使用回数を持つ)で出す(17-1)
-        // 効果の参照/コピー(17-5): 適用効果は参照先の神業の効果から組む(用途は参照先のもの)
-        const usageEffects = await prepareUsageEffectPayload(actor, asOther?.source ?? item, usage);
+        // 神業は神業カード(印つき・条件と残り使用回数を持つ)で出す(17-1)。神業は「適用される効果」を
+        // 持たない(2026-09-07 ユーザー指示で用途シートのセクションごと削除)ため、ペイロードも組まない。
         // 解説の段(効果文と条件)は**具体的な効果を持たない宣言**のときだけ出す(2026-09-05 ユーザー指示)。
         // 宣言の効果(使用回数+1・神業を使わせる・入れ替え 等)を持つ用途は結果がカードに出る
-        if (item.type === "miracle") await postMiracleCard(item, { usageEffects, asOther });
-        else await item.postDescriptionCard({ usageEffects });
+        if (item.type === "miracle") { await postMiracleCard(item, { asOther }); return true; }
+        const usageEffects = await prepareUsageEffectPayload(actor, asOther?.source ?? item, usage);
+        await item.postDescriptionCard({ usageEffects });
         return true; // 発動した(神業の要求カードが使用済みを記録する・17-4)
     }
 

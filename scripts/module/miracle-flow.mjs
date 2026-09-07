@@ -743,7 +743,7 @@ export async function handleNegateTrayClick(message) {
 }
 
 /**
- * 神業カードの見出しクリック(打ち消し待ち中): その神業を打ち消す。効果文・条件・効果トレイ
+ * 神業カードの見出しクリック(打ち消し待ち中): その神業を打ち消す。効果文・条件
  * (・17-3 で載る適用ボタン)が消え、枠(タグと名前)だけ残る。
  * @param {ChatMessage} message
  */
@@ -759,8 +759,6 @@ export async function handleNegateMiracleCardClick(message) {
     const undo = [
         { messageId: message.id, patch: {
             [`flags.${SCOPE}.miracle.negatedBy`]: mf.negatedBy ?? null,
-            ...(message.getFlag(SCOPE, "usageEffects")
-                ? { [`flags.${SCOPE}.usageEffects.negatedBy`]: message.getFlag(SCOPE, "usageEffects").negatedBy ?? null } : {}),
         } },
         ...await captureCurrentValues(mf.undo),
     ];
@@ -768,9 +766,7 @@ export async function handleNegateMiracleCardClick(message) {
     // 打ち消し・防御そのものを打ち消したときは、その神業が他のカードへ与えた変更を戻す
     // (2026-09-06 ユーザー指摘「撃ち消しや防御はそれ自体を打ち消すこともできます」)
     await revertMiracleUndo(mf);
-    const patch = { [`flags.${SCOPE}.miracle.negatedBy`]: ns.by };
-    if (message.getFlag(SCOPE, "usageEffects")) patch[`flags.${SCOPE}.usageEffects.negatedBy`] = ns.by;
-    await TnxSocketHandler.applyMessagePatch(message, patch);
+    await TnxSocketHandler.applyMessagePatch(message, { [`flags.${SCOPE}.miracle.negatedBy`]: ns.by });
 }
 
 // ─── 回避(防御タイプ・17-2・《脱出》) ─────────────────────────────────────────
@@ -947,14 +943,13 @@ function chatButton(icon, label, onClick) {
 
 /**
  * 神業カードを投稿する。効果文と条件はここでエンリッチし、描画データは純関数で組む。
- * 適用効果(usageEffects)があれば解説カードと同じ器(tnx-usage-use-card ＋ 効果エリア)で包み、
- * 「効果を適用」トレイは renderChatMessageHTML フックが差し込む。
+ * 神業は用途の「適用される効果」を持たない(2026-09-07 ユーザー指示)ため、効果トレイの器は付けない。
  * @param {Item} item 神業アイテム
- * @param {{usageEffects?: ?object, outcome?: ?{icon:string, text:string}}} [opts]
+ * @param {{outcome?: ?{icon:string, text:string}}} [opts]
  *   outcome=この神業の効果として実際に起きたことの帰結行(治癒した状態など)
  * @returns {Promise<ChatMessage>}
  */
-export async function postMiracleCard(item, { usageEffects = null, destroy = null, addUse = null, request = null, swap = null, acquire = null, insensible = false, asOther = null, undo = null, outcome = null } = {}) {
+export async function postMiracleCard(item, { destroy = null, addUse = null, request = null, swap = null, acquire = null, insensible = false, asOther = null, undo = null, outcome = null } = {}) {
     const TE = foundry.applications.ux.TextEditor;
     // 解説の段(効果文と条件)は**常に畳んだ状態でカードの最上部**に置く(2026-09-05 ユーザー指示)。
     // 他の神業として使う(17-5)ときは参照先の文を出す(条件も参照先と同じ)。
@@ -988,9 +983,7 @@ export async function postMiracleCard(item, { usageEffects = null, destroy = nul
     return ChatMessage.create({
         user:    game.user.id,
         speaker: ChatMessage.getSpeaker({ actor: item.actor ?? undefined }),
-        content: usageEffects
-            ? `<div class="tnx-usage-use-card">${card}<div class="tnx-usage-effect-area"></div></div>`
-            : card,
+        content: card,
         flags: {
             "core.canPopout": true,
             [SCOPE]: {
@@ -1004,7 +997,6 @@ export async function postMiracleCard(item, { usageEffects = null, destroy = nul
                     // 打ち消し・防御はそれ自体を打ち消せるので、打ち消されたらここを逆に当てる
                     ...(undo?.length ? { undo } : {}),
                 },
-                ...(usageEffects ? { usageEffects } : {}),
                 // 帰結行(2026-09-07): この神業の効果として実際に起きたこと(治癒した状態など)。
                 // 帰結だけの短いカードを別に出さず、神業カードの中で分かるようにする
                 ...(outcome ? { cardOutcome: outcome } : {}),
