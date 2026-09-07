@@ -182,6 +182,16 @@ describe("規約: 共通の置き場を迂回しない(ラチェット=増やさ
     expect(offenders).toEqual([]);
   });
 
+  // チャットカードの描画は renderChatMessageHTML を 15 回登録しており、メッセージ 1 枚の描画ごとに
+  // 15 個のコールバックが走っていた。さらに「上の checkRequest 描画の**後**に登録し…」のように
+  // 登録順への依存がコメントでしか表現されておらず、行を並べ替えるだけで壊れた。
+  // 2026-09-07 に表(CHAT_CARD_RENDERERS)＋1 回の登録へ寄せたので、再分裂を禁じる。
+  it("renderChatMessageHTML の登録は 1 回だけ(表で順序を表す)", () => {
+    const n = countIn(SRC, /Hooks\.on\("renderChatMessageHTML"/g);
+    expect(n).toBe(1);
+    expect(text.get("scripts/tnx.mjs")).toContain("const CHAT_CARD_RENDERERS = [");
+  });
+
   it("システム ID をファイルごとに再宣言しない", () => {
     const offenders = SRC.filter(p => p !== "scripts/constants.mjs"
       && /const \w+ = "tokyo-nova-axleration";/.test(text.get(p)));

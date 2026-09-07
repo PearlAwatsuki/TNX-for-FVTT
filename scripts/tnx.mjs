@@ -62,7 +62,7 @@ import { renderMiracleCard } from './module/miracle-flow.mjs';
 import { TnxSocketHandler } from './module/tnx-socket-handler.mjs';
 import { TnxCheckFlow, renderRecheckButton } from './module/tnx-check-flow.mjs';
 import { TnxCheckDialog } from './module/tnx-check-dialog.mjs';
-import { TnxRlRequestApp } from './module/tnx-rl-request-app.mjs';
+import { TnxRlRequestApp, renderCheckRequestCard } from './module/tnx-rl-request-app.mjs';
 import { openRlGrantDamage, openRlGrantEffect, openRlGrantBounty } from './module/rl-grant.mjs';
 import { renderBountyGrantCard } from './module/bounty-grant.mjs';
 import { renderHandoutCard } from './module/handout-contact.mjs';
@@ -1052,189 +1052,80 @@ Hooks.on("updateItem", async (item, changed, _options, userId) => {
 // 辞典ブラウザの起動ボタンを辞典サイドバータブ上部へ差し込む(フェーズ16-2・D&D と同配置)
 Hooks.on("renderCompendiumDirectory", (_app, html) => injectDictionaryBrowserButton(html));
 
-// チャットの受付ボタン(ドロー/制御判定)を解決処理に配線する(フェーズ9-4)。
-// 効果決定カード(conditionDraw フラグ)は状態領域をライブ描画する(ボタン→結果の置換・2026-07-12)。
+// ─── チャットカードの描画(2026-09-07 一本化) ───────────────────────────────
+// 従来は renderChatMessageHTML を 15 回登録しており、メッセージ 1 枚の描画ごとに 15 個の
+// コールバックが走っていた。さらに「上の checkRequest 描画の**後**に登録し…」のように
+// **登録順への依存がコメントでしか表現されておらず**、行を並べ替えるだけで壊れる状態だった。
+// 表にして 1 回だけ登録する。**この表の並び順が実行順**。
+//
+// - flag  : そのフラグを持つメッセージにだけ適用(省略=全メッセージ)
+// - when  : 追加条件(フラグの値を受け取る)
+// - render: (message, html, root) を受ける描画関数
+//
+// チャットログの初期描画(既存メッセージの一括レンダリング)は ready 発火前に走るため、
+// 登録は**トップレベル**で行う(ready 内で登録するとリロード直後の表示分に効かない=
+// ダメージカードの本文が殻のまま「内容がすべて消える」ように見えていた・2026-07-14 是正)。
+const CHAT_CARD_RENDERERS = [
+    // チャットの受付ボタン(ドロー/制御判定)を解決処理に配線する(フェーズ9-4)。
+    // 効果決定カード(conditionDraw フラグ)は状態領域をライブ描画する(ボタン→結果の置換・2026-07-12)
+    { render: (message, _html, root) => {
+        bindConditionChatButtons(root);
+        renderConditionDrawCard(message, root);
+    } },
+    // @UUID コンテンツリンクのカード・ツールチップ(16-x): チャット内の辞典アイテムリンクに
+    // ホバーで辞典カードを出す。クリック挙動はコアのまま
+    { render: (_message, _html, root) => { if (root) applyContentLinkCardTooltips(root); } },
+    // 攻撃カード(12-2): 状態領域のライブ描画(未解決=系統別リアクションボタン/解決後=成否表示に置換)
+    { flag: "attackCheck",    render: renderAttackCard },
+    // 個別リアクションカード(12・複数対象一括・2026-07-15): GM＋対象所有者に whisper・解決で全体公開
+    { flag: "attackReaction", render: renderReactionCard },
+    // 報酬点の配布カード(12・2026-07-20): 対象行に受け取りボタン/受け取り済みをライブ描画
+    { flag: "bountyGrant",    render: renderBountyGrantCard },
+    // ハンドアウト送信カード(2026-08-12): コネの受け取りボタン/取得済みをライブ描画
+    { flag: "handoutContact", render: renderHandoutCard },
+    // ダメージ・カード(12-3): 台帳+状態領域のライブ描画(カード追加・適用で更新)
+    { flag: "damageRoll",     render: renderDamageCard },
+    // 神業カード(17-1/17-2): 打ち消された神業は中身が消える・見出しは打ち消しの発動点。
+    // **効果トレイ(usageEffects)より前**に置く(打ち消し済みは効果エリアごと消すため)
+    { flag: "miracle",        render: renderMiracleCard },
+    // 用途の帰結行(2026-09-07): 治療・修理・改造の結果は帰結だけの短いカードを別に出さず、
+    // その使用を表しているカードへ刻む
+    { flag: "cardOutcome",    render: renderCardOutcome },
+    // 用途の適用効果(2026-07-10): 対象所有者/GM が押すと対象へ AE を複製付与する
+    { flag: "usageEffects",   render: renderUsageEffectButton },
+    // 再判定(2026-07-11→2026-07-14 置き換え着地): 達成値を装飾する
+    // (モード外クリック=allowRecheck の素の再判定・モード中=付与/修正の発動)
+    { flag: "checkRecheck",   render: renderRecheckButton },
+    // 種別タグを幅の上限に収める(入りきらない種別名は横に縮める・2026-09-06)。
+    // **描画フックの時点ではまだ DOM に入っていない**(幅が 0 で測れない)ので次のフレームで当てる
+    { render: (_message, html) => requestAnimationFrame(() => fitCardTags(html)) },
+    // 判定要求カード(8-5): 目標値の可視性制御・「判定する」ボタン・結果の注入
+    { flag: "checkRequest",   render: renderCheckRequestCard },
+    // FS 進行判定(13-7): 成功した対象行に RL(=GM)へ「進行値に加算」ボタンを足す。
+    // **上の checkRequest 描画(結果を statusEl に置く)の後**に置き、その結果表示に足す形にする
+    { flag: "checkRequest", when: (f) => f.focusSystemKind === "progress",
+      render: renderFocusProgressButton },
+    // FS 支援判定: 結果確定で自動適用される(autoApplyFocusSupport が _onCheckResult で実行)。
+    // ここは適用済みの表示(支援成立→対象の進行+1／支援失敗)のみ描画する
+    { flag: "checkRequest", when: (f) => f.focusSystemKind === "support",
+      render: renderFocusSupportNote },
+];
+
 Hooks.on("renderChatMessageHTML", (message, html) => {
     const root = html instanceof HTMLElement ? html : html?.[0];
-    bindConditionChatButtons(root);
-    renderConditionDrawCard(message, root);
+    for (const { flag, when, render } of CHAT_CARD_RENDERERS) {
+        if (!flag) { render(message, html, root); continue; }
+        const data = message.getFlag(SYSTEM_ID, flag);
+        if (!data) continue;
+        if (when && !when(data)) continue;
+        render(message, html, root);
+    }
 });
 
-// @UUID コンテンツリンクのカード・ツールチップ(16-x): チャット内の辞典アイテムリンクに
-// ホバーで辞典カードを出す(ジャーナルページも同様)。クリック挙動はコアのまま
-Hooks.on("renderChatMessageHTML", (_message, html) => {
-    const root = html instanceof HTMLElement ? html : html?.[0];
-    if (root) applyContentLinkCardTooltips(root);
-});
+// @UUID コンテンツリンクのカード・ツールチップ: ジャーナルページも同じ扱いにする
 Hooks.on("renderJournalEntryPageSheet", (_app, html) => {
     const root = html instanceof HTMLElement ? html : html?.[0];
     if (root) applyContentLinkCardTooltips(root);
-});
-
-// ─── チャットカードのライブ描画(フラグ→表示)はトップレベルで登録する ─────────────
-// チャットログの初期描画(既存メッセージの一括レンダリング)は ready 発火前に走るため、
-// ready 内で登録するとリロード直後の表示分にフックが効かない(ダメージカードは本文が殻の
-// ため「内容がすべて消える」ように見えていた=2026-07-14 ユーザー報告で是正)。
-
-// 攻撃カード(12-2): 状態領域のライブ描画(未解決=系統別リアクションボタン/解決後=成否表示に置換。
-// checkRequest の結果注入と同型のフラグ+再描画方式)
-Hooks.on("renderChatMessageHTML", (message, html) => {
-    if (message.getFlag(SYSTEM_ID, "attackCheck")) {
-        renderAttackCard(message, html);
-    }
-});
-
-// 個別リアクションカード(12・複数対象一括・2026-07-15): GM＋対象所有者に whisper・解決で全体公開
-Hooks.on("renderChatMessageHTML", (message, html) => {
-    if (message.getFlag(SYSTEM_ID, "attackReaction")) {
-        renderReactionCard(message, html);
-    }
-});
-
-// 報酬点の配布カード(12・2026-07-20): 対象行に受け取りボタン/受け取り済みをライブ描画
-Hooks.on("renderChatMessageHTML", (message, html) => {
-    if (message.getFlag(SYSTEM_ID, "bountyGrant")) {
-        renderBountyGrantCard(message, html);
-    }
-});
-
-// ハンドアウト送信カード(2026-08-12): コネの受け取りボタン/取得済みをライブ描画
-Hooks.on("renderChatMessageHTML", (message, html) => {
-    if (message.getFlag(SYSTEM_ID, "handoutContact")) {
-        renderHandoutCard(message, html);
-    }
-});
-
-// ダメージ・カード(12-3): 台帳+状態領域のライブ描画(カード追加・適用で更新)
-Hooks.on("renderChatMessageHTML", (message, html) => {
-    if (message.getFlag(SYSTEM_ID, "damageRoll")) {
-        renderDamageCard(message, html);
-    }
-});
-
-// 神業カード(17-1/17-2): 打ち消された神業は中身が消える・見出しは打ち消しの発動点。
-// 効果トレイの描画より前に呼ぶ(打ち消し済みは効果エリアごと消す)
-Hooks.on("renderChatMessageHTML", (message, html) => {
-    if (message.getFlag(SYSTEM_ID, "miracle")) {
-        renderMiracleCard(message, html);
-    }
-});
-
-// 用途の帰結行(2026-09-07): 治療・修理・改造の結果は帰結だけの短いカードを別に出さず、
-// その使用を表しているカード(神業カード・解説カード・判定結果カード)へ刻む
-Hooks.on("renderChatMessageHTML", (message, html) => {
-    if (message.getFlag(SYSTEM_ID, "cardOutcome")) {
-        renderCardOutcome(message, html);
-    }
-});
-
-// 用途の適用効果(2026-07-10): usageEffects フラグを持つカード(判定結果/攻撃/用途使用)に
-// 「効果を適用」ボタンを描画。対象所有者/GM が押すと対象へ AE を複製付与する。
-Hooks.on("renderChatMessageHTML", (message, html) => {
-    if (message.getFlag(SYSTEM_ID, "usageEffects")) {
-        renderUsageEffectButton(message, html);
-    }
-});
-
-// 再判定(2026-07-11→2026-07-14 置き換え着地): checkRecheck フラグを持つカード(判定結果/攻撃)の
-// 達成値を装飾する(モード外クリック=allowRecheck の素の再判定・モード中=付与/修正の発動)。
-Hooks.on("renderChatMessageHTML", (message, html) => {
-    if (message.getFlag(SYSTEM_ID, "checkRecheck")) {
-        renderRecheckButton(message, html);
-    }
-});
-
-// チャットカードの種別タグ: 幅の上限に収める(入りきらない種別名は横に縮める・2026-09-06)。
-// **描画フックの時点ではまだ DOM に入っていない**(幅が 0 で測れない)ので、次のフレームで当てる
-Hooks.on("renderChatMessageHTML", (message, html) => requestAnimationFrame(() => fitCardTags(html)));
-
-// 判定要求チャットカード: 目標値の可視性制御 + 「判定する」ボタン / 結果注入（フェーズ 8-5）
-Hooks.on("renderChatMessageHTML", (message, html) => {
-    const flagData = message.getFlag(SYSTEM_ID, "checkRequest");
-    if (!flagData) return;
-
-    // 目標値: targetValueHidden かつ非 GM の場合は非公開表示
-    const tnEl = html.querySelector(".tnx-card__field-value--tn");
-    if (tnEl && flagData.targetValueHidden && !game.user.isGM) {
-        tnEl.textContent = "（非公開）";
-        tnEl.classList.add("tnx-card__field-value--hidden");
-    }
-
-    // 各対象行: 結果がある場合は結果表示、未判定の場合はボタンまたは「待機中」
-    for (const row of html.querySelectorAll(".tnx-card__target")) {
-        const actorId  = row.dataset.actorId;
-        const statusEl = row.querySelector(".tnx-card__target-status");
-        if (!statusEl) continue;
-
-        const result = flagData.results?.[actorId];
-        if (result) {
-            // 判定済み: 結果を表示
-            const resultEl = document.createElement("div");
-            resultEl.className = "tnx-card__target-result";
-            if (flagData.checkType === "controlCheck") {
-                // controlNegate 由来の要求は帰結(無効化/降格/継続)もライブ書き換えで表示する
-                const negateText = result.negateOutcome?.text
-                    ? ` <span class="tnx-card__target-negate">${foundry.utils.escapeHTML(result.negateOutcome.text)}</span>`
-                    : "";
-                resultEl.innerHTML = (result.success
-                    ? '<span class="cr-inline-success"><i class="fas fa-check"></i> 成功</span>'
-                    : '<span class="cr-inline-failure"><i class="fas fa-times"></i> 失敗</span>')
-                    + negateText;
-            } else if (result.fumble) {
-                resultEl.innerHTML = '<span class="cr-inline-fumble"><i class="fas fa-skull"></i> ファンブル</span>';
-            } else {
-                const mark = result.success === true
-                    ? ' <span class="cr-inline-success"><i class="fas fa-check"></i> 成功</span>'
-                    : result.success === false
-                        ? ' <span class="cr-inline-failure"><i class="fas fa-times"></i> 失敗</span>'
-                        : '';
-                // 代用判定(2026-07-09): 指定と別の技能で判定した事実を要求カードにも明示する
-                const subNote = result.substitution?.usedName
-                    ? ` <span class="tnx-card__target-note">代用:${foundry.utils.escapeHTML(result.substitution.usedName)}</span>`
-                    : '';
-                resultEl.innerHTML = `達成値 <strong>${result.achievement ?? "—"}</strong>${mark}${subNote}`;
-            }
-            statusEl.replaceChildren(resultEl);
-        } else if (flagData.status !== "closed") {
-            // 未判定: 判定ボタンはそのアクターの所有者権限を持つユーザー(+GM)に出す
-            // (2026-07-19 ユーザー指示: 対象はアクター登録=ユーザー割り当て・接続状況に依存しない)
-            const targetActor = game.actors.get(actorId);
-            if (targetActor?.isOwner || game.user.isGM) {
-                const btn = document.createElement("button");
-                btn.type      = "button";
-                // テキストボタンは丸型(tnx-ring-btn)に詰め込まない。アイコンは判定=カードのため
-                // カードマーク(2026-07-09 修正。gavel=裁判官の木槌は「judgement」の誤訳由来)
-                btn.className = "tnx-chat-btn tnx-check-do-btn";
-                btn.innerHTML = '<i class="fas fa-diamond"></i> 判定する';
-                btn.addEventListener("click", () => {
-                    TnxRlRequestApp.onDoCheck(flagData, actorId, message.id);
-                });
-                statusEl.replaceChildren(btn);
-            } else {
-                const waiting = document.createElement("span");
-                waiting.className = "tnx-card__target-waiting";
-                waiting.textContent = "待機中…";
-                statusEl.replaceChildren(waiting);
-            }
-        }
-    }
-});
-
-// FS 進行判定(13-7): 進行判定要求カードで成功した対象行に、RL(=GM)へ「進行値に加算」ボタンを描画する。
-// 上の checkRequest 描画(結果を statusEl に置く)の**後**に登録し、その結果表示にボタンを足す形にする。
-Hooks.on("renderChatMessageHTML", (message, html) => {
-    if (message.getFlag(SYSTEM_ID, "checkRequest")?.focusSystemKind === "progress") {
-        renderFocusProgressButton(message, html);
-    }
-});
-
-// FS 支援判定: 支援判定は結果確定で**自動適用**(メジャー記帳＋成功なら対象へ支援 AE(進行 +1)を付与＝
-// autoApplyFocusSupport が _onCheckResult で実行。AR−1＋CS0 はイニシアチブ終了時に一般則で適用・
-// 2026-07-26/08-05)。ここは適用済みの表示(支援成立→対象の進行+1／支援失敗)のみ描画する。
-Hooks.on("renderChatMessageHTML", (message, html) => {
-    if (message.getFlag(SYSTEM_ID, "checkRequest")?.focusSystemKind === "support") {
-        renderFocusSupportNote(message, html);
-    }
 });
 
 // FS判定のカット進行への合流(13-7③④): プロセス開始で進行/支援判定を自動送信する。

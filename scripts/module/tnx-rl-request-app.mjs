@@ -557,3 +557,84 @@ export async function resolveDesignatedSkillResponse(actor, keys) {
     }
     return out;
 }
+
+/**
+ * 判定要求カードの描画(目標値の可視性制御・「判定する」ボタン・結果の注入。フェーズ 8-5)。
+ *
+ * この描画は要求カードを作る側(TnxRlRequestApp)と対になるため、ここに置く
+ * (2026-09-07 移設。従来は tnx.mjs のフック内に 70 行直書きされており、他のカードが
+ * すべて機能側モジュールの render 関数を持つのに対して、ここだけ例外になっていた)。
+ *
+ * @param {ChatMessage} message
+ * @param {HTMLElement} html
+ */
+export function renderCheckRequestCard(message, html) {
+    const flagData = message.getFlag(SYSTEM_ID, "checkRequest");
+    if (!flagData) return;
+
+    // 目標値: targetValueHidden かつ非 GM の場合は非公開表示
+    const tnEl = html.querySelector(".tnx-card__field-value--tn");
+    if (tnEl && flagData.targetValueHidden && !game.user.isGM) {
+        tnEl.textContent = "（非公開）";
+        tnEl.classList.add("tnx-card__field-value--hidden");
+    }
+
+    // 各対象行: 結果がある場合は結果表示、未判定の場合はボタンまたは「待機中」
+    for (const row of html.querySelectorAll(".tnx-card__target")) {
+        const actorId  = row.dataset.actorId;
+        const statusEl = row.querySelector(".tnx-card__target-status");
+        if (!statusEl) continue;
+
+        const result = flagData.results?.[actorId];
+        if (result) {
+            // 判定済み: 結果を表示
+            const resultEl = document.createElement("div");
+            resultEl.className = "tnx-card__target-result";
+            if (flagData.checkType === "controlCheck") {
+                // controlNegate 由来の要求は帰結(無効化/降格/継続)もライブ書き換えで表示する
+                const negateText = result.negateOutcome?.text
+                    ? ` <span class="tnx-card__target-negate">${foundry.utils.escapeHTML(result.negateOutcome.text)}</span>`
+                    : "";
+                resultEl.innerHTML = (result.success
+                    ? '<span class="cr-inline-success"><i class="fas fa-check"></i> 成功</span>'
+                    : '<span class="cr-inline-failure"><i class="fas fa-times"></i> 失敗</span>')
+                    + negateText;
+            } else if (result.fumble) {
+                resultEl.innerHTML = '<span class="cr-inline-fumble"><i class="fas fa-skull"></i> ファンブル</span>';
+            } else {
+                const mark = result.success === true
+                    ? ' <span class="cr-inline-success"><i class="fas fa-check"></i> 成功</span>'
+                    : result.success === false
+                        ? ' <span class="cr-inline-failure"><i class="fas fa-times"></i> 失敗</span>'
+                        : '';
+                // 代用判定(2026-07-09): 指定と別の技能で判定した事実を要求カードにも明示する
+                const subNote = result.substitution?.usedName
+                    ? ` <span class="tnx-card__target-note">代用:${foundry.utils.escapeHTML(result.substitution.usedName)}</span>`
+                    : '';
+                resultEl.innerHTML = `達成値 <strong>${result.achievement ?? "—"}</strong>${mark}${subNote}`;
+            }
+            statusEl.replaceChildren(resultEl);
+        } else if (flagData.status !== "closed") {
+            // 未判定: 判定ボタンはそのアクターの所有者権限を持つユーザー(+GM)に出す
+            // (2026-07-19 ユーザー指示: 対象はアクター登録=ユーザー割り当て・接続状況に依存しない)
+            const targetActor = game.actors.get(actorId);
+            if (targetActor?.isOwner || game.user.isGM) {
+                const btn = document.createElement("button");
+                btn.type      = "button";
+                // テキストボタンは丸型(tnx-ring-btn)に詰め込まない。アイコンは判定=カードのため
+                // カードマーク(2026-07-09 修正。gavel=裁判官の木槌は「judgement」の誤訳由来)
+                btn.className = "tnx-chat-btn tnx-check-do-btn";
+                btn.innerHTML = '<i class="fas fa-diamond"></i> 判定する';
+                btn.addEventListener("click", () => {
+                    TnxRlRequestApp.onDoCheck(flagData, actorId, message.id);
+                });
+                statusEl.replaceChildren(btn);
+            } else {
+                const waiting = document.createElement("span");
+                waiting.className = "tnx-card__target-waiting";
+                waiting.textContent = "待機中…";
+                statusEl.replaceChildren(waiting);
+            }
+        }
+    }
+}
