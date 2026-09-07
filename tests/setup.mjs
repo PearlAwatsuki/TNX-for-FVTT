@@ -2,13 +2,14 @@
  * @fileoverview Foundry VTT グローバルのモック
  *
  * Foundry 環境なしでテストするための最小実装。
- * 各テストファイルからこのファイルを静的インポートすると、インポート評価時に
- * globalThis.foundry がセットされる。vitest.config.mjs の setupFiles 変更は不要。
+ * vitest.config.mjs の setupFiles に登録してあるため、**全テストで自動的に適用される**
+ * (2026-09-07。従来は各テストが手で import しており、書き忘れると落ちていた)。
  *
- * 使い方:
+ * モックのクラスを名指しで使う場合だけ import する:
  *   import { MockSchemaField, MockNumberField } from "../../setup.mjs";
- *   // 上記 import により globalThis.foundry が設定済みになる
- *   const { MyClass } = await import("../scripts/data/my-class.mjs");
+ *
+ * ここは**最小限に保つ**。必要になったテストが出た時点で、そのテストが要るぶんだけ足す
+ * (使う当てのないモックを先回りで作らない)。
  */
 
 export class MockNumberField {
