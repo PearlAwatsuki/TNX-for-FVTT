@@ -52,7 +52,6 @@ describe("規約: ファイル名は export するクラス名と対応する", 
     "scripts/data/card/common/base.mjs",   // CardBaseTemplate: common/ 配下なので base で足りる
     "scripts/module/tnx-dialog.mjs",       // 複数のダイアログをまとめる置き場(意図的な複数クラス)
     "scripts/app/tnx-subscene-panel.mjs", // TnxSubScenePanel: subscene の綴り差のみ
-    "scripts/app/rl-grant.mjs",         // TODO(18-4): Tnx*App 3 つ。tnx-rl-grant-*.mjs へ分割する
   ]);
 
   const kebab = (n) =>
