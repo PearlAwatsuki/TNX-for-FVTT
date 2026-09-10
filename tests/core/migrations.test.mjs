@@ -11,8 +11,51 @@
  * 「表をどう適用するか」を検証する。
  */
 
-import { describe, it, expect, vi } from "vitest";
+import { afterEach, describe, it, expect, vi } from "vitest";
 import { runMigrationList, inferAppliedVersion, MIGRATIONS } from "../../scripts/core/migrations.mjs";
+
+describe("既定GMユーザー名の移行", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  const prepare = (name, role = 4, others = []) => {
+    const user = { name, role, update: vi.fn(async changes => Object.assign(user, changes)) };
+    vi.stubGlobal("CONST", { USER_ROLES: { GAMEMASTER: 4 } });
+    vi.stubGlobal("game", { users: [user, ...others] });
+    return user;
+  };
+  const migration = MIGRATIONS.find(m => m.version === 5);
+
+  it("既定名のGMをRulerに変え、再実行では変更しない", async () => {
+    const user = prepare("Gamemaster");
+    await migration.run();
+    expect(user.name).toBe("Ruler");
+    expect(user.update).toHaveBeenCalledWith({ name: "Ruler" });
+    await migration.run();
+    expect(user.update).toHaveBeenCalledOnce();
+  });
+
+  it.each([["My Ruler", 4], ["Gamemaster", 3], ["Gamemaster", 1]])(
+    "名前や役割が対象外なら変更しない（%s・%s）", async (name, role) => {
+      const user = prepare(name, role);
+      await migration.run();
+      expect(user.update).not.toHaveBeenCalled();
+    },
+  );
+
+  it("Rulerが既にいる場合は重複する名前に変更しない", async () => {
+    const user = prepare("Gamemaster", 4, [{ name: "Ruler", role: 1 }]);
+    await migration.run();
+    expect(user.update).not.toHaveBeenCalled();
+  });
+
+  it("移行完了後にGamemasterへ戻しても次回起動で再改名しない", async () => {
+    const user = prepare("Gamemaster");
+    const record = vi.fn();
+    await runMigrationList([migration], 5, record);
+    expect(user.update).not.toHaveBeenCalled();
+    expect(record).not.toHaveBeenCalled();
+  });
+});
 
 /** 実行順を記録する移行を作る。 */
 const mk = (version, log, { fail = false } = {}) => ({

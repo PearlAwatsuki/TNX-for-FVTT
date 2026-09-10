@@ -82,6 +82,18 @@ export const MIGRATIONS = Object.freeze([
             await cleanupCapabilityTransferCopies();
         },
     },
+    {
+        version: 5,
+        name: "既定GMユーザー名をRulerへ変更",
+        run: async () => {
+            // 初期ユーザーはサーバーがシステム読込前に作るため、初回起動後に変更する。
+            // ユーザーが付けた名前は維持し、同名ユーザーがいれば衝突を避ける。
+            if (game.users.some(user => user.name === "Ruler")) return;
+            const user = game.users.find(user => user.name === "Gamemaster"
+                && user.role === CONST.USER_ROLES.GAMEMASTER);
+            if (user) await user.update({ name: "Ruler" });
+        },
+    },
 ]);
 
 /** 未登録の設定を読んでも落ちないようにする(旧ゲートは将来削除されうる)。 */
