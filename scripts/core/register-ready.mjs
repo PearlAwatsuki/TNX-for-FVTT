@@ -9,7 +9,7 @@
 import { SYSTEM_ID, SOCKET_CHANNEL } from "../constants.mjs";
 import { TokyoNovaCastSheet } from "../actor/tnx-cast-sheet.mjs";
 import { TnxHud } from "../app/tnx-hud.mjs";
-import { recordCastOwnerUser } from "./cast-ownership.mjs";
+import { pickFirstOwnerUserId, recordCastOwnerUser } from "./cast-ownership.mjs";
 import { enforceUsageChainDefaultsOnImport } from "./usage-derivation.mjs";
 import { TnxSocketHandler } from "./tnx-socket-handler.mjs";
 import { TnxCheckFlow } from "../flow/tnx-check-flow.mjs";
@@ -80,17 +80,15 @@ export async function onSystemReady() {
     // Phase 2-1 デプロイ前に ownership が設定済みのキャストはここで補完する
     if (game.user.isGM) {
         const gmSet = new Set(game.users.filter(u => u.isGM).map(u => u.id));
-        const OBSERVER = 2;
         for (const cast of game.actors.filter(a => a.type === 'cast' && !a.system.ownerUserId)) {
-            for (const [userId, level] of Object.entries(cast.ownership ?? {})) {
-                if (userId === 'default' || level < OBSERVER || gmSet.has(userId)) continue;
+            const userId = pickFirstOwnerUserId(cast.ownership, gmSet);
+            if (userId) {
                 const foundUser = game.users.get(userId);
                 if (foundUser?.uuid) {
                     await cast.update({ "system.ownerUserId": foundUser.uuid }, { calcExp: false, syncing: true });
                     if (cast.system.syncWithOwner) {
                         await performInitialHistorySync(cast, foundUser);
                     }
-                    break;
                 }
             }
         }
@@ -248,10 +246,9 @@ export async function onSystemReady() {
 
     // 2-2: User flag(exp/history)変更 → レコードシート再描画 + cast ローカル履歴同期
     // syncCastExpToUser が { syncing: true } で書き込むため、その折り返しはここで遮断する
+    // 初回同期も画面へ反映する。syncing はデータの再同期だけを遮断し、再描画は遮断しない。
     // 全クライアントでレコードシートを再描画してから GM クライアントのみ cast 同期を行う
     Hooks.on('updateUser', async (user, diff, options) => {
-        if (options.syncing) return;
-
         const flagDiff = diff.flags?.[SYSTEM_ID];
         if (!flagDiff) return;
         if (!("exp" in flagDiff) && !("history" in flagDiff)) return;
@@ -260,7 +257,7 @@ export async function onSystemReady() {
         const sheet = foundry.applications?.instances?.get(`tnx-record-sheet-${user.id}`);
         if (sheet?.rendered) sheet.render();
 
-        if (!game.user.isGM) return;
+        if (options.syncing || !game.user.isGM) return;
 
         const linkedCasts = game.actors.filter(
             a => a.type === 'cast' && a.system.ownerUserId === user.uuid && a.system.syncWithOwner

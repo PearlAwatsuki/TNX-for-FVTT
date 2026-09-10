@@ -13,21 +13,26 @@
 const OBSERVER_LEVEL = 2;
 
 /**
- * ownership オブジェクトから GM を除く最初の所有者 userId を選出する(純粋関数)。
+ * 非 GM の候補を優先し、いなければ明示的に OWNER の GM を選出する(純粋関数)。
+ * GM の全ドキュメントへの暗黙の権限や default は、キャストの主体とはみなさない。
  *
  * @param {object} ownership  Actor.ownership の形式 { userId: level, default: level }
  * @param {Iterable<string>} gmUserIds  GM 扱いする userId の集合
- * @returns {string|null}  見つかった userId。GM のみ / 空の場合は null
+ * @returns {string|null}  見つかった userId。候補がない場合は null
  */
 export function pickFirstOwnerUserId(ownership, gmUserIds) {
   const gmSet = new Set(gmUserIds);
+  let gmOwnerId = null;
   for (const [userId, level] of Object.entries(ownership ?? {})) {
     if (userId === "default") continue;
     if (level < OBSERVER_LEVEL) continue;
-    if (gmSet.has(userId)) continue;
+    if (gmSet.has(userId)) {
+      if (level === 3 && gmOwnerId === null) gmOwnerId = userId;
+      continue;
+    }
     return userId;
   }
-  return null;
+  return gmOwnerId;
 }
 
 /**

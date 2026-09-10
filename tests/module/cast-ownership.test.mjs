@@ -53,9 +53,9 @@ describe("pickFirstOwnerUserId()", () => {
     expect(pickFirstOwnerUserId(ownership, [])).toBe("u1");
   });
 
-  it("GM ユーザーはスキップする", () => {
+  it("明示的に OWNER の GM だけがいる場合、その GM を返す", () => {
     const ownership = { gm1: OWNER };
-    expect(pickFirstOwnerUserId(ownership, ["gm1"])).toBeNull();
+    expect(pickFirstOwnerUserId(ownership, ["gm1"])).toBe("gm1");
   });
 
   it("GM を除いた最初の一般ユーザーを返す", () => {
@@ -71,12 +71,17 @@ describe("pickFirstOwnerUserId()", () => {
 
   it("gmUserIds に配列を渡してもセットとして扱う(重複なし)", () => {
     const ownership = { gm1: OWNER };
-    expect(pickFirstOwnerUserId(ownership, ["gm1", "gm1"])).toBeNull();
+    expect(pickFirstOwnerUserId(ownership, ["gm1", "gm1"])).toBe("gm1");
   });
 
-  it("GM のみの場合 null を返す", () => {
+  it("GM の候補が複数なら最初の明示 OWNER を返す", () => {
     const ownership = { gm1: OWNER, gm2: OBSERVER };
-    expect(pickFirstOwnerUserId(ownership, ["gm1", "gm2"])).toBeNull();
+    expect(pickFirstOwnerUserId(ownership, ["gm1", "gm2"])).toBe("gm1");
+  });
+
+  it("GM の OBSERVER や default の OWNER では主体を設定しない", () => {
+    expect(pickFirstOwnerUserId({ default: OWNER, gm1: OBSERVER }, ["gm1"])).toBeNull();
+    expect(pickFirstOwnerUserId({ default: OWNER }, ["gm1"])).toBeNull();
   });
 });
 
