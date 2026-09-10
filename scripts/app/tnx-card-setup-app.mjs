@@ -8,6 +8,9 @@ const { HandlebarsApplicationMixin, ApplicationV2 } = foundry.applications.api;
 
 export class TnxCardSetupApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
+    // 作成・クリア後の再描画でも、操作していたタブを保持する。
+    _activeTab = "playingCards";
+
     static DEFAULT_OPTIONS = {
         id: "tnx-card-setup",
         tag: "form",
@@ -88,7 +91,17 @@ export class TnxCardSetupApp extends HandlebarsApplicationMixin(ApplicationV2) {
     // ─── タブ切り替え（再レンダリングなし） ───────────────────────────────────
 
     static _onSwitchTab(_event, target) {
-        const tabId = target.dataset.tab;
+        this._activeTab = target.dataset.tab;
+        this._applyActiveTab();
+    }
+
+    _onRender(context, options) {
+        super._onRender(context, options);
+        this._applyActiveTab();
+    }
+
+    _applyActiveTab() {
+        const tabId = this._activeTab;
         this.element.querySelectorAll(".tnx-setup-tab-btn").forEach(btn => {
             btn.classList.toggle("active", btn.dataset.tab === tabId);
         });
