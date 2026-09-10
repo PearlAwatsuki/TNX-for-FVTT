@@ -260,6 +260,11 @@
     max-width: 380px;
 }
 
+/* 登場判定欄が非表示なら、エリア選択は行の残り幅いっぱいに広げる。 */
+.scene-detail-row > select[name="area"]:last-child {
+    max-width: none;
+}
+
 .scene-detail-row > .number-input-spinner { flex: 0 0 auto; }
 
 /* 起動条件(14-8)のような単独のテキスト欄も、セレクトと同じく行の残り幅を分け合う
