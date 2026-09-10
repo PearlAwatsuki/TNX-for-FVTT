@@ -1,6 +1,15 @@
     <aside class="profile-sidebar column left-column cast-sidebar">
         <div class="portrait-section">
-            <img class="profile-img" src="{{actor.img}}" data-action="editImage" title="{{actor.name}}"/>
+            <span class="actor-image-label">立ち絵</span>
+            <img class="profile-img" src="{{actor.img}}" data-edit="img" {{#if isEditable}}data-action="editImage"{{/if}} title="{{actor.name}}：立ち絵{{#if isEditable}}を変更{{/if}}"/>
+            <div class="token-image-section">
+                <span class="actor-image-label">コマ画像</span>
+                <img class="token-image" src="{{tokenImage}}" {{#if isEditable}}data-action="{{tokenImageAction}}"{{/if}} title="{{actor.name}}：コマ画像{{#if isEditable}}を設定{{/if}}"/>
+                {{#if isEditable}}
+                <button type="button" class="tnx-btn tnx-btn--sm" data-action="{{tokenImageAction}}">コマ画像を設定</button>
+                <small>{{#if actor.isToken}}このコマに適用{{else}}これから配置するコマに適用{{/if}}</small>
+                {{/if}}
+            </div>
         </div>
         {{!-- パーソナルデータは個人識別キャラのみ(features.personalData。トループは持たない) --}}
         {{#if features.personalData}}

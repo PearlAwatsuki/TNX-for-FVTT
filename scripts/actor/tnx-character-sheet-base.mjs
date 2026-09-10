@@ -130,6 +130,11 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         context.owner = this.actor.isOwner;
         context.isEditable = this.isEditable;
         context.isEditMode = this._isEditMode && this.isEditable;
+        // 立ち絵は actor.img、コマ画像はコアの Token 設定を使い、別々に管理する。
+        const imageToken = this.actor.isToken ? this.actor.token : this.actor.prototypeToken;
+        context.tokenImage = imageToken?.randomImg ? CONST.DEFAULT_TOKEN
+            : (imageToken?.texture?.src || CONST.DEFAULT_TOKEN);
+        context.tokenImageAction = this.actor.isToken ? "configureToken" : "configurePrototypeToken";
         context.cssClass = "";
         context.features = this.sheetFeatures;
         // 名前固定(トループ/分身=導出名・編集不可。troop シートが上書きする)
