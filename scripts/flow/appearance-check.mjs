@@ -27,9 +27,20 @@ import { formatSkillName } from "../core/identification.mjs";
 
 const { DialogV2 } = foundry.applications.api;
 
+/** エンディングの自由登場。操作するのは自分の担当キャラクターだけ。 */
+export async function startFreeAppearance() {
+    const st = getSessionState();
+    if (!st.actStarted || st.phase !== "ending") return;
+    const actor = game.user.character;
+    if (!actor || isAppearing(actor)) return;
+    await setGhost(actor, false);
+    await setAppearing(actor, true);
+}
+
 /** パネルの「登場判定」ボタンから起動する。 */
 export async function startAppearanceCheck() {
     const st = getSessionState();
+    if (st.phase === "ending") return;
     if (!st.actStarted) return void ui.notifications.warn("アクトが開始されていません。");
     const actor = game.user.character;
     if (!actor) return void ui.notifications.warn("担当キャラクターが設定されていません。");

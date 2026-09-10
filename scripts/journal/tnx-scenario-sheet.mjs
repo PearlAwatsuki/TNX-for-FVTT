@@ -104,12 +104,14 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
 
         // シーン行は読み出し時に正規化する(14-2 追加フィールドの既定値を補う。一括書き換えはしない)
         const scenesData = flagData.scenes || {};
-        const normalizePhase = rows => (Array.isArray(rows) ? rows : []).map(normalizeSceneRow);
+        const normalizePhase = (rows, phase) => (Array.isArray(rows) ? rows : []).map(row => ({
+            ...normalizeSceneRow(row), hasAppearanceCheck: phase !== "ending",
+        }));
         context.scenes = {
-            opening:  normalizePhase(scenesData.opening),
-            research: normalizePhase(scenesData.research),
-            climax:   normalizePhase(scenesData.climax),
-            ending:   normalizePhase(scenesData.ending),
+            opening:  normalizePhase(scenesData.opening, "opening"),
+            research: normalizePhase(scenesData.research, "research"),
+            climax:   normalizePhase(scenesData.climax, "climax"),
+            ending:   normalizePhase(scenesData.ending, "ending"),
         };
         // No. は台本順の自動採番(14-8・手入力を廃止)。上演中の「SCENE n」は実行時のカウンタ
         const seq = sceneSequenceNumbers(context.scenes);

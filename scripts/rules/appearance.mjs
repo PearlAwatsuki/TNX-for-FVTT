@@ -54,7 +54,8 @@ export function sceneAppearanceMode(row) {
  * @param {?{area?:string, appearanceValue?:?number, appearanceSkills?:Array<string>}} [override]
  * @returns {{area:string, mode:string, fixedValue:?number, skills:Array<string>}}
  */
-export function resolveSceneAppearance(row, override = null) {
+export function resolveSceneAppearance(row, override = null, phase = "") {
+    if (phase === "ending") return { area: "", mode: "free", fixedValue: null, skills: [] };
     const r = row ?? {};
     const rowSkills = Array.isArray(r.appearanceSkills) ? r.appearanceSkills : [];
     const mode = sceneAppearanceMode(r);

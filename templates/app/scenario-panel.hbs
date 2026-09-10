@@ -82,6 +82,11 @@
                 <i class="fas fa-door-open"></i> 登場判定
             </button>
         {{/if}}
+        {{#if canFreeAppearance}}
+            <button type="button" class="tnx-btn" data-action="freeAppearance">
+                <i class="fas fa-door-open"></i> 登場
+            </button>
+        {{/if}}
         {{!-- RL の手動登場(14-8): 登場判定を経ずに登場させる。名前を伏せるかは左のトグル --}}
         {{#if appearCandidateGroups.length}}
             <div class="scp-load-row scp-appear-add">

@@ -244,6 +244,7 @@
                                                     <input type="text" name="eventCondition" value="{{scene.eventCondition}}"/>
                                                 </div>
                                             {{/if}}
+                                            {{#if scene.hasAppearanceCheck}}
                                             {{!-- 巡回シーンはエリア・登場判定を台本で持たない
                                                   (常に「未設定」＝シーン開始ダイアログで決める) --}}
                                             {{#unless (eq scene.kind "rotation")}}
@@ -300,6 +301,7 @@
                                                     </div>
                                                 </div>
                                             {{/unless}}
+                                            {{/if}}
                                             {{!-- 登場キャラクターの事前設定(14-8): シーン入場時に
                                                   登場判定なしで登場する面々。目のトグル＝名前を伏せて
                                                   登場(卓には「？？？」)。RL の指定なので「登場：不可」

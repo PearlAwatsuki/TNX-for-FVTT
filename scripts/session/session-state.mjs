@@ -21,7 +21,7 @@ import { listAppearingActors } from "./appearance-state.mjs";
 import {
     normalizeSceneRow, normalizeHandoutRow, findSceneRow, firstSceneRow,
     buildPreActInit, planSceneSwitchEvents, planActEndEvents,
-    teamCreate, teamJoin, teamLeave, teamDelete,
+    teamCreate, teamJoin, teamLeave, teamDelete, teamsAfterPhaseChange,
     hasBackstage, backstageQueue, nextBackstageSpot, isBackstageFinished,
     findDuplicateKeys, matchTrumpCard,
     rotationOrder, resolveRotationDefault, stageCandidateActorIds,
@@ -50,7 +50,7 @@ const DEFAULTS = Object.freeze({
     sceneId:     "",    // 現在の TNX シーン(台本行 id)
     sceneEnded:  false, // 現行シーンの終了境界(tnxSceneEnd)を発火済みか(13 案1)
     sceneCardId: "",    // 現在のシーンカード(シーンカード置き場内の Card id)
-    teams:       [],    // [{id, name, memberActorIds: []}]。アクト終了でクリア
+    teams:       [],    // [{id, name, memberActorIds: []}]。クライマックス終了・エンディング開始で解散
     // 舞台裏(14-6・シーンの終了処理の一部・リサーチシーンのみ)。「シーンを閉じる」で open、
     // 回しきる(started かつスポット解除)まで「次のシーンへ」を出さない。シーン単位でリセット
     backstage:   { open: false, started: false, spotActorId: "", extraActorIds: [] },
@@ -233,7 +233,7 @@ export function isRulerScene(row, userId = undefined) {
  * @returns {{area:string, mode:string, fixedValue:?number, skills:Array<string>}}
  */
 export function getCurrentSceneAppearance() {
-    return resolveSceneAppearance(getCurrentSceneRow()?.row ?? null, getSessionState().sceneOverride);
+    return resolveSceneAppearance(getCurrentSceneRow()?.row ?? null, getSessionState().sceneOverride, getSessionState().phase);
 }
 
 /**
@@ -624,7 +624,7 @@ export async function switchScene(sceneId) {
  * @param {{phase:string, row:object}} hit
  * @returns {Promise<?{scenePlayerUserId:string, override:?object}>} null=中止
  */
-async function _requestSceneEntry({ row }) {
+async function _requestSceneEntry({ row, phase }) {
     const scene = normalizeSceneRow(row);
     const rotation = scene.kind === "rotation";
 
@@ -637,7 +637,7 @@ async function _requestSceneEntry({ row }) {
     }
 
     const choosePlayer = rotation || (!scripted.ruler && !scripted.handoutId && !scripted.userId);
-    const chooseAppearance = scene.appearanceMode === "unset";
+    const chooseAppearance = phase !== "ending" && scene.appearanceMode === "unset";
     if (!choosePlayer && !chooseAppearance) {
         return { scenePlayerUserId: scriptedUserId, override: null };
     }
@@ -678,7 +678,7 @@ async function _requestSceneEntry({ row }) {
     const stageCandidates = chooseAppearance && !scene.stage ? await listStageCandidates(actorIds) : [];
 
     const result = await promptSceneEntry({
-        row: scene, rotation, choosePlayer, playerChoices, defaultPlayerUserId, stageCandidates, stageActorIdsByUser,
+        row: scene, phase, rotation, choosePlayer, playerChoices, defaultPlayerUserId, stageCandidates, stageActorIdsByUser,
     });
     if (!result) return null;
     return {
@@ -729,6 +729,7 @@ async function _applySceneEntry({ phase, row }, entry = null) {
     await setState({
         phase, sceneId: scene.id, sceneEnded: false, backstage: { ...BACKSTAGE_INITIAL },
         sceneOverride: entry?.override ?? null,
+        teams: teamsAfterPhaseChange(st.teams, st.phase, phase),
         scenePlayerUserId: requestedUserId,
         scenePlayerDone: done,
         doneEventSceneIds: doneEvents,

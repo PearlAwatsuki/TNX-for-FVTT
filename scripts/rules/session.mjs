@@ -1246,3 +1246,9 @@ export function recordSceneAppearance({ appearanceCounts = {}, appearedThisScene
         appearedThisScene: [...appearedThisScene, actorId],
     };
 }
+
+/** クライマックス終了・エンディング開始でチームを解散する。同フェイズ内では維持する。 */
+export function teamsAfterPhaseChange(teams, fromPhase, toPhase) {
+    if (fromPhase !== toPhase && (fromPhase === "climax" || toPhase === "ending")) return [];
+    return teams;
+}

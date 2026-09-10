@@ -52,7 +52,7 @@ import { TnxActionHandler } from "../cards/tnx-action-handler.mjs";
 import { applyStageRef } from "../session/subscenes.mjs";
 import { resolveHandoutContact } from "../session/handout-contact.mjs";
 import { collectLostCharacters } from "../rules/time-boundary.mjs";
-import { startAppearanceCheck } from "../flow/appearance-check.mjs";
+import { startAppearanceCheck, startFreeAppearance } from "../flow/appearance-check.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 const { DialogV2 } = foundry.applications.api;
@@ -127,6 +127,7 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
             toggleInfoPublic:    TnxScenarioPanel._onToggleInfoPublic,
             toggleInfoDisclosed: TnxScenarioPanel._onToggleInfoDisclosed,
             appearanceCheck:     TnxScenarioPanel._onAppearanceCheck,
+            freeAppearance:      startFreeAppearance,
             appearActor:         TnxScenarioPanel._onAppearActor,
             exitActor:           TnxScenarioPanel._onExitActor,
             toggleAppearHidden:  TnxScenarioPanel._onToggleAppearHidden,
@@ -226,7 +227,7 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
                     .find(o => o.value === sceneAppearance.area && o.value !== "")?.label ?? "",
                 rulerScene,
                 playerLabel,
-                appearanceLabel: formatAppearanceSummary({
+                appearanceLabel: st.phase === "ending" ? "" : formatAppearanceSummary({
                     mode: sceneAppearance.mode,
                     targetValue: appearance.targetValue,
                     skillNames: formatGroupedSkillNames(sceneAppearance.skills, skillNameByKey),
@@ -270,7 +271,10 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
                 { labelOf: type => game.i18n.localize(`TYPES.Actor.${type}`), excludeAppearing: true })
             : [];
         const myCharacter = game.user.character ?? null;
-        context.canAppearanceCheck = !game.user.isGM && st.actStarted
+        context.canAppearanceCheck = st.phase !== "ending" && !game.user.isGM && st.actStarted
+            && !!myCharacter && !isAppearing(myCharacter);
+
+        context.canFreeAppearance = st.phase === "ending" && !game.user.isGM && st.actStarted
             && !!myCharacter && !isAppearing(myCharacter);
 
         // チーム(全員向け・宣言はいつでも可=読み込みがあれば表示)。PL=自分のキャラクターの

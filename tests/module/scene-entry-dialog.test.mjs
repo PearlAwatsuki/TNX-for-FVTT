@@ -92,6 +92,14 @@ describe("シーン開始ダイアログの出し分け", () => {
             expect(stage.value).toBe("");
         } finally { globalThis.document = originalDocument; }
     });
+    it("エンディングでは未設定の登場関連欄も出さず、任意プレイヤーだけを選べる", async () => {
+        await promptSceneEntry({ row: { appearanceMode: "unset", appearanceSkills: ["old"] }, phase: "ending", choosePlayer: true });
+        expect(options.content).toContain('name="scenePlayerUserId"');
+        for (const field of ['name="stage"', 'name="area"', 'name="appearanceValue"', 'data-skill-add']) {
+            expect(options.content).not.toContain(field);
+        }
+        expect(collect({ '[name="scenePlayerUserId"]': "u" })).toEqual({ scenePlayerUserId: "u", override: null });
+    });
     it("キャンセル時は開始用の入力を返さない", async () => {
         await promptSceneEntry({ row: {} });
         expect(options.buttons[1].callback()).toBe(false);

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { normalizeSceneRow } from "../../scripts/rules/session.mjs";
+import { normalizeSceneRow, teamsAfterPhaseChange } from "../../scripts/rules/session.mjs";
 import { sceneAppearanceMode, resolveSceneAppearance, appearanceCheckParams } from "../../scripts/rules/appearance.mjs";
 
 describe("アクトシートのエリア指定", () => {
@@ -29,5 +29,21 @@ describe("アクトシートのエリア指定", () => {
         const row = normalizeSceneRow({ kind: "rotation", area: "white", appearanceMode: "fixed" });
         expect(row.area).toBe(""); expect(row.appearanceMode).toBe("unset");
         expect(resolveSceneAppearance(row, { area: "red", appearanceValue: 8 }).area).toBe("red");
+    });
+});
+
+describe("エンディング", () => {
+    it.each(["unset", "area", "fixed", "none"])("古い登場設定%sがあっても判定条件を使用しない", appearanceMode => {
+        expect(resolveSceneAppearance({ area: "sanctuary", appearanceMode, appearanceValue: 99, appearanceSkills: ["skill"] },
+            { area: "red", appearanceValue: 8 }, "ending"))
+            .toEqual({ area: "", mode: "free", fixedValue: null, skills: [] });
+    });
+    it("クライマックス内はチームを維持し、フェイズを抜けたときに解散する", () => {
+        const teams = [{ id: "t", memberActorIds: ["a", "b"] }];
+        expect(teamsAfterPhaseChange(teams, "climax", "climax")).toBe(teams);
+        expect(teamsAfterPhaseChange(teams, "research", "climax")).toBe(teams);
+        expect(teamsAfterPhaseChange(teams, "climax", "ending")).toEqual([]);
+        expect(teamsAfterPhaseChange(teams, "research", "ending")).toEqual([]);
+        expect(teams).toHaveLength(1);
     });
 });

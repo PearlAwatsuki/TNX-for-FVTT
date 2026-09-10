@@ -38,10 +38,10 @@ const { DialogV2 } = foundry.applications.api;
  *                     appearanceSkills:Array<string>}}>} キャンセルは null
  */
 export async function promptSceneEntry({
-    row, rotation = false, playerChoices = [], defaultPlayerUserId = "", stageCandidates = [],
+    row, phase = "", rotation = false, playerChoices = [], defaultPlayerUserId = "", stageCandidates = [],
     stageActorIdsByUser = null, choosePlayer = rotation,
 } = {}) {
-    const chooseAppearance = sceneAppearanceMode(row) === "unset";
+    const chooseAppearance = phase !== "ending" && sceneAppearanceMode(row) === "unset";
     const chooseStage = chooseAppearance && !row?.stage;
     const esc = foundry.utils.escapeHTML;
     const skillGroups  = await loadGroupedGeneralSkillChoices();
