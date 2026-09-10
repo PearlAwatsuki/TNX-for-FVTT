@@ -1071,24 +1071,22 @@
     margin: 0 auto;
 }
 
-.tokyo-nova.sheet.actor .actor-image-label {
-    display: block;
-    text-align: center;
-    margin-bottom: 4px;
+.tokyo-nova.sheet.actor .portrait-section {
+    position: relative;
 }
-.tokyo-nova.sheet.actor .token-image-section {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 4px;
-    margin-top: 12px;
+.tokyo-nova.sheet.actor .actor-image-switch {
+    position: absolute;
+    top: 4px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: auto;
+    min-height: 24px;
+    padding: 2px 10px;
+    border-radius: 12px;
+    z-index: 1;
 }
-.tokyo-nova.sheet.actor .token-image {
-    width: 64px;
-    height: 64px;
-    object-fit: contain;
-    border: 1px solid var(--tnx2-border-active);
-    border-radius: var(--tnx2-radius);
+.tokyo-nova.sheet.actor .portrait-section [data-image-kind][hidden] {
+    display: none;
 }
 .tokyo-nova.sheet.actor .portrait-section img[data-action] {
     cursor: pointer;

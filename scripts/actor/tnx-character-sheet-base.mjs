@@ -41,6 +41,7 @@ const { ActorSheetV2 } = foundry.applications.sheets;
 export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheetV2) {
 
     _isEditMode = false;
+    _showTokenImage = false;
     tabGroups = { primary: "abilities" };
     _scrollPositions = {};
     /** 部位占有パネルの展開状態(既定は縮小)。再描画をまたいで保持する。 */
@@ -69,6 +70,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             ...EffectsSheetMixin.ACTIONS,
             copyUuid:             TnxCharacterSheetBase._onCopyUuid,
             toggleEditMode:       TnxCharacterSheetBase._onToggleEditMode,
+            toggleActorImage:     TnxCharacterSheetBase._onToggleActorImage,
             toggleStyleRole:      TnxCharacterSheetBase._onToggleStyleRole,
             rollStyleDescription: TnxCharacterSheetBase._onRollStyleDescription,
             openItemSheet:        TnxCharacterSheetBase._onOpenItemSheet,
@@ -134,6 +136,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         const imageToken = this.actor.isToken ? this.actor.token : this.actor.prototypeToken;
         context.tokenImage = imageToken?.randomImg ? CONST.DEFAULT_TOKEN
             : (imageToken?.texture?.src || CONST.DEFAULT_TOKEN);
+        context.showTokenImage = this._showTokenImage;
         context.tokenImageAction = this.actor.isToken ? "configureToken" : "configurePrototypeToken";
         context.cssClass = "";
         context.features = this.sheetFeatures;
@@ -849,6 +852,18 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         ui.notifications.info(game.i18n.format("DOCUMENT.IdCopiedClipboard", {
             label: this.document.documentName, type: "UUID", id: this.document.uuid
         }));
+    }
+
+    static _onToggleActorImage(event, target) {
+        event.preventDefault();
+        if (!this._isEditMode || !this.isEditable) return;
+        this._showTokenImage = !this._showTokenImage;
+        // フォームの未保存入力を失わないよう、画像領域だけ切り替える。
+        const section = target.closest(".portrait-section");
+        section.querySelector('[data-image-kind="portrait"]').hidden = this._showTokenImage;
+        section.querySelector('[data-image-kind="token"]').hidden = !this._showTokenImage;
+        target.setAttribute("aria-checked", String(this._showTokenImage));
+        target.querySelector(".image-switch-label").textContent = this._showTokenImage ? "コマ" : "立ち絵";
     }
 
     static async _onToggleEditMode(event, _target) {

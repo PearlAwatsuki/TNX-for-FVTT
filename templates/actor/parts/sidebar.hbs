@@ -1,14 +1,16 @@
     <aside class="profile-sidebar column left-column cast-sidebar">
         <div class="portrait-section">
-            <span class="actor-image-label">立ち絵</span>
-            <img class="profile-img" src="{{actor.img}}" data-edit="img" {{#if isEditable}}data-action="editImage"{{/if}} title="{{actor.name}}：立ち絵{{#if isEditable}}を変更{{/if}}"/>
-            <div class="token-image-section">
-                <span class="actor-image-label">コマ画像</span>
-                <img class="token-image" src="{{tokenImage}}" {{#if isEditable}}data-action="{{tokenImageAction}}"{{/if}} title="{{actor.name}}：コマ画像{{#if isEditable}}を設定{{/if}}"/>
-                {{#if isEditable}}
-                <button type="button" class="tnx-btn tnx-btn--sm" data-action="{{tokenImageAction}}">コマ画像を設定</button>
-                <small>{{#if actor.isToken}}このコマに適用{{else}}これから配置するコマに適用{{/if}}</small>
-                {{/if}}
+            {{#if isEditMode}}
+            <button type="button" class="actor-image-switch" data-action="toggleActorImage" role="switch" aria-label="コマ画像を表示" aria-checked="{{showTokenImage}}" title="立ち絵・コマ画像を切り替え">
+                <i class="fas fa-exchange-alt" aria-hidden="true"></i>
+                <span class="image-switch-label">{{#if showTokenImage}}コマ{{else}}立ち絵{{/if}}</span>
+            </button>
+            {{/if}}
+            <div data-image-kind="portrait" {{#if showTokenImage}}hidden{{/if}}>
+                <img class="profile-img" src="{{actor.img}}" data-edit="img" {{#if isEditMode}}data-action="editImage"{{/if}} title="{{actor.name}}：立ち絵{{#if isEditMode}}を変更{{/if}}"/>
+            </div>
+            <div data-image-kind="token" {{#unless showTokenImage}}hidden{{/unless}}>
+                <img class="profile-img" src="{{tokenImage}}" {{#if isEditMode}}data-action="{{tokenImageAction}}"{{/if}} title="{{actor.name}}：コマ画像{{#if isEditMode}}を設定{{/if}}"/>
             </div>
         </div>
         {{!-- パーソナルデータは個人識別キャラのみ(features.personalData。トループは持たない) --}}
