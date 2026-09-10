@@ -241,7 +241,7 @@ async function applyRecoveryRemoval(patient, removeIds, actorUuid = null) {
         TnxSocketHandler.emitTreatmentApply({ patientUuid: patient.uuid, removeIds, actorUuid });
         return true;
     }
-    ui.notifications.warn("対象の所有権がなく GM も不在のため、回復を適用できません。");
+    ui.notifications.warn("対象の所有権がなく RL も不在のため、回復を適用できません。");
     return false;
 }
 

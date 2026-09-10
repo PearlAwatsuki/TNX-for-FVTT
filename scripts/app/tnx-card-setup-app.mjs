@@ -193,7 +193,7 @@ export class TnxCardSetupApp extends HandlebarsApplicationMixin(ApplicationV2) {
 
     static async _onCreateGmTrumpDiscard() {
         const gm = game.users.find(u => u.isGM);
-        if (!gm) return ui.notifications.warn("GMが存在しません。");
+        if (!gm) return ui.notifications.warn("RLが存在しません。");
         const pile = await Cards.create({
             name: `${gm.name}の切り札(使用済)`, type: 'pile',
             ownership: { [gm.id]: CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER },

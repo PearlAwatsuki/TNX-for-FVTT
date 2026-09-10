@@ -250,7 +250,7 @@ async function applyModificationRows(target, rows, actorUuid = null) {
         TnxSocketHandler.emitModificationApply({ targetUuid: target.uuid, rows, actorUuid });
         return true;
     }
-    ui.notifications.warn("対象の所有権がなく GM も不在のため、改造を適用できません。");
+    ui.notifications.warn("対象の所有権がなく RL も不在のため、改造を適用できません。");
     return false;
 }
 

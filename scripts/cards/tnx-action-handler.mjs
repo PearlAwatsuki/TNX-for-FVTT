@@ -75,7 +75,7 @@ export class TnxActionHandler {
         if (!gmTrumpDiscard) return;
 
         const gm = game.users.find(u => u.isGM);
-        if (!gm) return ui.notifications.warn("GMユーザーが見つかりません。");
+        if (!gm) return ui.notifications.warn("RLユーザーが見つかりません。");
 
         const gmTrumpPile = getUserFlagData(gm).trumpCardPileId
             ? await fromUuid(getUserFlagData(gm).trumpCardPileId)

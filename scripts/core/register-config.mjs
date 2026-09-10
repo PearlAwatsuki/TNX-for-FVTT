@@ -52,6 +52,21 @@ export async function registerSystemConfig() {
     // 新規ブラウザ・設定リセットに適用され、保存済みの個人設定は優先される。
     // https://foundryvtt.com/api/v13/classes/foundry.applications.settings.menus.UIConfig.html#schema
     foundry.applications.settings.menus.UIConfig.schema.fields.chatNotifications.initial = "pip";
+
+    // コア→システム→翻訳モジュールの読み込みが終わってから、TNX の役割名を適用する。
+    // lang/ja.json だけで上書きすると、後から読む日本語化モジュールに戻される。
+    // 権限定数やユーザー名は変更せず、役割選択・参加者一覧が使う表示名だけを変更する。
+    Hooks.once("i18nInit", () => {
+        const japanese = game.i18n.lang === "ja";
+        const labels = {
+            RoleGamemaster: japanese ? "ルーラー" : "Ruler",
+            RoleAssistant: japanese ? "アシスタントRL" : "Assistant RL",
+            GM: "RL",
+        };
+        for (const [key, label] of Object.entries(labels)) {
+            foundry.utils.setProperty(game.i18n.translations, `USER.${key}`, label);
+        }
+    });
     Handlebars.registerHelper('add', function(a, b) {
         return a + b;
     });

@@ -143,7 +143,7 @@ async function applyRepairClear(target, outfitId, actorUuid = null) {
         TnxSocketHandler.emitRepairApply({ targetUuid: target.uuid, outfitId, actorUuid });
         return true;
     }
-    ui.notifications.warn("対象の所有権がなく GM も不在のため、修理を適用できません。");
+    ui.notifications.warn("対象の所有権がなく RL も不在のため、修理を適用できません。");
     return false;
 }
 
