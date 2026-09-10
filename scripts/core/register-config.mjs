@@ -47,10 +47,11 @@ export async function registerSystemConfig() {
     // サイドバーの初回描画は ready より前なので、隠すフックの登録は init で行う
     registerEffectScratchHiding();
 
-    // チャット通知のデフォルトを「チャットカード」から「通知バッジ」に変更する。
-    // ユーザーが明示的に設定済みの場合はその値が優先される(デフォルト値のみの変更)。
-    const chatNotifSetting = game.settings.settings.get("core.chatNotifications");
-    if (chatNotifSetting) chatNotifSetting.default = "pip";
+    // v13 のチャット通知は client スコープの core.uiConfig 内にある。
+    // init の同期区間でスキーマの初期値を変える(コアの設定登録は init の後)。
+    // 新規ブラウザ・設定リセットに適用され、保存済みの個人設定は優先される。
+    // https://foundryvtt.com/api/v13/classes/foundry.applications.settings.menus.UIConfig.html#schema
+    foundry.applications.settings.menus.UIConfig.schema.fields.chatNotifications.initial = "pip";
     Handlebars.registerHelper('add', function(a, b) {
         return a + b;
     });
