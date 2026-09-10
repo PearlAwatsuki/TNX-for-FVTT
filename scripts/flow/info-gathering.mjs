@@ -51,11 +51,11 @@ export async function startInfoGatheringCheck(itemId) {
         { checkKind: "infoGathering", title: `情報収集判定: ${title}` });
     if (!res) return;
 
-    // 完了継続の文脈。entryTn=挑んだ行の目標値(入口本文の開示判定)・title=結果カードの表示
+    // 完了継続の文脈。entryTn=入口目標値・skillId=挑んだ技能行(追加目標値の選別)・title=結果カードの表示
     const row = res.row;
     const infoGathering = {
         actorId: actor.id, itemId, contentId: row.contentId,
-        entryTn: row.tn ?? null, title,
+        entryTn: row.tn ?? null, skillId: row.skillId ?? null, title,
     };
 
     // 識別キーの無い行(旧い自由記述技能)は技能アイテムを起動できないため、判定要求の
@@ -86,7 +86,7 @@ export async function startInfoGatheringCheck(itemId) {
  * 情報収集判定の完了継続(判定者クライアントで走る)。**成功で自動開示**(2026-08-16 裁定)。
  * 再判定・事後修正の再実行にも使う——開示は開くだけで閉じない(単調)ため、達成値が伸びれば
  * 追加開示・下がっても既開示は維持される(冪等)。
- * @param {{itemId: string, contentId: string, entryTn: ?(number|string)}} cc 継続文脈
+ * @param {{itemId: string, contentId: string, entryTn: ?(number|string), skillId?: ?string}} cc 継続文脈
  * @param {{success: ?boolean, achievement: ?number}} result 判定結果
  * @param {{messageId?: ?string}} [args] messageId=結果カード(実適用後に帰結行を刻む宛先・KI-042)
  */
@@ -96,6 +96,7 @@ export async function resolveInfoGatheringFromCheck(cc, result, { messageId = nu
         itemId:      cc?.itemId ?? "",
         contentId:   cc?.contentId ?? "",
         entryTn:     cc?.entryTn ?? null,
+        skillId:     cc?.skillId ?? null,
         achievement: Number(result?.achievement) || 0,
         messageId:   messageId ?? null,
     };
@@ -112,10 +113,10 @@ export async function resolveInfoGatheringFromCheck(cc, result, { messageId = nu
  * 開示の適用(GM クライアント)。達成値以下の目標値を持つ入口・段を一括で開き、**新規開示が
  * あったときだけ**卓へ公開する(帰結行の刻印+公開カード・KI-042 是正)。変化が無ければ何も
  * しない(再判定の単調適用=書き込みも通知も重複しない)。
- * @param {{itemId: string, contentId: string, entryTn?: ?(number|string), achievement: number,
+ * @param {{itemId: string, contentId: string, entryTn?: ?(number|string), skillId?: ?string, achievement: number,
  *          messageId?: ?string}} args messageId=帰結行を刻む結果カード
  */
-export async function applyInfoDisclosure({ itemId, contentId, entryTn = null, achievement, messageId = null }) {
+export async function applyInfoDisclosure({ itemId, contentId, entryTn = null, skillId = null, achievement, messageId = null }) {
     const journal = getActiveActJournal();
     if (!journal) return;
     const items = foundry.utils.deepClone(journal.getFlag(SYSTEM_ID, "infoItems") ?? []);
@@ -124,7 +125,7 @@ export async function applyInfoDisclosure({ itemId, contentId, entryTn = null, a
     const index = contents?.findIndex(c => c.id === contentId) ?? -1;
     if (index < 0) return;
     const before = contents[index];
-    const after = discloseInfoByAchievement(before, { achievement, entryTn });
+    const after = discloseInfoByAchievement(before, { achievement, entryTn, skillId });
     const newly = newlyDisclosedInfo(before, after);
     if (!newly.entryOpened && !newly.tierIds.length) return;
     contents[index] = after;

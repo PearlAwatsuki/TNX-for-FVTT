@@ -15,7 +15,7 @@ import {
     SCENE_AREA_OPTIONS, SCENE_KIND_OPTIONS, SCENE_PLAYER_RULER, HANDOUT_SUIT_OPTIONS,
     HANDOUT_STYLE_COMMON, HANDOUT_STYLE_FREE,
     normalizeSceneRow, normalizeHandoutRow, handoutTitleSuffix, circledNumber, infoSkillKeys,
-    sceneSequenceNumbers, handoutPlayerLabel, handoutNumberOf, handoutStyleDisplay, infoTiers,
+    sceneSequenceNumbers, handoutPlayerLabel, handoutNumberOf, handoutStyleDisplay, infoTiers, infoTierTargets,
     CONTACT_TYPES,
 } from '../rules/session.mjs';
 import { normalizeAppearanceActors, groupCharacterChoices } from '../rules/appearance.mjs';
@@ -41,6 +41,8 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
             deleteInfoContent: TnxScenarioSheet._onDeleteInfoContent,
             addInfoTier:       TnxScenarioSheet._onAddInfoTier,
             deleteInfoTier:    TnxScenarioSheet._onDeleteInfoTier,
+            addInfoTierTarget: TnxScenarioSheet._onAddInfoTierTarget,
+            deleteInfoTierTarget: TnxScenarioSheet._onDeleteInfoTierTarget,
             addSkillCheck:     TnxScenarioSheet._onAddSkillCheck,
             deleteSkillCheck:  TnxScenarioSheet._onDeleteSkillCheck,
             removeInfoSkill:   TnxScenarioSheet._onRemoveInfoSkill,
@@ -222,7 +224,21 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
             contents: (item.contents ?? []).map(content => ({
                 ...content,
                 // 段(追加で判明する内容)は目標値の昇順で表示する(保存順は書き換えない)
-                tiers: infoTiers(content),
+                tiers: infoTiers(content).map(tier => ({
+                    ...tier,
+                    targets: infoTierTargets(tier).map(target => ({
+                        ...target,
+                        skillOptions: [
+                            { id: "", label: "すべての使用技能（共通）" },
+                            ...(content.skills ?? []).map((skill, i) => ({
+                                id: skill.id,
+                                label: `${i + 1}: ${toSkillChips(infoSkillKeys(skill)).map(t => t.name).join("、") || skill.name || "技能未設定"} ／ 目標値 ${skill.tn ?? "未入力"}`,
+                            })),
+                            ...(target.skillId && !(content.skills ?? []).some(skill => skill.id === target.skillId)
+                                ? [{ id: target.skillId, label: "削除された技能行（選び直してください）" }] : []),
+                        ].map(option => ({ ...option, selected: option.id === (target.skillId || "") })),
+                    })),
+                })),
                 skills: (content.skills ?? []).map(skill => {
                     const tags = toSkillChips(infoSkillKeys(skill));
                     return {
@@ -515,7 +531,7 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
 
     async _onInfoItemChange(event) {
         const input = event.currentTarget;
-        const { infoId, contentId, skillId, tierId } = input.dataset;
+        const { infoId, contentId, skillId, tierId, targetId } = input.dataset;
         const value = input.type === "checkbox" ? input.checked
             : input.type === "number" ? parseInt(input.value)
             : input.value;
@@ -527,7 +543,13 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         if (contentId && tierId) {
             // 段の目標値・本文(技能行と同じ name を使うため、段の判定を先に置く)
             const tier = item.contents.find(c => c.id === contentId)?.tiers?.find(t => t.id === tierId);
-            if (tier) tier[input.name] = value;
+            if (tier && targetId) {
+                tier.targets = infoTierTargets(tier);
+                const condition = tier.targets.find(t => t.id === targetId);
+                if (condition && ["tn", "skillId"].includes(input.name)) {
+                    condition[input.name] = input.type === "number" && !Number.isFinite(value) ? null : value;
+                }
+            } else if (tier) tier[input.name] = value;
         } else if (contentId && skillId) {
             const skill = item.contents.find(c => c.id === contentId)?.skills.find(s => s.id === skillId);
             if (skill) skill[input.name] = value;
@@ -691,8 +713,7 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
 
     /**
      * 段(追加で判明する内容)を足す(2026-08-12 裁定)。
-     * 同じ入口(＝この内容の使用技能)のまま目標値が上がると増える情報を表す。
-     * 要求技能が違う場合はここではなく「情報の内容を追加」で枝そのものを分ける。
+     * 入口の技能行を選び、その行でこの本文を得るための目標値を持たせる。
      */
     static async _onAddInfoTier(_event, target) {
         const { infoId, contentId } = target.dataset;
@@ -700,7 +721,33 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         const content = items.find(i => i.id === infoId)?.contents?.find(c => c.id === contentId);
         if (!content) return;
         if (!Array.isArray(content.tiers)) content.tiers = [];
-        content.tiers.push({ id: foundry.utils.randomID(), tn: null, text: "", isDisclosed: false });
+        content.tiers.push({
+            id: foundry.utils.randomID(), text: "", isDisclosed: false,
+            targets: [{ id: foundry.utils.randomID(), skillId: content.skills?.[0]?.id ?? "", tn: null }],
+        });
+        await this.document.setFlag(SYSTEM_ID, "infoItems", items);
+    }
+
+    /** 本文を共有する追加目標値の条件だけを増やす。 */
+    static async _onAddInfoTierTarget(_event, target) {
+        const { infoId, contentId, tierId } = target.dataset;
+        const items = foundry.utils.deepClone(this.document.getFlag(SYSTEM_ID, "infoItems") || []);
+        const content = items.find(i => i.id === infoId)?.contents?.find(c => c.id === contentId);
+        const tier = content?.tiers?.find(t => t.id === tierId);
+        if (!tier) return;
+        tier.targets = infoTierTargets(tier);
+        const next = content.skills?.find(skill => !tier.targets.some(t => t.skillId === skill.id));
+        tier.targets.push({ id: foundry.utils.randomID(), skillId: next?.id ?? content.skills?.[0]?.id ?? "", tn: null });
+        await this.document.setFlag(SYSTEM_ID, "infoItems", items);
+    }
+
+    static async _onDeleteInfoTierTarget(_event, target) {
+        const { infoId, contentId, tierId, targetId } = target.dataset;
+        const items = foundry.utils.deepClone(this.document.getFlag(SYSTEM_ID, "infoItems") || []);
+        const tier = items.find(i => i.id === infoId)?.contents?.find(c => c.id === contentId)
+            ?.tiers?.find(t => t.id === tierId);
+        if (!tier) return;
+        tier.targets = infoTierTargets(tier).filter(t => t.id !== targetId);
         await this.document.setFlag(SYSTEM_ID, "infoItems", items);
     }
 

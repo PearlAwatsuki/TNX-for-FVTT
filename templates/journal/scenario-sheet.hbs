@@ -424,22 +424,35 @@
                                                     <prose-mirror name="text" value="{{contentItem.text}}" toggled data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}">{{{contentItem.enrichedText}}}</prose-mirror>
                                                 </div>
                                             </div>
-                                            {{!-- 同じ使用技能で目標値が上がったときに出る内容(2026-08-12)。
-                                                  **どの目標値で出る情報も等価**で上下関係は無い(2026-08-15 裁定)ため、
-                                                  「さらに」等の順位を示す語は付けない。要求技能が違う場合は
-                                                  内容ブロックそのものを足す。目標値は達成値の絶対値と比べる --}}
+                                            {{!-- 追加情報は本文を共有し、入口の技能行ごとに目標値を指定する。 --}}
                                             <div class="info-tier-list">
                                                 {{#each contentItem.tiers as |tierItem|}}
                                                     <div class="info-tier" data-tier-id="{{tierItem.id}}">
                                                         <div class="tnx-editor-section">
                                                             <div class="tnx-editor-section__header">
-                                                                <label>目標値</label>
-                                                                <div class="number-input-spinner">
-                                                                    <button type="button" class="tnx-btn" data-action="spinDown" aria-label="減少">−</button>
-                                                                    <input type="number" name="tn" class="skill-tn" placeholder="-" value="{{tierItem.tn}}" min="0" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-tier-id="{{tierItem.id}}">
-                                                                    <button type="button" class="tnx-btn" data-action="spinUp" aria-label="増加">＋</button>
-                                                                </div>
+                                                                <label>追加情報</label>
                                                                 <a class="tnx-ring-btn" data-action="deleteInfoTier" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-tier-id="{{tierItem.id}}" title="この段を削除"><i class="fas fa-times"></i></a>
+                                                            </div>
+                                                            <div class="info-tier-targets">
+                                                                {{#each tierItem.targets as |tierTarget|}}
+                                                                <div class="info-tier-target">
+                                                                    <label>元の技能＋目標値
+                                                                        <select name="skillId" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-tier-id="{{tierItem.id}}" data-target-id="{{tierTarget.id}}">
+                                                                            {{#each tierTarget.skillOptions as |option|}}
+                                                                            <option value="{{option.id}}" {{#if option.selected}}selected{{/if}}>{{option.label}}</option>
+                                                                            {{/each}}
+                                                                        </select>
+                                                                    </label>
+                                                                    <label>目標値</label>
+                                                                    <div class="number-input-spinner">
+                                                                        <button type="button" class="tnx-btn" data-action="spinDown" aria-label="減少">−</button>
+                                                                        <input type="number" name="tn" class="skill-tn" placeholder="-" value="{{tierTarget.tn}}" min="0" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-tier-id="{{tierItem.id}}" data-target-id="{{tierTarget.id}}">
+                                                                        <button type="button" class="tnx-btn" data-action="spinUp" aria-label="増加">＋</button>
+                                                                    </div>
+                                                                    <a class="tnx-ring-btn" data-action="deleteInfoTierTarget" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-tier-id="{{tierItem.id}}" data-target-id="{{tierTarget.id}}" title="この目標値だけを削除"><i class="fas fa-times"></i></a>
+                                                                </div>
+                                                                {{/each}}
+                                                                <button type="button" class="tnx-btn tnx-btn--sm" data-action="addInfoTierTarget" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-tier-id="{{tierItem.id}}"><i class="fas fa-plus"></i> 目標値だけを追加</button>
                                                             </div>
                                                             <div class="tnx-editor-section__content">
                                                                 <prose-mirror name="text" value="{{tierItem.text}}" toggled data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-tier-id="{{tierItem.id}}">{{{tierItem.enrichedText}}}</prose-mirror>

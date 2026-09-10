@@ -395,6 +395,7 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
                 isPublic: item.isPublic === true,
                 groups: (item.contents ?? []).flatMap(c => infoSkillGroups(c).map(group => ({
                     contentId: c.id,
+                    skillId: group.skillId ?? "",
                     skillLabel: group.skillLabel,
                     values: group.values.map(v => ({
                         tierId: v.tierId ?? "",
@@ -709,7 +710,7 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
         const contents = items.find(i => i.id === target.dataset.id)?.contents;
         const index = contents?.findIndex(c => c.id === target.dataset.contentId) ?? -1;
         if (index < 0) return;
-        contents[index] = toggleInfoDisclosure(contents[index], target.dataset.tierId || null);
+        contents[index] = toggleInfoDisclosure(contents[index], target.dataset.tierId || null, target.dataset.skillId || null);
         // 再描画は updateJournalEntry フックが行う(_onToggleInfoPublic と同じ理由で重ねない)
         await journal.setFlag(SYSTEM_ID, "infoItems", items);
     }

@@ -769,9 +769,10 @@ export function buildHandoutCardData(handout, {
  * 1 つの並びとして扱う。
  * @param {object} content 内容(枝)
  * @param {(number|string|null)} entryTn 入口(技能行)の目標値
+ * @param {?string} skillId 入口の技能行ID。未指定なら共通条件だけを返す。
  * @returns {Array<{tn:(number|string), tierId:?string, isDisclosed:boolean, text:string}>}
  */
-function infoValueList(content, entryTn) {
+function infoValueList(content, entryTn, skillId = null) {
     const values = [];
     if (entryTn) {
         values.push({
@@ -780,11 +781,14 @@ function infoValueList(content, entryTn) {
         });
     }
     for (const tier of infoTiers(content)) {
-        if (!tier.tn && !tier.text) continue;
-        values.push({
-            tn: tier.tn ?? null, tierId: tier.id ?? null,
-            isDisclosed: tier.isDisclosed === true, text: tier.text ?? "",
-        });
+        for (const target of infoTierTargets(tier)) {
+            if (target.skillId && target.skillId !== skillId) continue;
+            if (!target.tn && !tier.text) continue;
+            values.push({
+                tn: target.tn ?? null, tierId: tier.id ?? null,
+                isDisclosed: tier.isDisclosed === true, text: tier.text ?? "",
+            });
+        }
     }
     return values.sort((a, b) => (Number(a.tn) || Infinity) - (Number(b.tn) || Infinity));
 }
@@ -794,7 +798,7 @@ function infoValueList(content, entryTn) {
  *
  * 1 つの枝は技能行(技能の集合＋その行の目標値)を複数持てるので、**技能行ごとに 1 単位**にし、
  * その単位が持つ目標値＝その行の目標値＋枝の段の目標値(昇順)とする。段の目標値は達成値の
- * 絶対値と比べる(2026-08-12 裁定)ので、どの技能行から入っても同じ段に届く。
+ * 絶対値と比べる。追加目標値は紐づけた技能行だけに表示する（未設定の旧形式は共通）。
  * @param {object} content 内容(枝・技能名は解決済み)
  * @returns {Array<{skillLabel: string, values: Array<object>}>}
  */
@@ -805,7 +809,7 @@ export function infoSkillGroups(content) {
         const values = infoValueList(content, null);
         return values.length ? [{ skillLabel: "", values }] : [];
     }
-    return rows.map(row => ({ skillLabel: row.label, values: infoValueList(content, row.tn) }))
+    return rows.map(row => ({ skillLabel: row.label, ...(row.id ? { skillId: row.id } : {}), values: infoValueList(content, row.tn, row.id) }))
         .filter(group => group.values.length);
 }
 
@@ -871,12 +875,18 @@ function infoCardBlocks(contents, { mode, filter = () => true }) {
         .filter(block => block.tnList || block.rows.length);
 }
 
+/** 旧形式の共通目標値は読み出し時に全技能共通の1条件へ展開する。 */
+export function infoTierTargets(tier) {
+    return Array.isArray(tier?.targets) ? tier.targets.filter(Boolean)
+        : [{ id: "legacy", skillId: "", tn: tier?.tn ?? null }];
+}
+
 /**
  * 情報の内容が持つ段(追加で判明する内容)を**目標値の昇順**で返す(2026-08-12 裁定)。
  *
  * 段は「同じ入口(＝内容の使用技能)のまま目標値が上がると情報が増える」ことの表現で、
  * 要求技能が違う場合は内容そのものを分ける(＝別の枝)。段の目標値は**達成値の絶対値**と
- * 比べる——どの技能行から入ったかに関わらず、達成値がその値に届けば開く。
+ * 比べる。2026-09-11: targets の各条件で入口の技能行と目標値を個別に指定できる。
  *
  * 並べ替えは**読み出し時だけ**行い、保存順は書き換えない(操作のたびに保存データの並びが
  * 変わるのを避ける)。目標値が未入力の段は末尾に置く(入力するまで足した位置に留まる)。
@@ -885,11 +895,9 @@ function infoCardBlocks(contents, { mode, filter = () => true }) {
  */
 export function infoTiers(content) {
     const tiers = Array.isArray(content?.tiers) ? content.tiers.filter(Boolean) : [];
-    return [...tiers].sort((a, b) => {
-        const at = Number.isFinite(a?.tn) ? a.tn : Infinity;
-        const bt = Number.isFinite(b?.tn) ? b.tn : Infinity;
-        return at - bt;
-    });
+    const lowest = tier => Math.min(...infoTierTargets(tier).map(target =>
+        Number.isFinite(target.tn) ? target.tn : Infinity));
+    return [...tiers].sort((a, b) => lowest(a) - lowest(b));
 }
 
 /** 目標値の行ラベル(パネルの開示行)。値そのものを名前として出す(2026-08-15)。 */
@@ -901,16 +909,17 @@ export function infoValueLabel(tn) {
  * 情報の内容の開示を切り替える(複製を返す。元データは書き換えない)。
  *
  * 段は入口本文の上に積まれるため、開示状態も累積を保つ:
- * - 段を開ける → 入口本文と、それより下の段も開く
- * - 段を閉じる → それより上の段も閉じる
+ * - 段を開ける → 入口本文と、同じ技能行でそれより下の段も開く
+ * - 段を閉じる → 同じ技能行でそれより上の段も閉じる
  * - 入口本文を閉じる → 全ての段が閉じる
  * @param {object} content 情報の内容
  * @param {?string} tierId 対象の段(null なら入口本文)
+ * @param {?string} skillId 操作した技能行。累積対象はその行に紐づく目標値。
  * @returns {object} 切り替え後の内容
  */
-export function toggleInfoDisclosure(content, tierId = null) {
+export function toggleInfoDisclosure(content, tierId = null, skillId = null) {
     const stored = Array.isArray(content?.tiers) ? content.tiers : [];
-    const order = infoTiers(content).map(t => t.id);   // 目標値の昇順に並んだ id 列
+    const order = [...new Set(infoValueList(content, null, skillId).map(v => v.tierId))];   // 目標値の昇順に並んだ id 列
     const withTiers = (isDisclosed, mapTier) => ({
         ...content, isDisclosed, tiers: stored.map(mapTier),
     });
@@ -926,6 +935,7 @@ export function toggleInfoDisclosure(content, tierId = null) {
     const on = stored.find(t => t.id === tierId)?.isDisclosed !== true;
     return withTiers(on ? true : content?.isDisclosed === true, (tier) => {
         const r = order.indexOf(tier.id);
+        if (r < 0) return tier;
         if (on) return r <= rank ? { ...tier, isDisclosed: true } : tier;
         return r >= rank ? { ...tier, isDisclosed: false } : tier;
     });
@@ -933,14 +943,14 @@ export function toggleInfoDisclosure(content, tierId = null) {
 
 /**
  * 判定成功→自動開示(14-9・2026-08-16 裁定)。**達成値以下の目標値を持つ入口・段を全て開く**
- * (抜いた目標値まで一括開示。段の目標値は絶対値比較=どの技能行から入っても同じ)。
+ * (抜いた目標値まで一括開示。挑んだ技能行に紐づく条件と旧形式の共通条件が対象)。
  * 開くだけで閉じない(開示は単調)。「段が開けば入口も開く」累積規約(toggleInfoDisclosure)を守る。
  * @param {object} content 情報の内容(枝)
- * @param {{achievement: number, entryTn?: ?(number|string)}} args
+ * @param {{achievement: number, entryTn?: ?(number|string), skillId?: ?string}} args
  *        entryTn=挑んだ技能行の目標値(入口本文の開示判定に使う)
  * @returns {object} 更新した内容(イミュータブル・元データは書き換えない)
  */
-export function discloseInfoByAchievement(content, { achievement, entryTn = null } = {}) {
+export function discloseInfoByAchievement(content, { achievement, entryTn = null, skillId = null } = {}) {
     const ach = Number(achievement);
     if (!Number.isFinite(ach)) return content;
     const reached = (tn) => {
@@ -949,7 +959,10 @@ export function discloseInfoByAchievement(content, { achievement, entryTn = null
         return Number.isFinite(n) && n <= ach;
     };
     const stored = Array.isArray(content?.tiers) ? content.tiers : [];
-    const tiers = stored.map(t => (reached(t?.tn) ? { ...t, isDisclosed: true } : t));
+    const validSkillId = (content?.skills ?? []).some(row => row.id === skillId) ? skillId : null;
+    const tiers = stored.map(t => (infoTierTargets(t).some(target =>
+        (!target.skillId || target.skillId === validSkillId) && reached(target.tn))
+        ? { ...t, isDisclosed: true } : t));
     const entryOpen = content?.isDisclosed === true || reached(entryTn)
         || tiers.some(t => t?.isDisclosed === true);
     return { ...content, isDisclosed: entryOpen, tiers };
@@ -1013,7 +1026,7 @@ export function infoDesignationRows(item, nameByKey) {
             const keys = infoSkillKeys(row);
             const label = resolveInfoSkillLabel(row, nameByKey);
             if (!keys.length && !label) return null;
-            return { contentId: content.id ?? "", keys, tn: row.tn ?? null, label };
+            return { contentId: content.id ?? "", ...(row.id ? { skillId: row.id } : {}), keys, tn: row.tn ?? null, label };
         })
         .filter(Boolean));
 }

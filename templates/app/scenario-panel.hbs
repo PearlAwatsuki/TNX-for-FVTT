@@ -327,7 +327,7 @@
                         {{/if}}
                         {{#each group.values as |value|}}
                             <div class="scp-info-content">
-                                <a class="tnx-icon-ctrl {{#if value.isDisclosed}}is-on{{/if}}" data-action="toggleInfoDisclosed" data-id="{{item.id}}" data-content-id="{{group.contentId}}" data-tier-id="{{value.tierId}}" title="{{#if value.isDisclosed}}開示済み{{else}}未開示{{/if}}">
+                                <a class="tnx-icon-ctrl {{#if value.isDisclosed}}is-on{{/if}}" data-action="toggleInfoDisclosed" data-id="{{item.id}}" data-content-id="{{group.contentId}}" data-tier-id="{{value.tierId}}" data-skill-id="{{group.skillId}}" title="{{#if value.isDisclosed}}開示済み{{else}}未開示{{/if}}">
                                     <i class="fas {{#if value.isDisclosed}}fa-check-square{{else}}fa-square{{/if}}"></i>
                                 </a>
                                 <span class="scp-info-content-label">{{value.label}}</span>
