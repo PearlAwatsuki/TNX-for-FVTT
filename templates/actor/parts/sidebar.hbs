@@ -10,7 +10,7 @@
                 <img class="profile-img" src="{{actor.img}}" data-edit="img" {{#if isEditMode}}data-action="editImage"{{/if}} title="{{actor.name}}：立ち絵{{#if isEditMode}}を変更{{/if}}"/>
             </div>
             <div data-image-kind="token" {{#unless showTokenImage}}hidden{{/unless}}>
-                <img class="profile-img" src="{{tokenImage}}" {{#if isEditMode}}data-action="{{tokenImageAction}}"{{/if}} title="{{actor.name}}：コマ画像{{#if isEditMode}}を設定{{/if}}"/>
+                <img class="profile-img" src="{{tokenImage}}" {{#if isEditMode}}data-action="editTokenImage"{{/if}} title="{{actor.name}}：コマ画像{{#if isEditMode}}を設定{{/if}}"/>
             </div>
         </div>
         {{!-- パーソナルデータは個人識別キャラのみ(features.personalData。トループは持たない) --}}

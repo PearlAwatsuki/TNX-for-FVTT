@@ -8,6 +8,7 @@
  * ゲートする(templates/actor/parts/ の partial 群を共有)。
  */
 
+import { editTokenImage } from "./sheet-images.mjs";
 import { SYSTEM_ID } from "../constants.mjs";
 import { TnxSkillUtils } from '../core/tnx-skill-utils.mjs';
 import { EffectsSheetMixin } from "../ui/effects-sheet-mixin.mjs";
@@ -70,6 +71,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             ...EffectsSheetMixin.ACTIONS,
             copyUuid:             TnxCharacterSheetBase._onCopyUuid,
             toggleEditMode:       TnxCharacterSheetBase._onToggleEditMode,
+            editTokenImage,
             toggleActorImage:     TnxCharacterSheetBase._onToggleActorImage,
             toggleStyleRole:      TnxCharacterSheetBase._onToggleStyleRole,
             rollStyleDescription: TnxCharacterSheetBase._onRollStyleDescription,
@@ -132,12 +134,11 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         context.owner = this.actor.isOwner;
         context.isEditable = this.isEditable;
         context.isEditMode = this._isEditMode && this.isEditable;
-        // 立ち絵は actor.img、コマ画像はコアの Token 設定を使い、別々に管理する。
+        // 立ち絵は actor.img、コマ画像はコアの Token 画像フィールドを使い、別々に管理する。
         const imageToken = this.actor.isToken ? this.actor.token : this.actor.prototypeToken;
         context.tokenImage = imageToken?.randomImg ? CONST.DEFAULT_TOKEN
             : (imageToken?.texture?.src || CONST.DEFAULT_TOKEN);
         context.showTokenImage = this._showTokenImage;
-        context.tokenImageAction = this.actor.isToken ? "configureToken" : "configurePrototypeToken";
         context.cssClass = "";
         context.features = this.sheetFeatures;
         // 名前固定(トループ/分身=導出名・編集不可。troop シートが上書きする)
