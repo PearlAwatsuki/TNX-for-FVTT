@@ -230,9 +230,9 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
                         ...target,
                         skillOptions: [
                             { id: "", label: "すべての使用技能（共通）" },
-                            ...(content.skills ?? []).map((skill, i) => ({
+                            ...(content.skills ?? []).map(skill => ({
                                 id: skill.id,
-                                label: `${i + 1}: ${toSkillChips(infoSkillKeys(skill)).map(t => t.name).join("、") || skill.name || "技能未設定"} ／ 目標値 ${skill.tn ?? "未入力"}`,
+                                label: toSkillChips(infoSkillKeys(skill)).map(t => t.name).join("、") || skill.name || "技能未設定",
                             })),
                             ...(target.skillId && !(content.skills ?? []).some(skill => skill.id === target.skillId)
                                 ? [{ id: target.skillId, label: "削除された技能行（選び直してください）" }] : []),

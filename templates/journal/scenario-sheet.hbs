@@ -436,8 +436,8 @@
                                                             <div class="info-tier-targets">
                                                                 {{#each tierItem.targets as |tierTarget|}}
                                                                 <div class="info-tier-target">
-                                                                    <label>元の技能＋目標値
-                                                                        <select name="skillId" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-tier-id="{{tierItem.id}}" data-target-id="{{tierTarget.id}}">
+                                                                    <label>
+                                                                        <select name="skillId" aria-label="使用技能" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-tier-id="{{tierItem.id}}" data-target-id="{{tierTarget.id}}">
                                                                             {{#each tierTarget.skillOptions as |option|}}
                                                                             <option value="{{option.id}}" {{#if option.selected}}selected{{/if}}>{{option.label}}</option>
                                                                             {{/each}}
