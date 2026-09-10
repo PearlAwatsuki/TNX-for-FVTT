@@ -256,10 +256,10 @@ describe("areaTargetValue() / DEFAULT_APPEARANCE_TARGET（14-8）", () => {
 });
 
 describe("resolveSceneAppearance()（行＋実行時の上書きの合成・14-8）", () => {
-  it("「未設定」以外の行は上書きを見ない（台本の設定がそのまま）", () => {
+  it("台本のエリア指定は古い数値指定と実行時上書きより優先する", () => {
     const row = { appearanceMode: "fixed", area: "white", appearanceValue: 14, appearanceSkills: ["a"] };
     expect(resolveSceneAppearance(row, { area: "red", appearanceValue: 8, appearanceSkills: ["b"] }))
-      .toEqual({ area: "white", mode: "fixed", fixedValue: 14, skills: ["a"] });
+      .toEqual({ area: "white", mode: "area", fixedValue: null, skills: ["a"] });
   });
 
   it("「登場：不可」もそのまま通す（上書きで解除されない）", () => {

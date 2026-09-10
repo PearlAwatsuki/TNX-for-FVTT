@@ -620,7 +620,7 @@ export async function switchScene(sceneId) {
 
 /**
  * シーン開始ダイアログ(14-8)を必要なシーンでだけ開き、そのシーンで決めるものを集める。
- * 必要＝巡回シーン(常に)と、登場判定が「未設定」の行。それ以外は台本の設定がそのまま使われる。
+ * 必要＝シーンプレイヤーが任意（巡回を含む）、または登場判定が未設定の行。設定済み項目は保持する。
  * @param {{phase:string, row:object}} hit
  * @returns {Promise<?{scenePlayerUserId:string, override:?object}>} null=中止
  */
@@ -636,7 +636,9 @@ async function _requestSceneEntry({ row }) {
         ui.notifications.warn("シーンプレイヤーに指定されたハンドアウトに対象ユーザーが設定されていません。");
     }
 
-    if (!rotation && scene.appearanceMode !== "unset") {
+    const choosePlayer = rotation || (!scripted.ruler && !scripted.handoutId && !scripted.userId);
+    const chooseAppearance = scene.appearanceMode === "unset";
+    if (!choosePlayer && !chooseAppearance) {
         return { scenePlayerUserId: scriptedUserId, override: null };
     }
 
@@ -644,19 +646,19 @@ async function _requestSceneEntry({ row }) {
     const order = getRotationOrder();
     const done = new Set(st.scenePlayerDone ?? []);
     const defaultPlayerUserId = rotation
-        ? resolveRotationDefault(order, st.scenePlayerDone).userId : "";
+        ? resolveRotationDefault(order, st.scenePlayerDone).userId : (order[0] ?? "");
     // 候補は**巡回順のユーザーだけ**(2026-08-10 是正)。巡回順に入っていない＝ハンドアウトが
     // 無い、またはキャスト未割当＝そのアクトに参加していないので、選んでも巡回として成立しない。
     // ルーラーシーンの選択肢も出さない(巡回シーンにルーラーシーンはあり得ない)。
     // 既に務めた人には「（済）」を付ける＝「なるべく務めていない人に回す」判断の材料
-    const playerChoices = rotation
+    const playerChoices = choosePlayer
         ? order.map(id => game.users.get(id)).filter(u => u).map(u => ({
             id: u.id,
-            name: `${u.character?.name ?? u.name}${done.has(u.id) ? "（済）" : ""}`,
+            name: `${u.character?.name ?? u.name}${rotation && done.has(u.id) ? "（済）" : ""}`,
         }))
         : [];
-    if (rotation && !playerChoices.length) {
-        ui.notifications.warn("巡回シーンに回せるプレイヤーがいません（ハンドアウトの対象ユーザーとキャストの割り当てを確認してください）。");
+    if (choosePlayer && !playerChoices.length) {
+        ui.notifications.warn("シーンプレイヤーに選べるユーザーがいません（ハンドアウトの対象ユーザーとキャストの割り当てを確認してください）。");
         return null;
     }
 
@@ -668,19 +670,19 @@ async function _requestSceneEntry({ row }) {
         appearanceActors:   scene.appearanceActors,
         teams:              st.teams,
     });
-    const stageActorIdsByUser = rotation
+    const stageActorIdsByUser = choosePlayer
         ? Object.fromEntries(playerChoices.map(u => [u.id, actorIdsFor(u.id)])) : null;
-    const actorIds = rotation
+    const actorIds = choosePlayer
         ? [...new Set(Object.values(stageActorIdsByUser).flat())]
         : actorIdsFor(scriptedUserId);
-    const stageCandidates = await listStageCandidates(actorIds);
+    const stageCandidates = chooseAppearance && !scene.stage ? await listStageCandidates(actorIds) : [];
 
     const result = await promptSceneEntry({
-        row: scene, rotation, playerChoices, defaultPlayerUserId, stageCandidates, stageActorIdsByUser,
+        row: scene, rotation, choosePlayer, playerChoices, defaultPlayerUserId, stageCandidates, stageActorIdsByUser,
     });
     if (!result) return null;
     return {
-        scenePlayerUserId: rotation ? result.scenePlayerUserId : scriptedUserId,
+        scenePlayerUserId: choosePlayer ? result.scenePlayerUserId : scriptedUserId,
         override:          result.override,
     };
 }

@@ -18,7 +18,7 @@ import {
     sceneSequenceNumbers, handoutPlayerLabel, handoutNumberOf, handoutStyleDisplay, infoTiers, infoTierTargets,
     CONTACT_TYPES,
 } from '../rules/session.mjs';
-import { normalizeAppearanceActors, groupCharacterChoices } from '../rules/appearance.mjs';
+import { normalizeAppearanceActors, groupCharacterChoices, DEFAULT_APPEARANCE_TARGET } from '../rules/appearance.mjs';
 import { listSubScenes } from '../session/subscenes.mjs';
 import { attachEditorSectionToggles } from '../ui/editor-sections.mjs';
 
@@ -526,6 +526,15 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         scene[input.name] = input.type === 'checkbox' ? input.checked
             : input.type === 'number' ? (Number.isFinite(parseInt(input.value)) ? parseInt(input.value) : null)
             : input.value;
+        if (input.name === "appearanceMode" && input.value === "fixed" && !Number.isFinite(scene.appearanceValue)) {
+            scene.appearanceValue = DEFAULT_APPEARANCE_TARGET;
+        }
+        if (input.name === "playerHandoutId") {
+            // 選び直した値を旧形式の指定が上書きしないようにする。
+            scene.playerUserId = "";
+            scene.isMasterScene = false;
+            scene.player = "";
+        }
         await this.document.setFlag(SYSTEM_ID, "scenes", scenes);
     }
 

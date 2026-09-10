@@ -1,23 +1,23 @@
 /**
  * @fileoverview シーン開始ダイアログ(フェーズ14-8・2026-08-09 ユーザー指定)。
  *
- * 登場判定が「未設定」のシーン(＝巡回シーンは常にこれ)に入るとき、その場で決めるものを聞く。
+ * シーンプレイヤーが任意、または登場判定が未設定のシーンで、その場で決めるものを聞く。
  * 台本に書かれていないと**宣言された**値だけを扱うので、データ駆動原則(設定はアクトシートから
  * 読む・パネルで手入力しない)の適用範囲の外にある。
  *
  * 欄の並びと表示条件:
- *   シーンプレイヤー … 巡回シーンのみ(既定＝未消化の先頭・選び直せる)
- *   舞台             … 常時。「任意」＋対象キャラクターが所持している住宅施設
- *   エリア           … 舞台＝任意のときだけ
- *   登場判定目標値   … 舞台＝任意のときだけ(初期値 10・エリアを選ぶとその固定値へ)
- *   指定技能         … 常時(台本の指定を初期値に、追加・削除できる)
+ *   シーンプレイヤー … 任意・巡回。巡回の既定は未消化の先頭。
+ *   舞台             … 登場判定と使用シーンが未設定で、住宅施設の候補がある場合。
+ *   エリア           … 登場判定が未設定、かつ舞台＝任意のときだけ。
+ *   登場判定目標値   … 登場判定が未設定、かつ舞台＝任意のときだけ(初期値10)。
+ *   指定技能         … 登場判定が未設定のとき(台本の指定を初期値に、追加・削除できる)。
  *
  * 住宅施設を選んだ場合は、住宅施設が持っている登場判定目標値とエリアをそのまま読み取る
  * (residence-area.mjs)。決めた値は実行状態の上書きへ入り、台本は書き換えない。
  */
 
 import { SCENE_AREA_OPTIONS } from "../rules/session.mjs";
-import { DEFAULT_APPEARANCE_TARGET, areaTargetValue } from "../rules/appearance.mjs";
+import { DEFAULT_APPEARANCE_TARGET, areaTargetValue, sceneAppearanceMode } from "../rules/appearance.mjs";
 import { loadGroupedGeneralSkillChoices, loadGeneralSkillNameByKey } from "../dictionary/skill-dictionary.mjs";
 import { formatSkillName } from "../core/identification.mjs";
 
@@ -27,26 +27,29 @@ const { DialogV2 } = foundry.applications.api;
  * シーン開始ダイアログを開く。
  * @param {object} args
  * @param {object} args.row                    正規化済みシーン行
- * @param {boolean} args.rotation              巡回シーンか(シーンプレイヤー欄の有無)
+ * @param {boolean} args.rotation              巡回シーンか
+ * @param {boolean} [args.choosePlayer]         シーンプレイヤーを開始時に選ぶか
  * @param {Array<{id:string,name:string}>} [args.playerChoices]   シーンプレイヤーの候補
  * @param {string} [args.defaultPlayerUserId]  既定のシーンプレイヤー(未消化の先頭)
  * @param {Array<object>} [args.stageCandidates] 舞台候補(listStageCandidates の結果)
  * @param {?Record<string,Array<string>>} [args.stageActorIdsByUser] シーンプレイヤーを選び直したときに
- *        舞台候補を絞り込むための「そのユーザーなら見えるキャラクター」表(巡回シーンのみ)
+ *        舞台候補を絞り込むための「そのユーザーなら見えるキャラクター」表
  * @returns {Promise<?{scenePlayerUserId:string, override:{area:string, appearanceValue:?number,
  *                     appearanceSkills:Array<string>}}>} キャンセルは null
  */
 export async function promptSceneEntry({
     row, rotation = false, playerChoices = [], defaultPlayerUserId = "", stageCandidates = [],
-    stageActorIdsByUser = null,
+    stageActorIdsByUser = null, choosePlayer = rotation,
 } = {}) {
+    const chooseAppearance = sceneAppearanceMode(row) === "unset";
+    const chooseStage = chooseAppearance && !row?.stage;
     const esc = foundry.utils.escapeHTML;
     const skillGroups  = await loadGroupedGeneralSkillChoices();
     const skillNameByKey = await loadGeneralSkillNameByKey();
     const initialSkills = Array.isArray(row?.appearanceSkills) ? [...row.appearanceSkills] : [];
 
     const sceneName = row?.name || "無題のシーン";
-    const playerField = rotation ? `
+    const playerField = choosePlayer ? `
         <div class="form-group">
             <label>シーンプレイヤー</label>
             <div class="form-fields">
@@ -66,10 +69,11 @@ export async function promptSceneEntry({
     const content = `
         <div class="tnx-scene-entry">
             ${playerField}
-            <div class="form-group">
+            ${chooseStage ? `<div class="form-group">
                 <label>舞台</label>
                 <div class="form-fields"><select name="stage"></select></div>
-            </div>
+            </div>` : ""}
+            ${chooseAppearance ? `
             <div class="form-group" data-free-stage>
                 <label>エリア</label>
                 <div class="form-fields"><select name="area">${areaOptions}</select></div>
@@ -96,7 +100,7 @@ export async function promptSceneEntry({
                         </select>
                     </div>
                 </div>
-            </div>
+            </div>` : ""}
         </div>`;
 
     return DialogV2.wait({
@@ -111,7 +115,7 @@ export async function promptSceneEntry({
             {
                 action: "ok", icon: "fas fa-play", label: "開始", default: true,
                 callback: (_event, _button, dialog) => _collect(dialog.element, {
-                    rotation, stageCandidates, skills: initialSkills,
+                    choosePlayer, chooseAppearance, stageCandidates, skills: initialSkills,
                 }),
             },
             { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => false },
@@ -132,7 +136,7 @@ function _wireSceneEntry(root, { stageCandidates, stageActorIdsByUser, skills, s
     // 舞台に住宅施設を選んだら、エリア・目標値の欄そのものを畳む(住宅施設が両方持っている)。
     // 表示制御はこのダイアログ限りなので、共通 CSS に汎用クラスを足さず直接 display を切る
     const syncStage = () => {
-        const free = !stageSelect.value;
+        const free = !stageSelect?.value;
         for (const group of root.querySelectorAll("[data-free-stage]")) {
             group.style.display = free ? "" : "none";
         }
@@ -146,6 +150,7 @@ function _wireSceneEntry(root, { stageCandidates, stageActorIdsByUser, skills, s
         return stageCandidates.filter(c => allowed.has(c.actorId));
     };
     const renderStageOptions = () => {
+        if (!stageSelect) return;
         const visible = visibleCandidates();
         const kept = stageSelect.value;
         stageSelect.replaceChildren();
@@ -186,6 +191,7 @@ function _wireSceneEntry(root, { stageCandidates, stageActorIdsByUser, skills, s
 
     // 指定技能のタグ入力(台本の指定を初期値に、その場で足し引きできる)
     const renderChips = () => {
+        if (!chips) return;
         chips.replaceChildren();
         for (const key of skills) {
             const dictName = skillNameByKey?.get(key);
@@ -217,18 +223,18 @@ function _wireSceneEntry(root, { stageCandidates, stageActorIdsByUser, skills, s
 }
 
 /** 入力値を実行状態の上書きの形へ集める。 */
-function _collect(root, { rotation, stageCandidates, skills }) {
+function _collect(root, { choosePlayer, chooseAppearance, stageCandidates, skills }) {
     const stageValue = root.querySelector('[name="stage"]')?.value ?? "";
     const hit = stageCandidates.find(c => c.value === stageValue) ?? null;
     const rawValue = root.querySelector('[name="appearanceValue"]')?.value ?? "";
     return {
-        scenePlayerUserId: rotation
+        scenePlayerUserId: choosePlayer
             ? (root.querySelector('[name="scenePlayerUserId"]')?.value ?? "") : "",
-        override: {
+        override: chooseAppearance ? {
             // 住宅施設を舞台にしたら、その住宅の登場判定目標値とエリアをそのまま適用する
             area:             hit ? hit.area : (root.querySelector('[name="area"]')?.value ?? ""),
             appearanceValue:  hit ? hit.targetValue : (rawValue === "" ? null : Number(rawValue)),
             appearanceSkills: [...skills],
-        },
+        } : null,
     };
 }

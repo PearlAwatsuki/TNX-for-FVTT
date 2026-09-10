@@ -33,9 +33,16 @@ export function areaTargetValue(area) {
     return AREA_APPEARANCE[area]?.tn ?? null;
 }
 
+/** アクトシートのエリア指定を優先し、旧「エリア準拠」だけの行は未設定と読む。 */
+export function sceneAppearanceMode(row) {
+    if (row?.kind === "rotation") return "unset";
+    if (row?.area) return "area";
+    return ["fixed", "none"].includes(row?.appearanceMode) ? row.appearanceMode : "unset";
+}
+
 /**
- * そのシーンの登場設定を解決する(14-8)。行の設定が「未設定」(`unset`＝巡回シーンは常にこれ)の
- * ときだけ、シーン開始ダイアログが決めた実行時の上書きを使う。
+ * そのシーンの登場設定を解決する。台本のエリア指定を優先し、登場判定が「未設定」の
+ * ときだけ、シーン開始ダイアログが決めた実行時の上書きを使う（巡回シーンも同様）。
  *
  * 上書きは「エリアの性質＋目標値の直接指定」の形に落ちる——住宅施設を舞台にした場合も、
  * 住宅の登場判定目標値を `fixed` として渡し、エリアは住宅エリアのランクをそのまま置く。
@@ -50,9 +57,9 @@ export function areaTargetValue(area) {
 export function resolveSceneAppearance(row, override = null) {
     const r = row ?? {};
     const rowSkills = Array.isArray(r.appearanceSkills) ? r.appearanceSkills : [];
-    const mode = r.appearanceMode ?? "area";
+    const mode = sceneAppearanceMode(r);
     if (mode !== "unset") {
-        return { area: r.area ?? "", mode, fixedValue: r.appearanceValue ?? null, skills: rowSkills };
+        return { area: r.area ?? "", mode, fixedValue: mode === "area" ? null : (r.appearanceValue ?? null), skills: rowSkills };
     }
     // 未決定(ダイアログを閉じた等)は目標値を出さない。指定技能は台本の指定が生きる
     if (!override) return { area: "", mode: "area", fixedValue: null, skills: rowSkills };

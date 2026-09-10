@@ -89,7 +89,7 @@ describe("normalizeSceneRow()（シーン行の正規化・14-2）", () => {
       isMasterScene: true, switchMessage: "▼",
       area: "", stage: "", playerUserId: "", playerHandoutId: "",
       kind: "normal", eventCondition: "",
-      appearanceMode: "area", appearanceValue: null, appearanceSkills: [],
+      appearanceMode: "unset", appearanceValue: null, appearanceSkills: [],
       appearanceActors: [],
     });
   });
@@ -107,7 +107,7 @@ describe("normalizeSceneRow()（シーン行の正規化・14-2）", () => {
     expect(row.appearanceMode).toBe("unset");
     // 種別を戻せば元の指定がそのまま生きる＝正規化は読み出し時の伏せ字であって書き換えではない
     expect(normalizeSceneRow({ ...raw, kind: "normal" }).area).toBe("white");
-    expect(normalizeSceneRow({ ...raw, kind: "normal" }).appearanceMode).toBe("fixed");
+    expect(normalizeSceneRow({ ...raw, kind: "normal" }).appearanceMode).toBe("area");
   });
 
   it("登場判定「未設定」は通常シーンでも選べる（14-8）", () => {

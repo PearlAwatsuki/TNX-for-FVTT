@@ -195,7 +195,7 @@
                                                       書かれ、担当はプレアクトで決まるため。
                                                       ルーラーシーンは独立した選択肢 --}}
                                                 <select name="playerHandoutId">
-                                                    <option value="">{{#if scene.legacyPlayerLabel}}旧: {{scene.legacyPlayerLabel}}{{else}}- 未選択 -{{/if}}</option>
+                                                    <option value="">{{#if scene.legacyPlayerLabel}}旧: {{scene.legacyPlayerLabel}}{{else}}任意{{/if}}</option>
                                                     <option value="{{@root.scenePlayerRuler}}" {{#if (eq @root.scenePlayerRuler scene.playerHandoutId)}}selected{{/if}}>ルーラーシーン</option>
                                                     {{#each ../../scenePlayerHandouts as |handout|}}
                                                         <option value="{{handout.id}}" {{#if (eq handout.id scene.playerHandoutId)}}selected{{/if}}>
@@ -254,9 +254,9 @@
                                                             <option value="{{opt.value}}" {{#if (eq opt.value scene.area)}}selected{{/if}}>{{opt.label}}</option>
                                                         {{/each}}
                                                     </select>
+                                                    {{#unless scene.area}}
                                                     <label class="scene-detail-label--next">登場判定</label>
                                                     <select name="appearanceMode">
-                                                        <option value="area" {{#if (eq scene.appearanceMode "area")}}selected{{/if}}>エリア準拠</option>
                                                         <option value="fixed" {{#if (eq scene.appearanceMode "fixed")}}selected{{/if}}>数値指定</option>
                                                         <option value="unset" {{#if (eq scene.appearanceMode "unset")}}selected{{/if}}>未設定</option>
                                                         <option value="none" {{#if (eq scene.appearanceMode "none")}}selected{{/if}}>不可</option>
@@ -268,6 +268,7 @@
                                                             <button type="button" class="tnx-btn" data-action="spinUp" aria-label="増加">＋</button>
                                                         </div>
                                                     {{/if}}
+                                                    {{/unless}}
                                                 </div>
                                             {{/unless}}
                                             {{!-- 登場不可のシーンは登場判定そのものが起きない=指定技能は出さない

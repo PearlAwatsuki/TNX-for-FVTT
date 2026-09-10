@@ -11,7 +11,7 @@
 
 import { TNX_HOOKS } from "./combat-events.mjs";
 import { formatDesignatedSkills } from "../dictionary/skill-dictionary.mjs";
-import { normalizeAppearanceActors } from "./appearance.mjs";
+import { normalizeAppearanceActors, sceneAppearanceMode } from "./appearance.mjs";
 
 /** メインアクトのフェイズ順(台本の走査順・シーン開始時の phase stamp に使う)。 */
 export const PHASE_ORDER = Object.freeze(["opening", "research", "climax", "ending"]);
@@ -91,10 +91,10 @@ export function normalizeSceneRow(row) {
         kind,
         // イベントシーンの起動条件(14-8・表示のみ。条件の自動判定はしない=RL が読んで判断する)
         eventCondition: r.eventCondition ?? "",
-        // 登場設定(14-7): area=エリア準拠(既定)/fixed=数値指定/none=登場不可/
+        // 登場設定: エリア指定があれば area（自動）。エリア未設定では fixed=数値指定/none=登場不可/
         // unset=未設定(シーン開始ダイアログで決める・14-8)。
         // appearanceSkills=シーン指定の使用技能(識別キー・複数可・候補の提示であって制限しない)
-        appearanceMode:   isRotation ? "unset" : (r.appearanceMode ?? "area"),
+        appearanceMode:   sceneAppearanceMode(r),
         appearanceValue:  r.appearanceValue  ?? null,
         appearanceSkills: Array.isArray(r.appearanceSkills) ? r.appearanceSkills : [],
         // 登場キャラクターの事前設定(14-8): シーン入場時に判定なしで登場させる面々
