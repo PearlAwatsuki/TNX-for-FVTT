@@ -136,7 +136,7 @@ export class TokyoNovaGeneralSkillSheet extends TokyoNovaItemSheet {
 
         if (fieldName === "system.onomasticType") {
             // 区分の切り替え(2026-08-26): ①識別キーが空ならプレフィックスをプレフィル
-            // ②名前が旧区分の正規形なら新区分で合成し直す(合わない名前は触らない)
+            // ②固有名詞だけで新規作成した場合も、区分とフル名を同時に保存する。
             if (value && !this.item.system.identificationKey) {
                 updateData["system.identificationKey"] = `${value}_`;
             }
@@ -145,10 +145,11 @@ export class TokyoNovaGeneralSkillSheet extends TokyoNovaItemSheet {
             const oldType = onomasticTypeOf(this.item.system);
             const oldLabel = ONOMASTIC_TYPES[oldType] ?? "";
             const name = this.item.name ?? "";
-            if (oldLabel && name.startsWith(`${oldLabel}：`)) {
-                const composed = composeOnomasticName(value, stripSkillCategory(name, oldLabel));
-                if (composed) updateData.name = composed;
-            }
+            const newLabel = ONOMASTIC_TYPES[value] ?? "";
+            let suffix = oldLabel ? stripSkillCategory(name, oldLabel) : name;
+            if (newLabel) suffix = stripSkillCategory(suffix, newLabel);
+            const composed = composeOnomasticName(value, suffix);
+            if (composed && composed !== name) updateData.name = composed;
         }
 
         if (fieldName === "system.generalSkillCategory") {
