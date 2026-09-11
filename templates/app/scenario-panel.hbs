@@ -79,17 +79,29 @@
         <p class="scp-empty">アクトが読み込まれていません。</p>
     {{/if}}
 
-    {{#if keyHandouts.length}}
-    <section class="scp-key-handouts">
-        <h4>キーハンドアウト</h4>
-        {{#each keyHandouts as |h|}}<div class="scp-send-row">
-            {{#if h.canDistribute}}<span class="scp-send-label">{{h.title}}</span>{{else}}<a class="scp-send-label" data-action="openKeyHandout" data-id="{{h.id}}">{{h.title}}</a>{{/if}}
-            {{#if h.published}}<span>公開済み</span>{{/if}}
-            {{#if h.canDistribute}}<button type="button" data-action="distributeKeyHandout" data-id="{{h.id}}">配布</button>{{/if}}
-            {{#if h.canPublish}}<button type="button" data-action="publishKeyHandout" data-id="{{h.id}}">公開</button>{{/if}}
-        </div>{{/each}}
-    </section>
-    {{/if}}
+    {{#*inline "keyHandoutSendingSection"}}
+        {{#if keyHandoutSending.length}}
+        <fieldset class="tnx-fieldset">
+            <legend>キーハンドアウト</legend>
+            {{#each keyHandoutSending as |h|}}<div class="scp-send-row">
+                <span class="scp-send-label">{{h.title}}（{{h.castLabel}}）</span>
+                <a class="tnx-icon-ctrl" data-action="distributeKeyHandout" data-id="{{h.id}}" title="担当プレイヤーに送信"><i class="fas fa-paper-plane"></i></a>
+            </div>{{/each}}
+        </fieldset>
+        {{/if}}
+    {{/inline}}
+    {{#*inline "keyHandoutReadingSection"}}
+        {{#if keyHandouts.length}}
+        <fieldset class="tnx-fieldset">
+            <legend>キーハンドアウト</legend>
+            {{#each keyHandouts as |h|}}<div class="scp-send-row">
+                <a class="scp-send-label" data-action="openKeyHandout" data-id="{{h.id}}">{{h.title}}</a>
+                {{#if h.published}}<span>公開済み</span>{{/if}}
+                {{#if h.canPublish}}<button type="button" data-action="publishKeyHandout" data-id="{{h.id}}">公開</button>{{/if}}
+            </div>{{/each}}
+        </fieldset>
+        {{/if}}
+    {{/inline}}
 
     {{!-- キャスト操作: 登場判定(PL)・手動登場(RL)・チーム。GM はキャストタブ・PL はヘッダ直下 --}}
     {{#*inline "castSection"}}
@@ -383,6 +395,7 @@
                 </div>
                 <div class="tab" data-group="primary" data-tab="act">
                     {{> actSection}}
+                    {{> keyHandoutSendingSection}}
                 </div>
             </div>
         {{else}}
@@ -390,12 +403,14 @@
                 {{> actSection}}
                 {{#if loaded}}
                     {{> sendSection}}
+                    {{> keyHandoutSendingSection}}
                 {{/if}}
             </div>
         {{/if}}
     {{else}}
         <div class="scp-body">
             {{> castSection}}
+            {{> keyHandoutReadingSection}}
         </div>
     {{/if}}
 </section>

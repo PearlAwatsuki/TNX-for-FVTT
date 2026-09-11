@@ -10,7 +10,7 @@ export function canReadKeyHandout(data, user) {
     return !!data && !!user && (user.isGM || data.published === true || data.userId === user.id);
 }
 export function canPublishKeyHandout(data, user) {
-    return !!data && !!user && !data.published && (user.isGM || data.userId === user.id);
+    return !!data && !!user && !data.published && !user.isGM && data.userId === user.id;
 }
 /** 原稿ではなく配布時の記録を取得。過渡版のチャット保存形式も読み取る。 */
 export function findKeyHandoutRecord(actId, handoutId) {
@@ -55,13 +55,12 @@ export function keyHandoutFields(input = {}) {
 }
 
 const distributing = new Set();
-/** 初回配布はRLから本人とRLへの私信。配布内容と公開状態はアクトへ保存する。 */
+/** RLは何度でも本人とRLへ送信できる。公開済みの状態は再送しても維持する。 */
 export async function distributeKeyHandout(actId, handoutId) {
     if (!game.user.isGM) return;
     const lock = `${actId}:${handoutId}`;
     if (distributing.has(lock)) return;
     const existing = findKeyHandoutRecord(actId, handoutId);
-    if (existing) { await saveKeyHandoutRecord(existing.data); return; }
     const act = game.journal.get(actId);
     if (!act?.getFlag(SYSTEM_ID, "useKeyHandouts")) return;
     const handouts = act.getFlag(SYSTEM_ID, "handouts") ?? [];
@@ -83,7 +82,7 @@ export async function distributeKeyHandout(actId, handoutId) {
         const message = await ChatMessage.create({ content,
             whisper: [...new Set([user.id, ...game.users.filter(u => u.isGM).map(u => u.id)])],
             flags: { [SYSTEM_ID]: {
-                keyHandout: { actId, handoutId, userId: user.id, published: false, card },
+                keyHandout: { actId, handoutId, userId: user.id, published: existing?.data.published === true, card },
                 handoutContact: { ...contact, userId: user.id, styleKey: key.recommendedStyle, granted: false },
             } },
         });
@@ -105,7 +104,7 @@ export async function requestKeyHandoutPublication(message) {
     game.socket.emit(SOCKET_CHANNEL, { type: "publishKeyHandout", messageId: message.id, userId: game.user.id });
 }
 const publishing = new Set();
-/** 公開は配布済みの同じカードを全員へ見せる。原稿・PS・コネには変更を加えない。 */
+/** PLの公開で全内容を新しい公開カードとして送る。元の私信は保持する。 */
 export async function publishKeyHandout(messageId, userId) {
     if (!game.user.isGM || publishing.has(messageId)) return;
     const record = getKeyHandoutRecord(messageId);
@@ -113,10 +112,8 @@ export async function publishKeyHandout(messageId, userId) {
     if (!canPublishKeyHandout(d, game.users.get(userId))) return;
     publishing.add(messageId);
     try {
+        await ChatMessage.create({ content: await renderKeyHandoutCard(d.card), whisper: [] });
         await saveKeyHandoutRecord({ ...d, published: true });
-        const message = game.messages.get(d.messageId);
-        if (message) await message.update({ whisper: [], [`flags.${SYSTEM_ID}.keyHandout.published`]: true });
-        else await ChatMessage.create({ content: await renderKeyHandoutCard(d.card) });
     } finally { publishing.delete(messageId); }
 }
 
@@ -133,7 +130,7 @@ export async function syncKeyHandoutRecipients(act) {
         await saveKeyHandoutRecord({ ...d, userId });
         const message = game.messages.get(d.messageId);
         if (!message) continue;
-        const whisper = d.published ? [] : [...new Set([...(userId ? [userId] : []), ...game.users.filter(u => u.isGM).map(u => u.id)])];
+        const whisper = [...new Set([...(userId ? [userId] : []), ...game.users.filter(u => u.isGM).map(u => u.id)])];
         await message.update({ whisper, [`flags.${SYSTEM_ID}.keyHandout.userId`]: userId,
             [`flags.${SYSTEM_ID}.handoutContact.userId`]: userId });
     }

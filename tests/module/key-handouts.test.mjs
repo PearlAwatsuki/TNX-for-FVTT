@@ -37,7 +37,7 @@ it("本人とRLだけへ配布し、ジャーナルは作成しない", async ()
     expect(messages[0].content).toContain("秘密の本文");
     expect(messages[0].content).not.toContain("混入禁止");
     expect(JournalEntry.create).not.toHaveBeenCalled();
-    await distributeKeyHandout("act", "ho"); expect(messages).toHaveLength(1);
+    await distributeKeyHandout("act", "ho"); expect(messages).toHaveLength(2);
 });
 it("配布後の原稿編集は配布済みの記録を変更しない", async () => {
     await distributeKeyHandout("act", "ho"); persona.keyHandout.content = "変更後";
@@ -50,13 +50,17 @@ it("PLの再閲覧一覧は配布済みメッセージだけから得る", async
     expect(listKeyHandouts("act")).toHaveLength(1);
     game.user = users[2]; expect(listKeyHandouts("act")).toHaveLength(0);
 });
-it("公開要求は本人のみ。公開は同じカードを一度だけ全員へ見せる", async () => {
+it("公開要求は本人のみ。私信を残して全内容を一度だけ公開送信する", async () => {
     await distributeKeyHandout("act", "ho");
     await publishKeyHandout("act.ho", "other"); expect(messages[0].update).not.toHaveBeenCalled();
     await Promise.all([publishKeyHandout("act.ho", "owner"), publishKeyHandout("act.ho", "owner")]);
-    expect(messages[0].update).toHaveBeenCalledTimes(1); expect(messages[0].whisper).toEqual([]);
-    expect(canReadKeyHandout(messages[0].getFlag(SYSTEM_ID, "keyHandout"), users[2])).toBe(true);
-    expect(persona.ps).toBe("ペルソナPS"); expect(ChatMessage.create).toHaveBeenCalledTimes(1);
+    expect(messages[0].update).not.toHaveBeenCalled(); expect(messages[0].whisper).toEqual(["owner", "gm"]);
+    expect(messages[1].whisper).toEqual([]);
+    expect(messages[1].content).toContain("秘密の本文");
+    expect(messages[1].content).toContain("条件");
+    expect(messages[1].content).toContain("時期");
+    expect(canReadKeyHandout(getKeyHandoutRecord("act.ho").data, users[2])).toBe(true);
+    expect(persona.ps).toBe("ペルソナPS"); expect(ChatMessage.create).toHaveBeenCalledTimes(2);
 });
 it("プレイヤーの公開要求に本文は載せない", async () => {
     await distributeKeyHandout("act", "ho"); game.user = users[1];
@@ -82,4 +86,17 @@ it("チャットを削除しても配布内容と公開操作は維持される"
     game.user = users[0]; await publishKeyHandout("act.ho", "owner");
     expect(getKeyHandoutRecord("act.ho").data.published).toBe(true);
     expect(ChatMessage.create).toHaveBeenCalledTimes(2);
+});
+
+it("RLは公開できず、公開済みでも本人へ何度でも再送できる", async () => {
+    await distributeKeyHandout("act", "ho");
+    expect(canPublishKeyHandout(getKeyHandoutRecord("act.ho").data, users[0])).toBe(false);
+    await publishKeyHandout("act.ho", "gm"); expect(messages).toHaveLength(1);
+    await publishKeyHandout("act.ho", "owner");
+    persona.keyHandout.content = "改訂した本文";
+    await distributeKeyHandout("act", "ho");
+    expect(messages).toHaveLength(3);
+    expect(messages[2].whisper).toEqual(["owner", "gm"]);
+    expect(messages[2].content).toContain("改訂した本文");
+    expect(getKeyHandoutRecord("act.ho").data.published).toBe(true);
 });

@@ -1,5 +1,5 @@
 import { openKeyHandoutApp } from "./tnx-key-handout-app.mjs";
-import { listKeyHandouts, keyHandoutData, getKeyHandoutRecord, findKeyHandoutRecord, requestKeyHandoutPublication, distributeKeyHandout } from "../session/key-handouts.mjs";
+import { listKeyHandouts, keyHandoutData, getKeyHandoutRecord, requestKeyHandoutPublication, distributeKeyHandout } from "../session/key-handouts.mjs";
 /**
  * @fileoverview シナリオコントロールパネル(フェーズ14-3・正本 Phase_14_Tasks_Detail.md)。
  *
@@ -204,14 +204,21 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
         context.keyHandouts = useKeyHandouts ? listKeyHandouts(journal.id).map(message => {
             const d = keyHandoutData(message);
             return { id: message.id, title: d.card.title, published: d.published,
-                canPublish: !d.published && (game.user.isGM || d.userId === game.user.id) };
+                canPublish: !d.published && !game.user.isGM && d.userId === game.user.id };
         }) : [];
+        context.keyHandoutSending = [];
         if (useKeyHandouts && game.user.isGM) {
-            for (const h of journal.getFlag(SYSTEM_ID, "handouts") ?? []) {
-                if (!findKeyHandoutRecord(journal.id, h.id)) context.keyHandouts.push({
-                    id: h.id, title: h.keyHandout?.title || "キーハンドアウト", canDistribute: true,
-                });
-            }
+            const handouts = journal.getFlag(SYSTEM_ID, "handouts") ?? [];
+            const styles = await loadSkillChoices([STYLE_PACK]);
+            context.keyHandoutSending = handouts.map(h => {
+                const key = h.keyHandout ?? {};
+                const user = game.users.get(h.userId);
+                return { id: h.id,
+                    title: handoutDisplayTitle(key, { number: handoutNumberOf(handouts, h.id),
+                        styleName: handoutStyleDisplay(key.recommendedStyle, styles), label: "キーハンドアウト" }),
+                    castLabel: user?.character?.name ?? user?.name ?? "未設定",
+                };
+            });
         }
         context.actStarted = st.actStarted;
         context.actName = journal?.name ?? "";
