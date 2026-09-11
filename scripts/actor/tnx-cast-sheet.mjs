@@ -8,13 +8,14 @@
  */
 
 import { TnxCharacterSheetBase } from './tnx-character-sheet-base.mjs';
+import { HistoryInputStateMixin } from '../ui/history-input-state.mjs';
 import { TnxHistoryMixin } from '../ui/tnx-history-mixin.mjs';
 import { getUserFlagData } from '../core/user-flag-schema.mjs';
 import { SYSTEM_ID } from '../constants.mjs';
 import { OUTFIT_ITEM_TYPES } from '../data/helpers.mjs';
 import { readFlag } from '../data/item/helpers.mjs';
 
-export class TokyoNovaCastSheet extends TnxCharacterSheetBase {
+export class TokyoNovaCastSheet extends HistoryInputStateMixin(TnxCharacterSheetBase) {
 
     /**
      * DEFAULT_OPTIONS は ApplicationV2 が継承チェーンでマージする(共通分は基底が定義)。

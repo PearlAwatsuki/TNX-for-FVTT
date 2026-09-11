@@ -611,10 +611,43 @@
     display: flex;
     flex-direction: column;
     gap: 10px;
-    overflow-y: auto;
+    overflow: hidden;
 }
 
-.record-sheet-body { display: flex; flex-direction: column; gap: 12px; }
+.record-sheet-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.record-sheet .record-history-section,
+.record-sheet .history-list-wrapper {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+
+.record-sheet .record-exp-summary,
+.record-sheet .record-section-title,
+.record-sheet .history-header {
+    flex-shrink: 0;
+}
+
+.record-sheet .history-list {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-gutter: stable;
+}
+
+.record-sheet .history-header {
+    overflow-y: hidden;
+    scrollbar-gutter: stable;
+}
 
 .record-exp-summary {
     display: flex;

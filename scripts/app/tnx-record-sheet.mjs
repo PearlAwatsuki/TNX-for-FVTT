@@ -8,6 +8,8 @@
  * User ドキュメントのシートとしてではなく、User を引数に開く独自 Application であるため。
  */
 
+import { HistoryInputStateMixin } from "../ui/history-input-state.mjs";
+
 import {
   getUserFlagData,
   getUserFlagHistorySorted,
@@ -20,7 +22,7 @@ import {
 
 const { HandlebarsApplicationMixin, ApplicationV2 } = foundry.applications.api;
 
-export class TnxRecordSheet extends HandlebarsApplicationMixin(ApplicationV2) {
+export class TnxRecordSheet extends HistoryInputStateMixin(HandlebarsApplicationMixin(ApplicationV2)) {
   /**
    * @param {User} user  表示・編集対象の User
    * @param {object} [options]
@@ -49,6 +51,7 @@ export class TnxRecordSheet extends HandlebarsApplicationMixin(ApplicationV2) {
   static PARTS = {
     main: {
       template: "systems/tokyo-nova-axleration/templates/user/record-sheet.hbs",
+      scrollable: [".history-list"],
     },
   };
 
