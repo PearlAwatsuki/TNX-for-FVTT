@@ -1,0 +1,7 @@
+<section class="key-handout-body">
+{{#if allowed}}
+    {{{content}}}
+    {{#if published}}<p>公開済み</p>{{/if}}
+    {{#if canPublish}}<button type="button" data-action="publish"><i class="fas fa-eye"></i> 公開</button>{{/if}}
+{{else}}<p>このキーハンドアウトを閲覧する権限がありません。</p>{{/if}}
+</section>

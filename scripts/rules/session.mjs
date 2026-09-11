@@ -141,11 +141,11 @@ export function circledNumber(n) {
  * 共通=「ハンドアウト」(合わせて「共通ハンドアウト」)・自由記述=""(記入欄を出す)。
  * @param {object} handout
  */
-export function handoutTitleSuffix(handout) {
+export function handoutTitleSuffix(handout, label = "ハンドアウト") {
     const style = handout?.recommendedStyle ?? "";
     if (style === HANDOUT_STYLE_FREE) return "";
-    if (style === HANDOUT_STYLE_COMMON) return "ハンドアウト";
-    return `${style ? "用" : ""}ハンドアウト`;
+    if (style === HANDOUT_STYLE_COMMON) return label;
+    return `${style ? "用" : ""}${label}`;
 }
 
 /**
@@ -154,11 +154,11 @@ export function handoutTitleSuffix(handout) {
  * @param {object} handout
  * @param {{number?: number, styleName?: string}} [options]
  */
-export function handoutDisplayTitle(handout, { number = 1, styleName = "" } = {}) {
+export function handoutDisplayTitle(handout, { number = 1, styleName = "", label = "ハンドアウト" } = {}) {
     const h = handout ?? {};
-    if (h.recommendedStyle === HANDOUT_STYLE_FREE) return h.title || "ハンドアウト";
-    if (h.recommendedStyle === HANDOUT_STYLE_COMMON) return "共通ハンドアウト";
-    return `${circledNumber(number)}${styleName}${handoutTitleSuffix(h)}`;
+    if (h.recommendedStyle === HANDOUT_STYLE_FREE) return h.title || label;
+    if (h.recommendedStyle === HANDOUT_STYLE_COMMON) return `共通${label}`;
+    return `${circledNumber(number)}${styleName}${handoutTitleSuffix(h, label)}`;
 }
 
 /**

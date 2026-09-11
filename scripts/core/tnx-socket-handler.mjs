@@ -95,6 +95,11 @@ export class TnxSocketHandler {
             case "sessionTeam":
                 TnxSocketHandler._onSessionTeam(data);
                 break;
+            case "publishKeyHandout":
+                if (game.users.activeGM?.id === game.user.id) {
+                    import("../session/key-handouts.mjs").then(m => m.publishKeyHandout(data.messageId, data.userId));
+                }
+                break;
             case "teamExit":
                 TnxSocketHandler._onTeamExit(data);
                 break;

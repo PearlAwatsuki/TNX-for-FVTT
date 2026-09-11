@@ -35,14 +35,17 @@
                 </div>
                 <div class="handouts-section">
                     <div class="tnx-section-header">
-                        <h3>ハンドアウト</h3>
-                        <button type="button" class="tnx-ring-btn" data-action="addHandout" title="ハンドアウトを追加">
+                        <h3>{{handoutLabel}}</h3>
+                        <label><input type="checkbox" name="useKeyHandouts" {{#if useKeyHandouts}}checked{{/if}}> キーハンドアウトを使用</label>
+                        <button type="button" class="tnx-ring-btn" data-action="addHandout" title="{{handoutLabel}}を追加">
                             <i class="fas fa-plus"></i>
                         </button>
                     </div>
                     <div class="handout-list">
-                        {{#each handouts as |handout|}}
-                        <div class="handout-item" data-id="{{handout.id}}">
+                        {{#each handoutGroups as |group|}}
+                        {{#if @root.useKeyHandouts}}<div class="handout-pair">{{/if}}
+                        {{#each group as |handout|}}
+                        <div class="handout-item" data-id="{{handout.id}}" data-key-handout="{{handout.isKeyHandout}}">
                             {{!-- 1行目=ハンドアウト名(2026-08-09 裁定): 番号前置＋スタイルセレクト＋自動表示
                                   「①<スタイル名>用ハンドアウト」。共通=「共通ハンドアウト」(番号なし)・
                                   自由記述=記入欄を自動表示エリアまで伸長 --}}
@@ -64,7 +67,7 @@
                                     <span class="handout-title-auto">{{handout.titleSuffix}}</span>
                                 {{/if}}
                                 <div class="tnx-ctrl-strip">
-                                    <a class="tnx-icon-ctrl" data-action="deleteHandout" title="削除"><i class="fas fa-trash"></i></a>
+                                    {{#unless handout.isKeyHandout}}<a class="tnx-icon-ctrl" data-action="deleteHandout" title="削除"><i class="fas fa-trash"></i></a>{{/unless}}
                                 </div>
                             </div>
                             {{!-- 各欄はラベルをコントロールに直付けした横並びの行(2026-08-09 指摘=
@@ -116,12 +119,22 @@
                             </div>
                             <div class="tnx-editor-section">
                                 <div class="tnx-editor-section__header">
-                                    <label>ハンドアウト内容</label>
+                                    <label>{{handout.handoutLabel}}内容</label>
                                 </div>
                                 <div class="tnx-editor-section__content">
                                     <prose-mirror name="content" value="{{handout.content}}" toggled>{{{handout.enrichedContent}}}</prose-mirror>
                                 </div>
                             </div>
+                            {{#if handout.isKeyHandout}}
+                            <div class="handout-row handout-row--ps">
+                                <label>キーハンドアウトの公開</label>
+                                <input type="text" name="disclosure" value="{{handout.disclosure}}">
+                            </div>
+                            <div class="handout-row handout-row--ps">
+                                <label>公開の推奨タイミング</label>
+                                <input type="text" name="recommendedTiming" value="{{handout.recommendedTiming}}">
+                            </div>
+                            {{else}}
                             <div class="handout-row handout-row--ps">
                                 <label>PS</label>
                                 <input type="text" name="ps" value="{{handout.ps}}" placeholder="このハンドアウトの目的などを記載...">
@@ -135,7 +148,10 @@
                                     {{/each}}
                                 </select>
                             </div>
+                            {{/if}}
                         </div>
+                        {{/each}}
+                        {{#if @root.useKeyHandouts}}</div>{{/if}}
                         {{/each}}
                     </div>
                 </div>

@@ -1,6 +1,6 @@
 {{!-- ハンドアウト送信カード(2026-08-12)。骨格・段は統一規格の部品で組む(2026-09-05)。
       最下部のコネ受け取りボタンは renderChatMessageHTML フック(handout-contact.mjs)が注入する --}}
-{{#> tnxCard cardClass="tnx-handout-card" typeLabel="ハンドアウト" title=title}}
+{{#> tnxCard cardClass="tnx-handout-card" typeLabel=(ifThen typeLabel typeLabel "ハンドアウト") title=title}}
 
     {{!-- 担当・スタイル・コネ・推奨スート。空の欄は行ごと出さない --}}
     {{#if playerName}}{{> tnxCardField label="担当" value=playerName}}{{/if}}
@@ -15,6 +15,11 @@
             <span class="ho-ps__label">PS</span>
             <div class="ho-ps__body tnx-card__text">{{{ps}}}</div>
         </div>
+    {{/if}}
+
+    {{#if isKeyHandout}}
+        {{#if disclosure}}<h4>キーハンドアウトの公開</h4><div class="tnx-card__text">{{disclosure}}</div>{{/if}}
+        {{#if recommendedTiming}}<h4>公開の推奨タイミング</h4><div class="tnx-card__text">{{recommendedTiming}}</div>{{/if}}
     {{/if}}
 
     {{!-- コネの受け取り(フックが「コネを受け取る」ボタン or 生成済みを注入する) --}}

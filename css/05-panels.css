@@ -1288,3 +1288,22 @@ button.tnx-create-act-button span {
     height: 20px;
     flex-shrink: 0;
 }
+
+
+/* 対応するペルソナとキーを一つの枠内に置く。各編集欄は既存レイアウトを使う。 */
+.handout-pair {
+    border: 1px solid var(--tnx2-border-active);
+    border-radius: var(--tnx2-radius);
+    overflow: hidden;
+}
+
+.handout-pair > .handout-item {
+    border: 0;
+    border-radius: 0;
+}
+
+.handout-pair > .handout-item + .handout-item {
+    border-top: 1px dashed var(--tnx2-border-subtle);
+}
+
+.handout-list:has(> .handout-pair) { gap: 24px; }

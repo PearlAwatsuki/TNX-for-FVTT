@@ -1,3 +1,5 @@
+import { openKeyHandoutApp } from "./tnx-key-handout-app.mjs";
+import { listKeyHandouts, keyHandoutData, getKeyHandoutRecord, findKeyHandoutRecord, requestKeyHandoutPublication, distributeKeyHandout } from "../session/key-handouts.mjs";
 /**
  * @fileoverview シナリオコントロールパネル(フェーズ14-3・正本 Phase_14_Tasks_Detail.md)。
  *
@@ -122,6 +124,9 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
             backstageRemove:     TnxScenarioPanel._onBackstageRemove,
             sendTrailer:         TnxScenarioPanel._onSendTrailer,
             sendHandout:         TnxScenarioPanel._onSendHandout,
+            openKeyHandout:       TnxScenarioPanel._onOpenKeyHandout,
+            distributeKeyHandout: TnxScenarioPanel._onDistributeKeyHandout,
+            publishKeyHandout:    TnxScenarioPanel._onPublishKeyHandout,
             sendText:            TnxScenarioPanel._onSendText,
             sendInfo:            TnxScenarioPanel._onSendInfo,
             toggleInfoPublic:    TnxScenarioPanel._onToggleInfoPublic,
@@ -194,6 +199,20 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
 
         context.isGM = game.user.isGM;
         context.loaded = !!journal;
+        const useKeyHandouts = journal?.getFlag(SYSTEM_ID, "useKeyHandouts") === true;
+        context.handoutLabel = useKeyHandouts ? "ペルソナハンドアウト" : "ハンドアウト";
+        context.keyHandouts = useKeyHandouts ? listKeyHandouts(journal.id).map(message => {
+            const d = keyHandoutData(message);
+            return { id: message.id, title: d.card.title, published: d.published,
+                canPublish: !d.published && (game.user.isGM || d.userId === game.user.id) };
+        }) : [];
+        if (useKeyHandouts && game.user.isGM) {
+            for (const h of journal.getFlag(SYSTEM_ID, "handouts") ?? []) {
+                if (!findKeyHandoutRecord(journal.id, h.id)) context.keyHandouts.push({
+                    id: h.id, title: h.keyHandout?.title || "キーハンドアウト", canDistribute: true,
+                });
+            }
+        }
         context.actStarted = st.actStarted;
         context.actName = journal?.name ?? "";
         context.actOptions = listActJournals().map(j => ({
@@ -381,6 +400,7 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
             id: h.id,
             title: handoutDisplayTitle(h, {
                 number: handoutNumberOf(handoutRows, h.id),
+                label: context.handoutLabel,
                 styleName: handoutStyleDisplay(h.recommendedStyle, styleChoices),
             }),
             castLabel: (h.userId ? game.users.get(h.userId)?.name : null)
@@ -630,6 +650,16 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
         await ChatMessage.create({ content: await renderChatCard("text-card", data) });
     }
 
+    static async _onOpenKeyHandout(_event, target) {
+        await openKeyHandoutApp(target.dataset.id);
+    }
+    static async _onDistributeKeyHandout(_event, target) {
+        await distributeKeyHandout(getActiveActJournal()?.id, target.dataset.id);
+    }
+    static async _onPublishKeyHandout(_event, target) {
+        await requestKeyHandoutPublication(getKeyHandoutRecord(target.dataset.id));
+    }
+
     static async _onSendHandout(_event, target) {
         const journal = getActiveActJournal();
         const handouts = (journal?.getFlag(SYSTEM_ID, "handouts") ?? []).map(normalizeHandoutRow);
@@ -641,6 +671,7 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
         const styleName = handoutStyleDisplay(handout.recommendedStyle, styleChoices);
         const title = handoutDisplayTitle(handout, {
             number: handoutNumberOf(handouts, handout.id), styleName,
+            label: journal?.getFlag(SYSTEM_ID, "useKeyHandouts") ? "ペルソナハンドアウト" : "ハンドアウト",
         });
         const playerName = handout.userId
             ? (game.users.get(handout.userId)?.character?.name ?? game.users.get(handout.userId)?.name ?? "")
@@ -648,7 +679,8 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
         // 指定方法(PC/NPC/自由記述)ごとの解決は resolveHandoutContact が担う
         const contact = resolveHandoutContact(handout, handouts);
         const content = await renderChatCard("handout-card",
-            buildHandoutCardData(handout, { title, styleName, playerName, contactName: contact.contactName }));
+            { ...buildHandoutCardData(handout, { title, styleName, playerName, contactName: contact.contactName }),
+                typeLabel: journal?.getFlag(SYSTEM_ID, "useKeyHandouts") ? "ペルソナハンドアウト" : "ハンドアウト" });
         // コネの受け取りに要る値はカードへ写す(台本を後で編集してもカードは送った時点の記録)
         await ChatMessage.create({
             content,

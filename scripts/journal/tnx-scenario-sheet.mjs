@@ -1,3 +1,4 @@
+import { keyHandoutFields } from "../session/key-handouts.mjs";
 import { SYSTEM_ID } from "../constants.mjs";
 import { loadGroupedGeneralSkillChoices, loadGeneralSkillNameByKey, loadSkillChoices, idKeyPrefix, SKILL_PACKS, STYLE_PACK } from '../dictionary/skill-dictionary.mjs';
 import { formatSkillName } from '../core/identification.mjs';
@@ -251,8 +252,16 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
                 }),
             })),
         }));
+        context.useKeyHandouts = flagData.useKeyHandouts === true;
+        context.handoutLabel = context.useKeyHandouts ? "ペルソナハンドアウト" : "ハンドアウト";
         context.trailer       = flagData.trailer       || "";
-        context.handouts      = (flagData.handouts || []).map(normalizeHandoutRow);
+        context.handouts = (flagData.handouts || []).flatMap(row => {
+            const persona = normalizeHandoutRow(row);
+            persona.handoutLabel = context.handoutLabel;
+            if (!context.useKeyHandouts) return [persona];
+            return [persona, { ...keyHandoutFields(row.keyHandout), id: row.id,
+                isKeyHandout: true, handoutLabel: "キーハンドアウト" }];
+        });
 
         // 閲覧ビューのエンリッチ(16-x): prose-mirror(toggled)の表示側には @UUID コンテンツ
         // リンク等を解決した HTML を流し込む(value=素データは不変・編集は従来どおり)
@@ -318,12 +327,12 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
             // ハンドアウト名の自動表示: 番号は前置「①<スタイル名>用ハンドアウト」(2026-08-09 裁定)。
             // 共通・自由記述は番号なし
             if (!handout.isCommon && !handout.isFreeTitle) {
-                handoutNumber += 1;
+                if (!handout.isKeyHandout) handoutNumber += 1;
                 handout.numberLabel = circledNumber(handoutNumber);
             } else {
                 handout.numberLabel = "";
             }
-            handout.titleSuffix = handoutTitleSuffix(handout);
+            handout.titleSuffix = handoutTitleSuffix(handout, handout.handoutLabel);
             // 対象ユーザー(2026-08-09 裁定=ハンドアウトはユーザーに付与)。旧 actorId は表示フォールバック
             handout.userOptions = game.users.map(u => ({
                 id: u.id, name: u.name, selected: u.id === handout.userId,
@@ -332,6 +341,15 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
                 ? (game.actors.get(handout.actorId)?.name ?? "（参照切れ）") : "";
         }
 
+        context.handoutGroups = [];
+        for (const handout of context.handouts) {
+            if (!handout.isKeyHandout) context.handoutGroups.push([handout]);
+            else {
+                const group = context.handoutGroups.at(-1);
+                handout.numberLabel = group[0].numberLabel;
+                group.push(handout);
+            }
+        }
         return context;
     }
 
@@ -368,6 +386,9 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
 
     _setupChangeListeners() {
         const el = this.element;
+        el.querySelector('[name="useKeyHandouts"]')?.addEventListener("change", event => {
+            if (game.user.isGM) this.document.setFlag(SYSTEM_ID, "useKeyHandouts", event.currentTarget.checked);
+        });
 
         // prose-mirror はフォーム要素(name/value)。保存確定は save イベントでも通知されるため
         // change と save の両方を購読する(二重発火しても保存は同値=冪等)
@@ -459,7 +480,9 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
             const handouts = foundry.utils.deepClone(this.document.getFlag(SYSTEM_ID, "handouts") || []);
             const handout = handouts.find(h => h.id === handoutItem.dataset.id);
             if (handout) {
-                handout[name] = value;
+                if (handoutItem.dataset.keyHandout === "true") {
+                    handout.keyHandout = keyHandoutFields({ ...handout.keyHandout, [name]: value });
+                } else handout[name] = value;
                 await this.document.setFlag(SYSTEM_ID, "handouts", handouts);
             }
         } else if (name === "trailer") {
@@ -804,6 +827,7 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         event.preventDefault();
         // currentTarget は await をまたぐと null になるので先に読む
         const handoutId = event.currentTarget?.dataset.id;
+        const isKey = event.currentTarget?.closest(".handout-item")?.dataset.keyHandout === "true";
         let data;
         try { data = JSON.parse(event.dataTransfer.getData("text/plain")); } catch { return; }
         if (!data?.uuid || !handoutId) return;
@@ -816,20 +840,21 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
             ui.notifications.warn(`${doc.name} はコネ技能ではありません（識別キーが contact_ で始まる技能を落としてください）。`);
             return;
         }
-        await this._updateHandoutRow(handoutId, { actConnectionUuid: doc.uuid });
+        await this._updateHandoutRow(handoutId, { actConnectionUuid: doc.uuid }, isKey);
     }
 
     /** コネ(NPC モード)の指定を外す。 */
     static async _onClearHandoutContact(_event, target) {
-        await this._updateHandoutRow(target.dataset.id, { actConnectionUuid: "" });
+        await this._updateHandoutRow(target.dataset.id, { actConnectionUuid: "" }, target.closest(".handout-item")?.dataset.keyHandout === "true");
     }
 
     /** ハンドアウト行の一部を書き換える(コネのモード別入力など、フォーム送信を経ない更新)。 */
-    async _updateHandoutRow(handoutId, patch) {
+    async _updateHandoutRow(handoutId, patch, isKey = false) {
         const handouts = foundry.utils.deepClone(this.document.getFlag(SYSTEM_ID, "handouts") || []);
         const row = handouts.find(h => h.id === handoutId);
         if (!row) return;
-        Object.assign(row, patch);
+        if (isKey) row.keyHandout = keyHandoutFields({ ...row.keyHandout, ...patch });
+        else Object.assign(row, patch);
         await this.document.setFlag(SYSTEM_ID, "handouts", handouts);
     }
 

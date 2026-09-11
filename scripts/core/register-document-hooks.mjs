@@ -336,12 +336,29 @@ export function registerDocumentHooks() {
 
     // シナリオコントロールパネルと HUD の情報項目(14-9)の表示は台本(アクトシートのフラグ)に
     // 追随する(14-3)。実行状態(sessionState)の変化は設定の onChange が再描画する。
-    Hooks.on("updateJournalEntry", (doc) => {
+    Hooks.on("updateJournalEntry", (doc, changes) => {
+        if (changes.flags?.[SYSTEM_ID]?.handouts) {
+            import("../session/key-handouts.mjs").then(m => m.syncKeyHandoutRecipients(doc));
+        }
+        if (changes.flags?.[SYSTEM_ID]?.keyHandoutDeliveries) {
+            for (const app of foundry.applications.instances.values()) {
+                if (app.id.startsWith(`tnx-key-handout-${doc.id}.`)) app.render(false);
+            }
+        }
         if (doc.id && doc.id === getSessionState().actId) {
             foundry.applications.instances.get("tnx-scenario-panel")?.render(false);
             foundry.applications.instances.get("tnx-hud")?.render(false);
         }
     });
+
+    for (const event of ["createChatMessage", "updateChatMessage", "deleteChatMessage"]) {
+        Hooks.on(event, message => {
+            if (!message.getFlag(SYSTEM_ID, "keyHandout")) return;
+            foundry.applications.instances.get("tnx-scenario-panel")?.render(false);
+            const d = message.getFlag(SYSTEM_ID, "keyHandout");
+            foundry.applications.instances.get(`tnx-key-handout-${d.actId}.${d.handoutId}`)?.render(false);
+        });
+    }
 
     // 登場状態(Actor フラグ)の変化にパネルの「登場中」表示・チームのゲートを追随させる(14-5)。
     // 名前の非公開(14-8)も同じ一覧の表示を変えるため同じ購読に乗せる。

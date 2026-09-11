@@ -1776,3 +1776,25 @@ body.system-tokyo-nova-axleration button.bright:hover {
 .tnx-asother-table tbody tr.aso-row--selected {
     background: var(--tnx2-accent-glow-sm);
 }
+
+
+/* キーハンドアウトの原稿編集・閲覧。本文だけをスクロールする。 */
+.tnx-key-handout .window-content {
+    overflow: hidden;
+}
+
+.tnx-key-handout .key-handout-body {
+    overflow-y: auto;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.tnx-key-handout prose-mirror {
+    min-height: 120px;
+}
+
+.scp-key-handouts {
+    padding: 8px;
+}

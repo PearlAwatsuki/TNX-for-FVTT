@@ -308,3 +308,9 @@ export class ListSelectionDialog {
         }
     }
 }
+
+
+/** 単純な確認。×・キャンセルを必ずfalseに揃える。 */
+export async function confirmDialog({ title, content }) {
+    return await DialogV2.confirm({ window: { title }, content, rejectClose: false }) === true;
+}
