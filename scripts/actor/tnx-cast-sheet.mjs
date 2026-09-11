@@ -31,7 +31,7 @@ export class TokyoNovaCastSheet extends HistoryInputStateMixin(TnxCharacterSheet
     static PARTS = {
         main: {
             template: "systems/tokyo-nova-axleration/templates/actor/cast-sheet.hbs",
-            scrollable: [".sheet-body", ".profile-sidebar", ".tab.abilities", ".tab[data-tab='outfits']"],
+            scrollable: [".sheet-body", ".profile-sidebar", ".tab.abilities", ".tab[data-tab='outfits']", ".tab[data-tab='history']"],
         },
     };
 
