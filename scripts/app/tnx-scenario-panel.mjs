@@ -253,6 +253,7 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
         // 名前を伏せて登場しているキャラクターは卓に「？？？」と見せる(14-8)。RL には実名と
         // 伏せている印を出し、退場・名前の付け替えもここから行う
         const appearing = st.actStarted ? listAppearingActors() : [];
+        const scenePlayerActorId = game.users.get(st.scenePlayerUserId)?.character?.id;
         context.appearing = appearing.map(a => ({
             id: a.id, name: displayActorName(a), hidden: isNameHidden(a),
             // ゴーストトグル(2026-08-22 ユーザー指示・名前非公開と同じ操作系)。
@@ -260,6 +261,7 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
             ghost: a.system?.isGhost === true,
             canGhost: a.system?.isGhost !== undefined,
             canManageAppearance: game.user.isGM || a.isOwner,
+            canExit: (game.user.isGM || a.isOwner) && a.id !== scenePlayerActorId,
         }));
         const appearingIds = new Set(appearing.map(a => a.id));
         // RL の手動登場(14-8): 候補=まだ登場していないキャラクター4種(キャストも含む)。
@@ -762,6 +764,7 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
     static async _onExitActor(_event, target) {
         const actor = game.actors.get(target.dataset.actorId);
         if (!actor || (!game.user.isGM && !actor.isOwner)) return;
+        if (actor.id === game.users.get(getSessionState().scenePlayerUserId)?.character?.id) return;
         const targets = manualExitTargets(actor.id);
         if (targets.others.length && !await confirmTeamExitDialog(actor, targets)) return;
         await applyManualExit(actor.id);
