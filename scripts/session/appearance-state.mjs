@@ -109,8 +109,8 @@ export async function clearAllAppearing() {
 // ─── 盤面反映(14-8 改修・2026-08-23): 登場状態 ⇄ アクティブ盤面のトークン**存在**の双方向同期 ──
 // 「トークンを盤面に出す＝登場」(2026-08-23 ユーザー指示。ココフォリア式の「登場エリアへ駒を
 // 移動」は FVTT では分かりづらいという裁定)。未登場=トークンが無い・登場=トークンが有る・
-// **ゴースト登場=トークンが不可視**・退場=トークン削除。旧「未登場=hidden」の表示同期を置換。
-// - 権威は Actor フラグ・トークンはその反映。登場フラグ→トークン作成/全削除・isGhost→hidden
+// **ゴースト登場=トークンが半透明**・退場=トークン削除。旧「未登場=hidden」の表示同期を置換。
+// - 権威は Actor フラグ・トークンはその反映。登場フラグ→トークン作成/全削除・isGhost→半透明表示
 //   は activeGM クライアントが代行する
 // - 逆方向=RL の直接切替導線: トークンのドラッグ配置→登場・トークン削除→退場。削除は権限を
 //   持つ所有者(PL)でも退場になる
@@ -118,7 +118,7 @@ export async function clearAllAppearing() {
 //   巻き込みを想定した提案だったため)。チームの退場連動(ゲーム設定 teamLinkedExit・既定オフ)
 //   が**自分以外の登場中メンバーに及ぶときだけ**確認し、単独の退場は×・トークン削除とも
 //   確認なしで即適用する。連動の適用は GM=直接・PL=teamExit ソケットで activeGM に委譲
-// - hidden→isGhost の逆同期はしない(isGhost は CS 修正という機構的意味を持つため、盤面の
+// - 半透明表示→isGhost の逆同期はしない(isGhost は CS 修正という機構的意味を持つため、盤面の
 //   表示操作から黙って変えない。ゴーストの切替は専用トグル=setGhost)
 // - 同一アクターの複数トークン(トループの分身コピー等)は、残りがある限り削除しても退場でない
 //   (tokenDeletionImpliesExit)。最後の1体の削除は deleteToken 後段(activeGM)が退場に落とす
@@ -133,8 +133,26 @@ const pendingExitConfirms = new Set();
 
 /** 双方向同期のフック登録(ready で1回・全クライアントで呼んでよい)。 */
 export function registerAppearanceTokenSync() {
+    // 不透明度の設定値を保存し直さず、描画時だけ半分にする。全クライアントで適用する。
+    Hooks.on("refreshToken", (token, flags) => {
+        if (!token.mesh || !(flags.refreshMesh || flags.refreshState)) return;
+        if (token.actor?.system?.isGhost) token.mesh.alpha *= 0.5;
+    });
+    // 旧実装のゴースト不可視を、盤面を開いた際にも解除する。
+    const revealGhostTokens = async (canvas) => {
+        if (!canvas?.scene || game.users.activeGM?.id !== game.user.id) return;
+        const updates = canvas.scene.tokens
+            .filter(t => t.hidden && t.actor?.system?.isGhost)
+            .map(t => ({ _id: t.id, hidden: false }));
+        if (updates.length) await canvas.scene.updateEmbeddedDocuments("Token", updates);
+    };
+    Hooks.on("canvasReady", revealGhostTokens);
+    revealGhostTokens(globalThis.canvas);
     // 登場フラグ→トークンの有無・isGhost→トークンの表示(activeGM が代行)
     Hooks.on("updateActor", (actor, changes) => {
+        if (changes.system?.isGhost !== undefined) {
+            for (const token of actor.getActiveTokens()) token.renderFlags.set({ refreshMesh: true });
+        }
         if (game.users.activeGM?.id !== game.user.id) return;
         const f = changes.flags?.[SYSTEM_ID];
         if (f && ("appearing" in f || "-=appearing" in f)) syncTokensForActor(actor);
@@ -271,18 +289,17 @@ async function syncTokensForActor(actor) {
     const data = proto.toObject();
     data.x = x;
     data.y = y;
-    // ゴースト登場=不可視(2026-08-23)。登場の適用側がゴーストを先に立てるので最初から反映される
-    data.hidden = actor.system?.isGhost === true;
+    // 登場するコマは所有者も操作できるよう表示する。ゴーストの半透明化は描画フックで適用。
+    data.hidden = false;
     await scene.createEmbeddedDocuments("Token", [data]);
 }
 
-/** アクティブ盤面のトークンの表示をゴースト状態に合わせる(ゴースト登場=不可視)。 */
+/** アクティブ盤面のトークンの不可視を解除する(半透明化は各クライアントの描画で適用)。 */
 async function syncGhostVisibility(actor) {
     const scene = game.scenes.active;
     if (!scene) return;
-    const hidden = actor.system?.isGhost === true;
     const updates = scene.tokens
-        .filter(t => t.actorId === actor.id && t.hidden !== hidden)
-        .map(t => ({ _id: t.id, hidden }));
+        .filter(t => t.actorId === actor.id && t.hidden)
+        .map(t => ({ _id: t.id, hidden: false }));
     if (updates.length) await scene.updateEmbeddedDocuments("Token", updates);
 }
