@@ -1684,6 +1684,10 @@ body.system-tokyo-nova-axleration {
    定義するため、継承(body)では届かず**同じ要素スコープ**で上書きする必要がある
    (サイドバー内・折りたたみ時の通知ポップアップの両方に効く) */
 body.system-tokyo-nova-axleration .chat-message {
+    /* コア・モジュールの通常見出しも暗色背景で読める色にする。 */
+    --color-text-emphatic: var(--tnx2-text-primary);
+    --color-text-primary: var(--tnx2-text-primary);
+    --color-text-secondary: var(--tnx2-text-secondary);
     --chat-message-background: #131920;
     --chat-message-border-color: #1e2d3e;
     --color-whisper-background: #14202d;
