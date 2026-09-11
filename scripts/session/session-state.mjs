@@ -784,9 +784,10 @@ export async function setActorNameHidden(actorId, hidden) {
 
 /** 登場中のキャラクターのゴースト状態を付け替える(2026-08-22・名前非公開と同じ操作系)。 */
 export async function setActorGhost(actorId, ghost) {
-    if (!assertGM() || !actorId) return;
+    if (!actorId) return;
     const actor = game.actors.get(actorId);
-    if (actor) await setGhost(actor, ghost);
+    if (!actor || (!game.user.isGM && !actor.isOwner)) return;
+    await setGhost(actor, ghost);
 }
 
 /** シーンの終了処理(全員退場・シーンプレイヤー解除)。イベント発火は呼び元。 */

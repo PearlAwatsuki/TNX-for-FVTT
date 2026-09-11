@@ -58,6 +58,8 @@
                                 <a class="tnx-icon-ctrl {{#if actor.hidden}}is-on{{/if}}" data-action="toggleAppearHidden" data-actor-id="{{actor.id}}" data-hidden="{{actor.hidden}}" title="{{#if actor.hidden}}名前を伏せている{{else}}名前を出している{{/if}}">
                                     <i class="fas {{#if actor.hidden}}fa-eye-slash{{else}}fa-eye{{/if}}"></i>
                                 </a>
+                            {{/if}}
+                            {{#if actor.canManageAppearance}}
                                 {{!-- ゴーストトグル(2026-08-22・名前非公開と同じ操作系。isGhost を持つ種別のみ) --}}
                                 {{#if actor.canGhost}}
                                     <a class="tnx-icon-ctrl {{#if actor.ghost}}is-on{{/if}}" data-action="toggleAppearGhost" data-actor-id="{{actor.id}}" data-ghost="{{actor.ghost}}" title="{{#if actor.ghost}}ゴースト登場中{{else}}通常登場{{/if}}">

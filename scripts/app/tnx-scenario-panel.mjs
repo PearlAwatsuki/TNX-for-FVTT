@@ -259,6 +259,7 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
             // isGhost フィールドを持たない種別(トループ等)にはトグルを出さない
             ghost: a.system?.isGhost === true,
             canGhost: a.system?.isGhost !== undefined,
+            canManageAppearance: game.user.isGM || a.isOwner,
         }));
         const appearingIds = new Set(appearing.map(a => a.id));
         // RL の手動登場(14-8): 候補=まだ登場していないキャラクター4種(キャストも含む)。
@@ -760,7 +761,7 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
      */
     static async _onExitActor(_event, target) {
         const actor = game.actors.get(target.dataset.actorId);
-        if (!actor) return;
+        if (!actor || (!game.user.isGM && !actor.isOwner)) return;
         const targets = manualExitTargets(actor.id);
         if (targets.others.length && !await confirmTeamExitDialog(actor, targets)) return;
         await applyManualExit(actor.id);
