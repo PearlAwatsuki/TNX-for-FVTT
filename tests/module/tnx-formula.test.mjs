@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
 import "../setup.mjs";
 
-const { buildCheckFormulaData, buildFormulaData, evaluateBonusRows, evaluateSelfBonus, parsePlainNumber, evaluateFormula, evaluateFormulaSync } =
-  await import("../../scripts/rules/tnx-formula.mjs");
+const { buildCheckFormulaData, buildFormulaData, evaluateBonusRows, evaluateSelfBonus, parsePlainNumber,
+  evaluateFormula, evaluateFormulaSync, normalizeFormulaItemRefs } = await import("../../scripts/rules/tnx-formula.mjs");
 
 describe("buildCheckFormulaData()（式評価用の判定結果コンテキスト・Check_Rules「差分値」）", () => {
   it("diff / achievement / card を数値で供給する", () => {
@@ -45,6 +45,14 @@ describe("buildFormulaData()（AE と同じ system.* / @item.<識別キー> を�
     expect(d.item.operate_car.system.attack.value).toBe(4); // @item.<key>.system.attack.value
   });
 
+  it("数字始まりの識別キーも data.item[...] の下に保持する", () => {
+    const d = buildFormulaData({
+      getRollData: () => ({ system: {} }),
+      items: [{ system: { identificationKey: "01feeling", levelTotal: 5 } }],
+    });
+    expect(d.item["01feeling"].system.levelTotal).toBe(5);
+  });
+
   it("アクターが無ければ system 無し・item は空", () => {
     expect(buildFormulaData(null)).toEqual({ item: {} });
     expect(buildFormulaData(null, { diff: 3, achievement: 10 })).toEqual({ diff: 3, achievement: 10, card: 0, item: {} });
@@ -77,6 +85,17 @@ describe("buildFormulaData()（AE と同じ system.* / @item.<識別キー> を�
     expect(d.target.works.union).toBe(0);
     // target を渡さなければ @target は無い（判定・AE 値では非供給）
     expect(buildFormulaData(actor).target).toBeUndefined();
+  });
+});
+
+describe("normalizeFormulaItemRefs()（識別キーが数値始まり／非識別子でも式内参照可能にする）", () => {
+  it("数字始まり・ハイフン入りの識別キーも Roll のドット区切り参照を保持する", () => {
+    expect(normalizeFormulaItemRefs("@item.01feeling.system.levelTotal + 2")).toBe("@item.01feeling.system.levelTotal + 2");
+    expect(normalizeFormulaItemRefs("@item.style-x.system.level + @item.self.system.level")).toBe("@item.style-x.system.level + @item.self.system.level");
+  });
+
+  it("通常の識別キーはそのまま維持する", () => {
+    expect(normalizeFormulaItemRefs("@item.style_x.system.level + @item.parent.system.level")).toBe("@item.style_x.system.level + @item.parent.system.level");
   });
 });
 

@@ -24,7 +24,7 @@
 import { SYSTEM_ID } from "../constants.mjs";
 import { applyDamageChartResult } from "./condition-resolution.mjs";
 import { aggregateDefence, defenceForType, computeDamage, splitSharedBonusRows } from "../rules/damage.mjs";
-import { evaluateBonusRows, evaluateSelfBonus } from "../rules/tnx-formula.mjs";
+import { evaluateBonusRows, evaluateSelfBonus, createEffectBonusEvaluator } from "../rules/tnx-formula.mjs";
 import { applyConsumptionPlan } from "./usage-consumption.mjs";
 import { getDamageChartKind } from "../data/damage-chart.mjs";
 import { CONDITION_KINDS, conditionDisplayName, getEffectiveConditions, hasBountyBlock, isWetActor } from "../rules/conditions.mjs";
@@ -204,7 +204,7 @@ export async function openDamageRollDialog(attackMessage) {
  */
 async function evaluateDamageBonusesPerTarget(damageTargets, { f, attacker, parentItem, result, category }) {
     // 対象非依存の AE(与えるダメージ +値)は 1 回だけ集計する
-    const dealtRows = gatherDamageDealtSources(collectActorEffectBuffs(attacker), category);
+    const dealtRows = gatherDamageDealtSources(collectActorEffectBuffs(attacker), category, createEffectBonusEvaluator(attacker));
     const evaluateFor = async (targetActor) => {
         const self = await evaluateSelfBonus(f.damageBonusSelf, attacker, result, targetActor, parentItem,
             f.damageBonusSelfCondition ?? null);
@@ -1045,7 +1045,7 @@ function collectDamageVsBonuses(attacker, target, category) {
     // wet 系(vsWet/vsNotWet・2026-09-01)は対象がウェットか否か+攻撃の系統で照合する
     return gatherDamageVsSources(collectActorEffectBuffs(attacker), {
         styles, works, isWet: isWetActor(target), category: category || "physical",
-    });
+    }, createEffectBonusEvaluator(attacker));
 }
 
 /**
@@ -1067,7 +1067,7 @@ function collectDamageTakenRows(defender, f) {
         damageType: f.damageType || "",
         attackerStyles: styles,
         attackerWorks: works,
-    });
+    }, createEffectBonusEvaluator(defender));
 }
 
 /**

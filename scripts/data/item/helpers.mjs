@@ -421,7 +421,7 @@ export function checkChangeMatches(key, criteria) {
  * @param {(key:string)=>boolean} predicate
  * @returns {Array<{name:string, value:number}>}
  */
-function _gatherBonusSources(effects, predicate, { pick = "max" } = {}) {
+function _gatherBonusSources(effects, predicate, { pick = "max", evaluateValue = Number } = {}) {
   // 禁止されるのは「同名効果の二重適用」(2026-07-17 ユーザー裁定で是正)——
   // 1つの効果が持つ該当行は**すべてその効果の内容として合算**する(行の畳み込みはしない。
   // 旧実装の「効果内で最有利1行」は Code の過大一般化で誤り)。同一 identity(同名効果)の
@@ -436,7 +436,9 @@ function _gatherBonusSources(effects, predicate, { pick = "max" } = {}) {
     let total = null;
     for (const change of (eff.changes ?? [])) {
       if (!predicate(change.key)) continue;
-      total = (total ?? 0) + (Number(change.value) || 0);
+      // 式はアクター文脈を持つ呼び出し側で評価する。重複排除は評価後の合計で行う。
+      const value = evaluateValue(change.value, eff);
+      total = (total ?? 0) + (Number.isFinite(value) ? value : 0);
     }
     if (total === null) continue;
     const entry = { name: eff.name || "(無名効果)", value: total };
@@ -450,8 +452,8 @@ function _gatherBonusSources(effects, predicate, { pick = "max" } = {}) {
   return [...byIdentity.values(), ...stackables];
 }
 
-export function gatherCheckBonusSources(effects, criteria) {
-  return _gatherBonusSources(effects, (key) => checkChangeMatches(key, criteria));
+export function gatherCheckBonusSources(effects, criteria, evaluateValue = Number) {
+  return _gatherBonusSources(effects, (key) => checkChangeMatches(key, criteria), { evaluateValue });
 }
 
 /**
@@ -494,8 +496,8 @@ export function damageVsChangeMatches(key, criteria) {
  * @param {{styles?:string[], works?:string[]}} criteria  攻撃対象の持つスタイル/組織
  * @returns {Array<{name:string, value:number}>}
  */
-export function gatherDamageVsSources(effects, criteria) {
-  return _gatherBonusSources(effects, (key) => damageVsChangeMatches(key, criteria));
+export function gatherDamageVsSources(effects, criteria, evaluateValue = Number) {
+  return _gatherBonusSources(effects, (key) => damageVsChangeMatches(key, criteria), { evaluateValue });
 }
 
 /**
@@ -518,8 +520,8 @@ export function damageDealtChangeMatches(key, category) {
  * @param {"physical"|"mental"|"social"} category  攻撃の系統
  * @returns {Array<{name:string, value:number}>}
  */
-export function gatherDamageDealtSources(effects, category) {
-  return _gatherBonusSources(effects, (key) => damageDealtChangeMatches(key, category));
+export function gatherDamageDealtSources(effects, category, evaluateValue = Number) {
+  return _gatherBonusSources(effects, (key) => damageDealtChangeMatches(key, category), { evaluateValue });
 }
 
 /**
@@ -554,8 +556,8 @@ export function damageTakenChangeMatches(key, criteria) {
  * @param {{category:string, damageType?:string, attackerStyles?:string[], attackerWorks?:string[]}} criteria
  * @returns {Array<{name:string, value:number}>}
  */
-export function gatherDamageTakenSources(effects, criteria) {
-  return _gatherBonusSources(effects, (key) => damageTakenChangeMatches(key, criteria), { pick: "min" });
+export function gatherDamageTakenSources(effects, criteria, evaluateValue = Number) {
+  return _gatherBonusSources(effects, (key) => damageTakenChangeMatches(key, criteria), { pick: "min", evaluateValue });
 }
 
 /**
@@ -870,18 +872,19 @@ export function effectAutoApplies(effect, scope = SYSTEM_ID) {
 
 export function collectActorEffectBuffs(actor, scope = SYSTEM_ID) {
   const out = [];
-  const push = (e) => out.push({
+  const push = (e, bearer) => out.push({
     identity:  e.flags?.[scope]?.effectId || e.id,
     name:      e.name,
     stackable: e.flags?.[scope]?.stackable === true,
     active:    e.active,
     changes:   e.changes,
+    bearer, // 式の @item.self / @item.parent は実際に効果を持つドキュメントを参照する
   });
-  for (const e of (actor?.effects ?? [])) push(e);
+  for (const e of (actor?.effects ?? [])) push(e, actor);
   for (const item of (actor?.items ?? [])) {
     for (const e of (item.effects ?? [])) {
       if (!effectAutoApplies(e, scope)) continue; // ペイロードは自動収集しない
-      push(e);
+      push(e, item);
     }
   }
   return out;
@@ -1265,4 +1268,3 @@ function resolveConditionValue(system, path) {
   if (typeof system?.[`${path}Total`] === "number") return system[`${path}Total`];
   return typeof field === "number" ? field : NaN;
 }
-

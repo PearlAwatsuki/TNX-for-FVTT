@@ -49,22 +49,44 @@ export function buildCheckFormulaData(result) {
  *   1・なければ 0＝欠損キーも 0)を公開する。判定・AE 値では null。
  * @returns {object} evaluateFormula に渡す data
  */
+function toSafeItemRefKey(key) {
+    const raw = String(key ?? "").trim();
+    if (!raw) return "";
+    if (/^[A-Za-z_$][A-Za-z0-9_$]*$/.test(raw)) return raw;
+    return `item_${raw.replace(/[^A-Za-z0-9_$]/g, "_")}`;
+}
+
 export function buildFormulaData(actor, result = null, bearer = null, target = null) {
     const data = { ...(actor?.getRollData?.() ?? {}) };
+    // v13 の標準 getRollData は system 自体を返す。公開する @system.* も補う。
+    if (actor?.system) data.system ??= actor.system;
     if (result) Object.assign(data, buildCheckFormulaData(result));
     // @item.<識別キー>.system.* : アクターの任意アイテムを識別キーで参照(system 全体)
+    // ルール計算で使う `levelTotal` などの派生値も拾えるよう、素の `system` ではなく
+    // `getRollData()` に寄せた `system` を優先して供給する。判定バフではこの参照が重要。
+    // 既存のルートエイリアスも保持する。Roll の @ 参照は数字・ハイフンを含む
+    // ドット区切りのパスを直接読めるため、入力式を JavaScript の bracket 記法には変換しない。
     const items = {};
     for (const it of (actor?.items ?? [])) {
         const key = it?.system?.identificationKey;
-        if (key) items[key] = { system: it.system };
+        if (!key) continue;
+        const rollData = it?.getRollData?.() ?? {};
+        const system = rollData.system ?? it.system ?? {};
+        items[key] = { system };
+        const safeKey = toSafeItemRefKey(key);
+        if (safeKey && safeKey !== key) data[safeKey] = { system };
     }
     // AE 値用の相対参照(2026-07-10): @item.self=効果が乗るアイテム自身・
     // @item.parent=その親(装備先ホスト・parentItemId)。判定/ダメージの式では bearer なし。
     if (bearer) {
-        items.self = { system: bearer.system };
-        const parentId = bearer.system?.parentItemId;
+        const bearerSystem = bearer?.getRollData?.()?.system ?? bearer?.system ?? {};
+        items.self = { system: bearerSystem };
+        const parentId = bearerSystem?.parentItemId ?? bearer?.system?.parentItemId;
         const parent = parentId ? actor?.items?.get(parentId) : null;
-        if (parent) items.parent = { system: parent.system };
+        if (parent) {
+            const parentRollData = parent?.getRollData?.() ?? {};
+            items.parent = { system: parentRollData.system ?? parent.system ?? {} };
+        }
     }
     data.item = items;
     if (target) data.target = buildTargetData(target);
@@ -124,6 +146,17 @@ async function conditionKeyLabel(cond, target, actor, dictNames) {
 }
 
 /**
+ * Foundry Roll の参照は JavaScript の式ではなくドット区切りのパス。
+ * 数字始まり・ハイフンを含むキーもそのまま渡す(bracket 記法は @item で途切れる)。
+ * @param {string} formula
+ * @returns {string}
+ */
+export function normalizeFormulaItemRefs(formula) {
+    if (typeof formula !== "string") return formula;
+    return formula.trim();
+}
+
+/**
  * 式を**同期**で決定的評価する(AE 値の評価用・`prepareDerivedData` は同期のため)。
  * 数値は Roll を介さず即返し、`@…` を含む決定的式は `Roll.evaluateSync` で解く。ダイス・構文エラー・
  * 評価不能は null。
@@ -134,7 +167,7 @@ async function conditionKeyLabel(cond, target, actor, dictNames) {
 export function evaluateFormulaSync(formula, data = {}) {
     const plain = parsePlainNumber(formula);
     if (plain !== null) return plain;
-    const f = String(formula ?? "").trim();
+    const f = normalizeFormulaItemRefs(String(formula ?? "").trim());
     if (!f) return null;
     try {
         const roll = new Roll(f, data);
@@ -144,6 +177,21 @@ export function evaluateFormulaSync(formula, data = {}) {
     } catch {
         return null;
     }
+}
+
+/**
+ * 実行時 AE ボーナスの集計に渡す値評価関数。数値リテラルと式を同じ経路で扱う。
+ * 各効果の保持元を使うため、所持アイテム参照に加え @item.self / @item.parent も解決できる。
+ * ヘルパー層へ注入し、集計の純ロジックから Foundry Roll への依存を分離する。
+ * @param {Actor|null} actor
+ * @returns {(value: string, effect: object) => number|null}
+ */
+export function createEffectBonusEvaluator(actor) {
+    return (value, effect) => {
+        const plain = parsePlainNumber(value);
+        if (plain !== null) return plain;
+        return evaluateFormulaSync(value, buildFormulaData(actor, null, effect?.bearer));
+    };
 }
 
 /**
@@ -233,7 +281,7 @@ export function parsePlainNumber(formula) {
 export async function evaluateFormula(formula, data = {}) {
     const plain = parsePlainNumber(formula);
     if (plain !== null) return plain;
-    const f = String(formula ?? "").trim();
+    const f = normalizeFormulaItemRefs(String(formula ?? "").trim());
     if (!f) return null;
     try {
         const roll = new Roll(f, data);

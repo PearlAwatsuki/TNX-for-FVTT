@@ -18,7 +18,7 @@
 import { SYSTEM_ID } from "../constants.mjs";
 import { getCardCheckValue, calcSkillCheck, calcControlCheck, normalizeSuit, ALL_SUITS, SUIT_TO_ABILITY } from '../rules/tnx-check-engine.mjs';
 import { gatherCheckBonusSources, collectActorEffectBuffs, actorHasSuitChangeBuff, actorCardValueOverride, readFlag } from '../data/item/helpers.mjs';
-import { evaluateBonusRows, evaluateSelfBonus } from '../rules/tnx-formula.mjs';
+import { evaluateBonusRows, evaluateSelfBonus, createEffectBonusEvaluator } from '../rules/tnx-formula.mjs';
 import { getEffectiveConditions, gatherConditionCheckSources, getCheckBlock, gatherSkillUseWarnings, computeJammingPenalty, hasBountyBlock } from '../rules/conditions.mjs';
 import { TnxActionHandler } from '../cards/tnx-action-handler.mjs';
 import { TnxSocketHandler } from '../core/tnx-socket-handler.mjs';
@@ -554,7 +554,7 @@ export class TnxCheckFlow {
                 }));
             criteria = { type: "skill", skills };
         }
-        const sources = gatherCheckBonusSources(effects, criteria);
+        const sources = gatherCheckBonusSources(effects, criteria, createEffectBonusEvaluator(actor));
 
         // コンディション(BS)由来の達成値修正を合流する(酩酊=上方判定 -n、萎縮/憎悪=攻撃判定。
         // 萎縮/憎悪の発火に必要な isAttack/targetMatched は攻撃判定モデル＝フェーズ12 が供給する)。
