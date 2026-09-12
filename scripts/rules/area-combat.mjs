@@ -25,16 +25,6 @@ export function getAreaAtPoint(config, point) {
     return column >= 0 && row >= 0 && column < config.columns && row < config.rows ? { row, column } : null;
 }
 
-export function getAreaDistance(config, from, to) {
-    const a = getAreaAtPoint(config, from), b = getAreaAtPoint(config, to);
-    return a && b ? Math.abs(a.row - b.row) + Math.abs(a.column - b.column) : null;
-}
-
-export function getAreaRange(distance) {
-    if (!Number.isInteger(distance) || distance < 0) return null;
-    return ["close", "short", "middle", "long", "superLong"][Math.min(distance, 4)];
-}
-
 /** 実際の線分列を境界で分割。往復・角・境界上での分割を保持する。 */
 export function measureAreaPath(config, points) {
     if (validateAreaBoard(config) || !Array.isArray(points) || !points.length
@@ -74,12 +64,4 @@ export function measureAreaPath(config, points) {
         visit(b);
     }
     return { status: "ok", stages, transitions };
-}
-
-/** 生身=1、搭乗時は実効SF。未設定を1に読み替えない。 */
-export function normalMovementStages(vehicleSystem) {
-    if (!vehicleSystem) return 1;
-    const sf = vehicleSystem.speedFactor;
-    const value = sf?.total ?? sf?.value;
-    return sf?.mode === "value" && Number.isInteger(value) && value >= 0 ? value : null;
 }

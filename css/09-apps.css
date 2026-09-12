@@ -1798,19 +1798,3 @@ body.system-tokyo-nova-axleration button.bright:hover {
 .scp-key-handouts {
     padding: 8px;
 }
-/* エリア盤面の選択位置・距離。キャンバス操作を遮らない。 */
-.tnx-area-readout {
-    position: fixed;
-    bottom: 100px;
-    left: 110px;
-    z-index: 30;
-    max-width: 420px;
-    padding: 8px 12px;
-    border: 1px solid #88ccee;
-    border-radius: 5px;
-    background: rgb(15 20 28 / 85%);
-    color: #eee;
-    white-space: pre-line;
-    pointer-events: none;
-    font-size: 13px;
-}

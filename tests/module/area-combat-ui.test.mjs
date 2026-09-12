@@ -33,7 +33,7 @@ foundry.applications.api.ApplicationV2 = class {
     async close() { this.closed = true; }
 };
 foundry.applications.api.HandlebarsApplicationMixin = base => base;
-const { registerAreaCombat, renderAreaMovementReference } = await import("../../scripts/combat/area-combat.mjs");
+const { registerAreaCombat } = await import("../../scripts/combat/area-combat.mjs");
 const { TnxTokenRuler } = await import("../../scripts/combat/tnx-token-ruler.mjs");
 
 const board = {
@@ -63,56 +63,27 @@ beforeEach(() => {
     registerAreaCombat();
     Hooks.callAll("canvasTearDown");
 });
-const readout = () => body.children.at(-1).textContent;
-
-describe("エリア盤面のFVTT接続", () => {
-    it("移動のpassedだけを計測しpendingを消費済みにしない", () => {
+describe("独立した情報表示の撤去", () => {
+    it("盤面を開いて選択・移動してもHTMLの情報欄を作らない", () => {
         Hooks.callAll("canvasReady");
-        Hooks.callAll("moveToken", token.document, {
-            method: "dragging", origin: { x: 300, y: 200 },
-            passed: { waypoints: [{ x: 900, y: 200 }] }, pending: { waypoints: [{ x: 2100, y: 200 }] },
-        });
-        expect(readout()).toContain("直近の移動：1段階");
+        Hooks.callAll("controlToken", token, true);
+        Hooks.callAll("hoverToken", token, true);
+        Hooks.callAll("moveToken", token.document, {});
+        canvas.tokens.controlled = [];
+        Hooks.callAll("controlToken", token, false);
+        expect(body.children).toHaveLength(0);
+        expect(hooks.updateChatMessage).toBeUndefined();
+        expect(hooks.moveToken).toBeUndefined();
+        expect(canvas.stage.addChild).toHaveBeenCalled();
     });
-    it("対象の秘匿を尊重し、見える斜め隣は中", () => {
+    it("プレビューと破棄でも独立表示を作らない", () => {
         Hooks.callAll("canvasReady");
-        const target = { name: "相手", isVisible: false, document: { parent: scene, getCenterPoint: () => ({ x: 900, y: 600 }) } };
-        game.user.targets.add(target);
-        Hooks.callAll("targetToken");
-        expect(readout()).not.toContain("相手");
-        target.isVisible = true;
-        Hooks.callAll("targetToken");
-        expect(readout()).toContain("相手：中");
-    });
-    it("設定がないSceneでは描画もデータ更新もしない", () => {
-        scene.getFlag = () => undefined;
-        Hooks.callAll("canvasReady");
+        Hooks.callAll("tnxAreaBoardPreview", scene.id, board);
+        Hooks.callAll("tnxAreaBoardPreview", scene.id, null);
+        Hooks.callAll("canvasTearDown");
         expect(body.children).toHaveLength(0);
         expect(scene.update).not.toHaveBeenCalled();
     });
-    it("ローカルプレビュー取消で保存済み配置へ戻る", () => {
-        Hooks.callAll("canvasReady");
-        Hooks.callAll("tnxAreaBoardPreview", scene.id, { ...board, origin: { x: 500, y: 500 } });
-        expect(readout()).toContain("盤面外");
-        Hooks.callAll("tnxAreaBoardPreview", scene.id, null);
-        expect(readout()).toContain("1列・1行");
-        expect(scene.update).not.toHaveBeenCalled();
-    });
-    it("対決移動の結果を参照し、後の妨害で0段階に追随する", () => {
-        Hooks.callAll("canvasReady");
-        const flags = { checkResult: { actorId: "actor" }, attackCheck: { movement: {}, state: "open", achievement: 35 } };
-        const message = { id: "message", visible: true, getFlag: (_scope, key) => flags[key] };
-        game.messages.set(message.id, message);
-        const root = new Element();
-        renderAreaMovementReference(message, root);
-        root.children[0].listeners.click();
-        expect(readout()).toContain("参照中の移動判定：3段階");
-        flags.attackCheck.state = "failed";
-        Hooks.callAll("updateChatMessage");
-        expect(readout()).toContain("参照中の移動判定：0段階");
-        expect(scene.update).not.toHaveBeenCalled();
-    });
-
 });
 
 describe("標準ルーラーを維持するエリア表示", () => {

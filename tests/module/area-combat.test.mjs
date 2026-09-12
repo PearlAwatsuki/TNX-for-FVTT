@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { validateAreaBoard, getAreaAtPoint, getAreaDistance, getAreaRange, measureAreaPath, normalMovementStages } from "../../scripts/rules/area-combat.mjs";
+import { validateAreaBoard, getAreaAtPoint, measureAreaPath } from "../../scripts/rules/area-combat.mjs";
 
 const board = {
     schemaVersion: 1, enabled: true, origin: { x: 200, y: 100 },
@@ -21,14 +21,9 @@ describe("エリア盤面：ユーザー指定の段階と距離", () => {
     });
     it("6エリア移動を超遠の4に丸めない", () => {
         expect(stages(p(0.5, 0.5), p(6.5, 0.5))).toBe(6);
-        expect(getAreaRange(getAreaDistance(board, p(0.5, 0.5), p(6.5, 0.5)))).toBe("superLong");
-    });
-    it.each([[0, "close"], [1, "short"], [2, "middle"], [3, "long"], [4, "superLong"], [6, "superLong"]])("距離%sの区分", (distance, range) => {
-        expect(getAreaRange(getAreaDistance(board, p(0.5, 0.5), p(distance + 0.5, 0.5)))).toBe(range);
     });
     it("往復後の相手との距離は移動消費と独立", () => {
         expect(stages(p(0.5, 0.5), p(1.5, 0.5), p(0.5, 0.5))).toBe(2);
-        expect(getAreaDistance(board, p(0.5, 0.5), p(0.8, 0.8))).toBe(0);
     });
     it("角で分割しても、分割せず通過しても同じ段階", () => {
         for (const [a, b] of [[p(0.5, 0.5), p(1.5, 1.5)], [p(0.5, 1.5), p(1.5, 0.5)]]) {
@@ -55,10 +50,6 @@ describe("エリア盤面：ユーザー指定の段階と距離", () => {
         expect(getAreaAtPoint(board, p(8, 0))).toBeNull();
         expect(getAreaAtPoint(board, p(0, 8))).toBeNull();
         expect(getAreaAtPoint(board, p(0, 0))).toEqual({ row: 0, column: 0 });
-        expect(getAreaDistance(board, p(-1, 0), p(0, 0))).toBeNull();
-    });
-    it.each([null, -1, 0.5, NaN, Infinity])("不正な距離%sを至近にしない", value => {
-        expect(getAreaRange(value)).toBeNull();
     });
     it("不正経路を0段階にしない", () => {
         for (const path of [[], null, [null], [p(NaN, 0)]]) expect(measureAreaPath(board, path).status).toBe("invalid");
@@ -71,13 +62,5 @@ describe("エリア設定と通常ムーブ", () => {
         for (const patch of [{ schemaVersion: 2 }, { rows: 0 }, { columns: 101 }, { rows: 100, columns: 100 },
             { cell: { width: 0, height: 1 } }, { origin: { x: NaN, y: 0 } }, { style: { color: "bad", alpha: 1 } },
             { style: { color: "#88ccee", alpha: 2 } }]) expect(validateAreaBoard({ ...board, ...patch })).toBeTruthy();
-    });
-    it("生身1、SF3なら3、SF不明は不明のまま", () => {
-        expect(normalMovementStages(null)).toBe(1);
-        expect(normalMovementStages({ speedFactor: { mode: "value", value: 3 } })).toBe(3);
-        expect(normalMovementStages({ speedFactor: { mode: "value", value: 3, total: 5 } })).toBe(5);
-        expect(normalMovementStages({ speedFactor: { mode: "value", value: 0 } })).toBe(0);
-        expect(normalMovementStages({ speedFactor: { mode: "none", value: 3 } })).toBeNull();
-        expect(normalMovementStages({})).toBeNull();
     });
 });
