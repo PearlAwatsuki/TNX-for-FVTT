@@ -127,6 +127,12 @@ describe("UsageTemplate.migrateData()（消費先設定・2026-07-17 親×1互�
 describe("UsageTemplate.defineSchema()（防御タイプの設定・17-2）", () => {
   const entry = UsageTemplate.defineSchema().actions.element.fields;
 
+  it("negateMiracle は UUID 配列・空配列はすべての神業", () => {
+    expect(entry.negateMiracle).toBeInstanceOf(MockArrayField);
+    expect(entry.negateMiracle.element).toBeInstanceOf(MockStringField);
+    expect(entry.negateMiracle.options.initial).toEqual([]);
+  });
+
   it("defenceAction は StringField・既定 prevent（適用前に防ぐ）", () => {
     expect(entry.defenceAction).toBeInstanceOf(MockStringField);
     expect(entry.defenceAction.options.initial).toBe("prevent");

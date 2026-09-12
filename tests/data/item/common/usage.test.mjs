@@ -228,6 +228,18 @@ describe("UsageTemplate.defineSchema()", () => {
 });
 
 describe("UsageTemplate.migrateData()", () => {
+  it.each([
+    ["Compendium.miracles.a", ["Compendium.miracles.a"]],
+    ["", []],
+    [["Compendium.miracles.a", "Compendium.miracles.b"], ["Compendium.miracles.a", "Compendium.miracles.b"]],
+    [[], []],
+  ])("打消し対象の旧指定を移行し、配列を維持する: %j", (before, expected) => {
+    const source = { actions: [{ _id: "negate", type: "defence", negateMiracle: before }] };
+    const result = UsageTemplate.migrateData(source);
+    expect(result.actions[0].negateMiracle).toEqual(expected);
+    expect(UsageTemplate.migrateData(result).actions[0].negateMiracle).toEqual(expected);
+  });
+
   it("旧 damageBoost/damageReduce は declaration(宣言)へ変換される(2026-07-11 廃止)", () => {
     const source = { actions: [
       { _id: "a", type: "damageBoost", name: "増加" },

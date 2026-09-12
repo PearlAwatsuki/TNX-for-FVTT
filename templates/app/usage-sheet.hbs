@@ -798,11 +798,25 @@
                 {{#if isDefenceNegate}}
                 <div class="usage-form-row">
                     <label class="usage-field-label">打ち消せる神業</label>
-                    <select name="negateMiracle" {{#unless editable}}disabled{{/unless}}>
-                        {{#each negateMiracleOptions}}
-                        <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
+                    <div class="usage-skill-ref-list">
+                        {{#each negateMiracleRows}}
+                        <div class="usage-skill-ref-row">
+                            <span class="usage-skill-ref-name">{{this.label}}</span>
+                            {{#if ../editable}}{{#if this.uuid}}
+                            <a class="usage-icon-btn" data-action="negateMiracleDelete" data-uuid="{{this.uuid}}"
+                               title="削除"><i class="fas fa-times"></i></a>
+                            {{/if}}{{/if}}
+                        </div>
                         {{/each}}
-                    </select>
+                        {{#if editable}}
+                        <select class="negate-miracle-select">
+                            <option value="">── 打ち消せる神業を追加 ──</option>
+                            {{#each negateMiracleOptions}}
+                            <option value="{{this.value}}">{{this.label}}</option>
+                            {{/each}}
+                        </select>
+                        {{/if}}
+                    </div>
                 </div>
                 {{/if}}
                 {{#if isDefencePrevent}}

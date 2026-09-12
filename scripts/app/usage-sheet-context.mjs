@@ -235,12 +235,16 @@ export async function prepareUsageContext(sheet, context) {
         if (context.isDefenceNegate) {
             const pack = game.packs.get("tokyo-nova-axleration.miracles");
             const index = pack ? await pack.getIndex() : [];
-            const cur = usage.negateMiracle || "";
+            const cur = usage.negateMiracle ?? [];
+            context.negateMiracleRows = cur.length
+                ? cur.map(uuid => ({ uuid, label: [...index].find(e => e.uuid === uuid)?.name ?? uuid }))
+                : [{ label: "すべての神業" }];
             context.negateMiracleOptions = [
-                { value: "", label: "すべての神業", selected: !cur },
+                ...(cur.length ? [{ value: "all", label: "すべての神業" }] : []),
                 ...[...index]
                     .sort((a, b) => a.name.localeCompare(b.name, "ja"))
-                    .map(e => ({ value: e.uuid, label: e.name, selected: e.uuid === cur })),
+                    .filter(e => !cur.includes(e.uuid))
+                    .map(e => ({ value: e.uuid, label: e.name })),
             ];
         }
         const scope = usage.defenceScope || "all";

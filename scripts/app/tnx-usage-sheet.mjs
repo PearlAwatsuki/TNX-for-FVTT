@@ -76,6 +76,7 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             recoveryExcludeDelete: TnxUsageSheet._onRecoveryExcludeDelete,
             repairCategoryDelete:  TnxUsageSheet._onRepairCategoryDelete,
             destroyCategoryDelete: TnxUsageSheet._onDestroyCategoryDelete,
+            negateMiracleDelete: TnxUsageSheet._onNegateMiracleDelete,
             incrementRecoveryCount: TnxUsageSheet._onRecoveryCountInc,
             decrementRecoveryCount: TnxUsageSheet._onRecoveryCountDec,
             incrementConsumeAmount: TnxUsageSheet._onConsumeAmountInc,
@@ -86,6 +87,12 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             decrementAcquireCount: TnxUsageSheet._onAcquireCountDec,
         },
     };
+
+    static async _onNegateMiracleDelete(_event, target) {
+        if (!this.usage) return;
+        await this._patchUsage({ negateMiracle: (this.usage.negateMiracle ?? []).filter(uuid => uuid !== target.dataset.uuid) });
+        this.render({ force: true });
+    }
 
     static PARTS = {
         main: { template: "systems/tokyo-nova-axleration/templates/app/usage-sheet.hbs" },
@@ -146,6 +153,15 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         }
 
         if (context.editable) {
+            this.element.querySelector("select.negate-miracle-select")?.addEventListener("change", async (ev) => {
+                ev.stopPropagation();
+                const uuid = ev.target.value;
+                if (!uuid || !this.usage) return;
+                const current = this.usage.negateMiracle ?? [];
+                await this._patchUsage({ negateMiracle: uuid === "all" ? [] : [...new Set([...current, uuid])] });
+                this.render({ force: true });
+            });
+
             // 組み合わせ技能: ドロップダウン選択で即時追加
             for (const select of this.element.querySelectorAll("select.skill-ref-select")) {
                 select.addEventListener("change", async (ev) => {

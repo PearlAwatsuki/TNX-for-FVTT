@@ -284,10 +284,8 @@ export class UsageTemplate extends SystemDataModel {
                     // 範囲(prevent): all=一回の攻撃・神業まるごと / one=選んだ1人
                     // 系統(prevent): 防げる系統。《難攻不落》は社会を外す。既定は3系統すべて
                     defenceAction: new fields.StringField({ initial: "prevent" }),
-                    // 打ち消し(negate): 空なら何でも打ち消せる。辞典の神業を1つ指定すると
-                    // **その神業だけ**打ち消せる(《真実に対する不可触》等)。神業ごとに相手が変わるので
-                    // ここは選ぶ操作＝プルダウン(2026-09-06 ユーザーの基準)
-                    negateMiracle: new fields.StringField({ initial: "" }),
+                    // 辞典の神業 UUID 配列。空配列は「すべての神業」で、個別指定と排他。
+                    negateMiracle: new fields.ArrayField(new fields.StringField(), { initial: [] }),
                     defenceScope: new fields.StringField({ initial: "all" }),
                     defenceCategories: new fields.ArrayField(new fields.StringField(), { initial: ["physical", "mental", "social"] }),
 
@@ -482,6 +480,9 @@ export class UsageTemplate extends SystemDataModel {
         if (Array.isArray(source.actions)) {
             source.actions = source.actions.map(a => {
                 let migrated = a._id ? a : { ...a, _id: foundry.utils.randomID() };
+                if (typeof migrated.negateMiracle === "string") {
+                    migrated = { ...migrated, negateMiracle: migrated.negateMiracle ? [migrated.negateMiracle] : [] };
+                }
                 // 攻撃は判定の一種へ統合(2026-07-09): type="attack" → "check"(damageCategory は攻撃系統として保持)。
                 // 系統未設定の旧攻撃は物理とみなす。
                 if (migrated.type === "attack") {

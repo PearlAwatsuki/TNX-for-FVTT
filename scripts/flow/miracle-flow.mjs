@@ -594,15 +594,15 @@ function negateState() {
  * @returns {Promise<boolean>} 打ち消してよいか(不可なら警告を出す)
  */
 async function negateLimitOk(state, target) {
-    const limit = state?.usage?.negateMiracle;
-    if (!limit) return true;
-    const want = await fromUuid(limit).catch(() => null);
-    if (!want) return true;
+    const configured = state?.usage?.negateMiracle;
+    const limits = Array.isArray(configured) ? configured : configured ? [configured] : [];
+    if (!limits.length) return true;
+    const wants = await Promise.all(limits.map(uuid => fromUuid(uuid).catch(() => null)));
     const got = target?.uuid ? await fromUuid(target.uuid).catch(() => null) : null;
-    const ok = miracleIdentityMatches(
+    const ok = wants.some(want => want && miracleIdentityMatches(
         { identificationKey: want.system?.identificationKey, name: want.name },
-        { identificationKey: got?.system?.identificationKey, name: got?.name ?? target?.name });
-    if (!ok) ui.notifications.warn(`この神業で打ち消せるのは《${want.name}》だけです。`);
+        { identificationKey: got?.system?.identificationKey, name: got?.name ?? target?.name }));
+    if (!ok) ui.notifications.warn(`この神業で打ち消せるのは登録された神業だけです（${wants.map((want, i) => want?.name ?? limits[i]).join("、")}）。`);
     return ok;
 }
 
