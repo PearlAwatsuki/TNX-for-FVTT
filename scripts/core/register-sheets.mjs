@@ -20,8 +20,13 @@ import { TokyoNovaHousingAreaSheet } from "../item/tnx-housing-area-sheet.mjs";
 import { TnxScenarioSheet } from "../journal/tnx-scenario-sheet.mjs";
 import { TnxFocusSystemSheet } from "../journal/tnx-focus-system-sheet.mjs";
 import { registerDrawTableHooks } from "../cards/tnx-draw-table.mjs";
+import { TnxSceneConfig } from "../app/tnx-scene-config.mjs";
+import { SYSTEM_ID } from "../constants.mjs";
 
 export function registerSheets() {
+    foundry.applications.apps.DocumentSheetConfig.registerSheet(Scene, SYSTEM_ID, TnxSceneConfig, {
+        makeDefault: true, label: "シーン設定",
+    });
     // Actor Sheetの登録
     foundry.documents.collections.Actors.unregisterSheet("core", foundry.appv1.sheets.ActorSheet);
     foundry.documents.collections.Actors.registerSheet("tokyo-nova", TokyoNovaCastSheet, {

@@ -25,6 +25,7 @@ import { registerUiInjections } from "./core/register-ui-injections.mjs";
 import { registerDocumentHooks } from "./core/register-document-hooks.mjs";
 import { onSystemReady } from "./core/register-ready.mjs";
 import { handleRefreshSheets } from "./core/sheet-refresh.mjs";
+import { renderAreaMovementReference } from "./combat/area-combat.mjs";
 
 // ─── 抽出したまとまりのフック登録(2026-09-07 分割)。**トップレベルで呼ぶ**——元は
 // ここで直接 Hooks.on していたため、登録の時機を変えないこと
@@ -48,6 +49,7 @@ Hooks.on("renderCompendiumDirectory", (_app, html) => injectDictionaryBrowserBut
 // 登録は**トップレベル**で行う(ready 内で登録するとリロード直後の表示分に効かない=
 // ダメージカードの本文が殻のまま「内容がすべて消える」ように見えていた・2026-07-14 是正)。
 const CHAT_CARD_RENDERERS = [
+    { render: renderAreaMovementReference },
     // チャットの受付ボタン(ドロー/制御判定)を解決処理に配線する(フェーズ9-4)。
     // 効果決定カード(conditionDraw フラグ)は状態領域をライブ描画する(ボタン→結果の置換・2026-07-12)
     { render: (message, _html, root) => {

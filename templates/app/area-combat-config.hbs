@@ -1,0 +1,22 @@
+<fieldset class="tnx-area-settings">
+    <legend>エリア戦闘</legend>
+    <div class="form-group"><label>エリア戦闘を有効にする</label><div class="form-fields">
+        <input type="checkbox" name="flags.tokyo-nova-axleration.areaCombat.enabled" {{checked board.enabled}}>
+    </div><p class="hint">有効な間はグリッドなしで自由に配置し、エリア境界を越えた回数を移動段階として表示します。</p></div>
+    <div class="form-group"><label>1エリアの幅 / 高さ（px）</label><div class="form-fields">
+        <input type="number" data-dtype="Number" name="flags.tokyo-nova-axleration.areaCombat.cell.width" value="{{board.cell.width}}" min="1" step="any" required aria-label="エリア幅">
+        <input type="number" data-dtype="Number" name="flags.tokyo-nova-axleration.areaCombat.cell.height" value="{{board.cell.height}}" min="1" step="any" required aria-label="エリア高さ">
+    </div></div>
+    <div class="form-group"><label>列数 / 行数</label><div class="form-fields">
+        <input type="number" data-dtype="Number" name="flags.tokyo-nova-axleration.areaCombat.columns" value="{{board.columns}}" min="1" max="100" required aria-label="列数">
+        <input type="number" data-dtype="Number" name="flags.tokyo-nova-axleration.areaCombat.rows" value="{{board.rows}}" min="1" max="100" required aria-label="行数">
+    </div></div>
+    <div class="form-group"><label>原点 X / Y（px）</label><div class="form-fields">
+        <input type="number" data-dtype="Number" name="flags.tokyo-nova-axleration.areaCombat.origin.x" value="{{board.origin.x}}" step="any" required aria-label="原点X">
+        <input type="number" data-dtype="Number" name="flags.tokyo-nova-axleration.areaCombat.origin.y" value="{{board.origin.y}}" step="any" required aria-label="原点Y">
+    </div></div>
+    <div class="form-group"><label>エリア枠の色</label><div class="form-fields"><input type="color" name="flags.tokyo-nova-axleration.areaCombat.style.color" value="{{board.style.color}}"></div></div>
+    <div class="form-group"><label>エリア枠の不透明度</label><div class="form-fields"><input type="range" data-dtype="Number" name="flags.tokyo-nova-axleration.areaCombat.style.alpha" min="0" max="1" step="0.05" value="{{board.style.alpha}}"></div></div>
+    <p class="hint">入力中は盤面にプレビューします。「変更を保存」で他のScene設定と一緒に保存します。</p>
+    <p role="alert"></p>
+</fieldset>

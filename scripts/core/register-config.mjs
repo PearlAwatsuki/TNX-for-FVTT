@@ -41,8 +41,10 @@ import { durationLabelOf } from "../rules/time-boundary.mjs";
 import { registerEffectScratchHiding } from "./effect-authoring.mjs";
 import { CONDITION_KINDS, conditionDisplayName } from "../rules/conditions.mjs";
 import { decoratedItemName } from "./identification.mjs";
+import { registerAreaCombat } from "../combat/area-combat.mjs";
 
 export async function registerSystemConfig() {
+    registerAreaCombat();
     // 効果の下書き置き場はアイテムディレクトリに出さない(組み立て中だけ存在する器)。
     // サイドバーの初回描画は ready より前なので、隠すフックの登録は init で行う
     registerEffectScratchHiding();
