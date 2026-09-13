@@ -907,7 +907,7 @@ export function renderMiracleCard(message, html) {
     }
 }
 
-/** 宣言の効果(17-6)の段: 入れ替え(適用ボタン)／入手(常備化できない)／次の行動(不可知)。 */
+/** 宣言の効果の結果表示: 入れ替え先の宿主／入手したアウトフィット。 */
 function renderMiracleEffectRows(message, card, mf) {
     if (card.querySelector(".mc-effect")) return;
     const esc = foundry.utils.escapeHTML;
@@ -919,9 +919,6 @@ function renderMiracleEffectRows(message, card, mf) {
         field("宿主", esc(mf.swap.hostName ?? ""));
     } else if (mf.acquire) {
         field("入手", `「${esc(mf.acquire.itemName)}」`);
-    } else if (mf.insensible) {
-        field("次の行動", "神業以外では妨げられない");
-        field("割り込み", "AR を消費しない");
     } else {
         return;
     }
