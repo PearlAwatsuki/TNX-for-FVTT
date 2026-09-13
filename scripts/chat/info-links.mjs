@@ -27,7 +27,7 @@ export function createInfoLink(match, { relativeTo } = {}) {
     link.dataset.infoJournal = journal?.documentName === "JournalEntry" ? journal.uuid : "";
     if (match[2]) link.dataset.infoLabel = match[2];
     // チャットへ保存する HTML に RL 専用の項目名を焼き込まない。
-    link.textContent = match[2] || "情報";
+    link.textContent = `【${match[2] || "情報"}】`;
     return link;
 }
 
@@ -41,7 +41,7 @@ function refreshLink(link) {
     const { item } = resolveLink(link);
     const name = !item ? "参照先不明" : (game.user.isGM || item.isPublic)
         ? (item.title || "情報") : "非公開の情報";
-    const label = link.dataset.infoLabel || name;
+    const label = `【${link.dataset.infoLabel || name}】`;
     if (link.textContent !== label) link.textContent = label;
     link.classList.toggle("broken", !item);
     link.classList.toggle("tnx-info-link--hidden", !!item && !item.isPublic);

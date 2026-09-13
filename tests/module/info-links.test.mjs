@@ -108,7 +108,7 @@ describe("情報リンクの表示", () => {
         const link = createInfoLink(match('@Info[target]{<img src=x onerror=alert(1)>}'), { relativeTo: journal });
         expect(link.dataset.infoJournal).toBe(journal.uuid);
         expect(link.querySelector("img")).toBeNull();
-        expect(link.textContent).toBe("<img src=x onerror=alert(1)>");
+        expect(link.textContent).toBe("【<img src=x onerror=alert(1)>】");
         state.actId = "other";
         bindInfoLinks(link);
         expect(link.dataset.infoJournal).toBe("JournalEntry.act");
@@ -117,9 +117,9 @@ describe("情報リンクの表示", () => {
         const link = createInfoLink(match("@Info[target]"), { relativeTo: journal });
         expect(link.outerHTML).not.toContain("秘密の項目名");
         game.user = users[1]; bindInfoLinks(link);
-        expect(link.textContent).toBe("非公開の情報");
+        expect(link.textContent).toBe("【非公開の情報】");
         items[1].isPublic = true; bindInfoLinks(link);
-        expect(link.textContent).toBe("秘密の項目名");
+        expect(link.textContent).toBe("【秘密の項目名】");
     });
     it("文脈なしの記法を上演中のアクトへ誤って結び付けない", () => {
         const link = createInfoLink(match("@Info[target]"));
@@ -216,8 +216,8 @@ describe("情報リンクの表示", () => {
         document.body.innerHTML = html;
         const links = document.querySelectorAll("a.tnx-info-link");
         expect(links).toHaveLength(2);
-        expect(links[0].textContent).toBe("任意名");
-        expect(links[1].textContent).toBe("非公開の情報");
+        expect(links[0].textContent).toBe("【任意名】");
+        expect(links[1].textContent).toBe("【非公開の情報】");
         expect(links[0].dataset.infoJournal).toBe(journal.uuid);
         const broken = await TextEditor.enrichHTML('<strong>@Info[target]</strong>{別書式}', options);
         expect(broken).toContain("</strong>{別書式}");
