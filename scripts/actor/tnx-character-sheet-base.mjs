@@ -11,6 +11,7 @@
 import { editTokenImage } from "./sheet-images.mjs";
 import { SYSTEM_ID } from "../constants.mjs";
 import { TnxSkillUtils } from '../core/tnx-skill-utils.mjs';
+import { bindListDragDrop } from "../ui/list-drag-drop.mjs";
 import { EffectsSheetMixin } from "../ui/effects-sheet-mixin.mjs";
 import { OUTFIT_CATEGORIES, getMinorCategoryLabel } from '../data/item/outfit-categories.mjs';
 import { getPartSlotPreset, PartSlotPresetApp } from '../app/part-slot-preset-app.mjs';
@@ -309,11 +310,6 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         }
         await this._prepareSkillsData(context);
         EffectsSheetMixin.prepareEffectsContext(this.actor, context);
-        context.allEffects = [
-            ...context.effects.temporary,
-            ...context.effects.passive,
-            ...context.effects.inactive
-        ];
 
         context.outfitGroups = await prepareOutfitGroups(this.actor);
         if (this.sheetFeatures.combat) prepareCombatData(this.actor, context);
@@ -405,6 +401,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
 
     _onRender(context, _options) {
         super._onRender(context, _options);
+        bindListDragDrop(this);
         // 宿主のドロップ受け(RL のみ・トループの所有者欄と同方式・17-6)
         const hostZone = this.element.querySelector(".cast-host-dropzone");
         if (hostZone && game.user.isGM) {

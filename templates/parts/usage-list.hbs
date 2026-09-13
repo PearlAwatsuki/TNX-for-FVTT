@@ -14,7 +14,7 @@
              種別タグは全廃(長いタイプ名が用途名を圧迫するため=2026-07-18 ユーザー指示。
              タイプは空名時の実効名「タイプ名（親アイテム名）」で判別できる) --}}
         {{#each usageList as |row|}}
-            <li class="tnx-item-list__row">
+            <li class="tnx-item-list__row" data-usage-id="{{row.id}}">
                 <div class="tnx-item-list__column--main">
                     <h4>{{row.displayName}}</h4>
                 </div>

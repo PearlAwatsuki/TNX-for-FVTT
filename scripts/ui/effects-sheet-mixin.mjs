@@ -35,7 +35,7 @@ export const EffectsSheetMixin = {
             // 明示する(物理コピー=このアイテム自身の効果なので通常の操作がそのまま効く)
             if (flags.transferredFrom !== undefined) {
                 effects.transferred.push({
-                    id: effect.id, name: effect.name, img: effect.img,
+                    id: effect.id, uuid: effect.uuid, name: effect.name, img: effect.img,
                     disabled: effect.disabled === true,
                     durationLabel: durationLabelOf(effect),
                     sourceName: flags.transferredSourceName ?? "",
@@ -54,6 +54,11 @@ export const EffectsSheetMixin = {
             else if (effect.isTemporary) effects.temporary.push(effect);
             else effects.passive.push(effect);
         }
+        const order = document.getFlag?.(SYSTEM_ID, "effectOrder") ?? [];
+        const ranks = new Map(order.map((uuid, index) => [uuid, index]));
+        const compare = (a, b) => (ranks.get(a.uuid) ?? order.length) - (ranks.get(b.uuid) ?? order.length);
+        for (const group of Object.values(effects)) group.sort(compare);
+        context.allEffects = [...effects.temporary, ...effects.passive, ...effects.inactive].sort(compare);
         context.effects = effects;
     },
 

@@ -1,3 +1,4 @@
+import { bindListDragDrop } from "../ui/list-drag-drop.mjs";
 import { EffectsSheetMixin } from "../ui/effects-sheet-mixin.mjs";
 import { TnxUsageSheet, USAGE_TYPES } from "../app/tnx-usage-sheet.mjs";
 import { deriveUsageAutoFill, updateUsageActions } from "../core/usage-derivation.mjs";
@@ -80,11 +81,6 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
         context.usesOwnerName = bunshinOwner?.name ?? "";
 
         EffectsSheetMixin.prepareEffectsContext(this.item, context);
-        context.allEffects = [
-            ...context.effects.temporary,
-            ...context.effects.passive,
-            ...context.effects.inactive,
-        ];
 
         // 技能の役割(skillRoles)は廃止(2026-07-17 再編): 資格・候補の判定は用途タイプの所持のみ
         // (ドッジ=ドッジ用途を持つ技能 等)。役割チェック UI は撤去した
@@ -119,6 +115,7 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
 
     /** @override */
     _onRender(context, _options) {
+        bindListDragDrop(this);
         const el = this.element;
 
         // edit/view モード CSS クラスを同期

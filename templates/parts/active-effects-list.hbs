@@ -10,7 +10,7 @@
     </div>
     <ol class="item-list-body">
         {{#each allEffects as |effect|}}
-            <li class="tnx-item-list__row" data-effect-id="{{effect.id}}">
+            <li class="tnx-item-list__row" data-effect-id="{{effect.id}}" data-effect-uuid="{{effect.uuid}}">
                 <div class="tnx-item-list__column--main">
                     <img class="effect-image" src="{{effect.img}}" alt="{{effect.name}}"/>
                     <h4 class="{{#if effect.disabled}}disabled{{/if}}">{{effect.name}}</h4>
@@ -42,7 +42,7 @@
     </div>
     <ol class="item-list-body">
         {{#each effects.payload as |effect|}}
-        <li class="tnx-item-list__row" data-effect-id="{{effect.id}}">
+        <li class="tnx-item-list__row" data-effect-id="{{effect.id}}" data-effect-uuid="{{effect.uuid}}">
             <div class="tnx-item-list__column--main">
                 <img class="effect-image" src="{{effect.img}}" alt="{{effect.name}}"/>
                 <h4 class="{{#if effect.disabled}}disabled{{/if}}">{{effect.name}}</h4>
@@ -73,7 +73,7 @@
     </div>
     <ol class="item-list-body">
         {{#each effects.transferred as |effect|}}
-        <li class="tnx-item-list__row" data-effect-id="{{effect.id}}">
+        <li class="tnx-item-list__row" data-effect-id="{{effect.id}}" data-effect-uuid="{{effect.uuid}}">
             <div class="tnx-item-list__column--main">
                 <img class="effect-image" src="{{effect.img}}" alt="{{effect.name}}"/>
                 <h4 class="{{#if effect.disabled}}disabled{{/if}}"><em>{{effect.name}}{{#if effect.sourceName}}（{{effect.sourceName}}）{{/if}}</em></h4>
