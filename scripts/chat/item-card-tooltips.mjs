@@ -12,7 +12,6 @@
  */
 
 import { buildDictionaryCard, cardKindOf, DICTIONARY_CARD_TEMPLATE } from "../dictionary/dictionary-cards.mjs";
-import { fitDictionaryCard } from "../app/tnx-dictionary-browser.mjs";
 import { loadSkillChoices, SKILL_PACKS, STYLE_PACK } from "../dictionary/skill-dictionary.mjs";
 import { loadOutfitDictNames } from "../dictionary/outfit-dictionary.mjs";
 import { getPartSlotPreset } from "../app/part-slot-preset-app.mjs";
@@ -33,29 +32,18 @@ const TOOLTIP_CARD_SIZES = Object.freeze({
 });
 
 /**
- * カード HTML を固定サイズスロットに入れ、オフスクリーンで文字縮小フィットを済ませた
- * ツールチップ用 HTML を返す(ツールチップは表示時に JS を実行できないため事前に確定させる)。
+ * カード HTML を固定サイズスロットに入れる。長文は CSS でカード内をスクロールする。
  * @param {string} cardHtml dictionary-card.hbs の描画結果
  * @param {{w: number, h: number}} size
- * @returns {string} フィット済みスロットの outerHTML
+ * @returns {string} スロットの outerHTML
  */
 function buildSizedTooltipHtml(cardHtml, size) {
-    const stage = document.createElement("div");
-    stage.style.cssText = "position:absolute;left:-10000px;top:0;visibility:hidden;";
     const slot = document.createElement("div");
     slot.className = "tnx-dict__card-slot";
     slot.style.width = `${size.w}px`;
     slot.style.height = `${size.h}px`;
     slot.innerHTML = cardHtml;
-    stage.appendChild(slot);
-    document.body.appendChild(stage);
-    try {
-        const card = slot.querySelector(".tnx-dict-card");
-        if (card) fitDictionaryCard(card);
-        return slot.outerHTML;
-    } finally {
-        stage.remove();
-    }
+    return slot.outerHTML;
 }
 
 /**
@@ -114,7 +102,7 @@ async function buildCardTooltipHtml(item, { maps, actor = null, sizes = TOOLTIP_
     if (!card) return null;
     const html = await renderTemplate(DICTIONARY_CARD_TEMPLATE, { card });
     // 固定サイズ化(2026-08-31 ユーザー指示=辞典ブラウザと同じ大きさ)。tall=ヴィークル/
-    // 全身義体/式神装備。フィットは事前にオフスクリーンで確定させる
+    // 全身義体/式神装備。長文のスクロールは共通 CSS に任せる
     const tall = item.type === "vehicle" || item.type === "cyborg" || readFlag(item.system, "isShiki");
     const size = kind === "outfit" ? (tall ? sizes?.outfitTall : sizes?.outfit) : sizes?.[kind];
     return size ? buildSizedTooltipHtml(html, size) : html;

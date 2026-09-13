@@ -1202,7 +1202,7 @@
      ウィンドウ幅を変えても大きさは不変で、1行に並ぶ枚数だけが変わる(auto-fill)。
    - スタイル/神業/オーガニゼーション: **2列固定・カード幅はウィンドウ幅に追従**(1fr)。
    - 一般技能: 縦積み1列・幅はウィンドウ幅に追従。
-   高さは種別ごとに固定・入りきらない解説は fitDictionaryCards が文字サイズを縮小して収める */
+   高さは種別ごとに固定・入りきらない内容は文字を縮小せずカード内をスクロールする */
 .tnx-dict__card-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, var(--tnx-dict-card-w, 220px));
@@ -1225,13 +1225,17 @@
     height: 100%;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    overflow: auto;
+    overscroll-behavior: contain;
+}
+
+/* 各部を縮めず、条件・能力値を含むカード全体をスクロール対象にする。 */
+.tnx-dict-card > * {
+    flex-shrink: 0;
 }
 
 .tnx-dict__card-slot .tnx-dict-card__desc {
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow: hidden;
+    flex: 1 0 auto;
 }
 
 .tnx-dict__results[data-kind="styleSkill"] .tnx-dict__card-slot { height: 330px; }
@@ -1258,7 +1262,7 @@
     flex: 0 0 auto;
 }
 .tnx-dict__results[data-kind="style"] .tnx-dict__card-slot { height: 430px; }
-/* 370px=手持ちデータ最長の神業が最小フォントで収まる高さ(実測) */
+/* 神業カードの表示高さ。長文はカード内をスクロールする。 */
 .tnx-dict__results[data-kind="miracle"] .tnx-dict__card-slot { height: 370px; }
 .tnx-dict__results[data-kind="organization"] .tnx-dict__card-slot { height: 430px; }
 
@@ -1515,18 +1519,6 @@
     grid-column: 1 / -1;
 }
 
-/* スラッシュ区切りの複合値を行内で割らない。セル幅に入りきらない場合は
-   fitDictionaryCard が値の文字幅を scaleX 圧縮して収める(セルの行送りはしない・
-   ラベルは縮めない・一般技能は折り返し表示のまま) */
-.tnx-dict-card__param:not(.tnx-dict-card__param--full) span {
-    white-space: nowrap;
-    transform-origin: left center; /* 圧縮してもラベル直後に留まる */
-}
-
-.tnx-dict-card--generalSkill .tnx-dict-card__param span {
-    white-space: normal;
-}
-
 .tnx-dict-card__param label {
     color: var(--tnx2-text-secondary);
     flex: 0 0 auto;
@@ -1542,6 +1534,7 @@
     padding: 5px 8px;
     color: var(--tnx2-text-primary);
     font-size: 0.9em;
+    overflow-wrap: anywhere;
 }
 
 .tnx-dict-card__desc p {
@@ -1563,6 +1556,7 @@
 
 .tnx-dict-card__condition-body {
     min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .tnx-dict-card__condition-body p {
@@ -1600,7 +1594,7 @@
    コア #tooltip の文字寄せ等の既定が注入 HTML へ継承されるため、ここで明示的に打ち消す
    (2026-08-31 是正=右寄せで表示されていた)。
    スタイル技能/アウトフィットは辞典ブラウザと同寸法の固定サイズスロット入り
-   (item-card-tooltips.mjs がフィット済み HTML を注入する)。
+   (item-card-tooltips.mjs が HTML を注入する)。
    輪郭はアクセント色+グロー(2026-08-31 指摘=下地と同色で見分けがつかなかった) */
 .tnx-dict-tooltip {
     max-width: 420px;
@@ -1611,6 +1605,11 @@
 }
 
 .tnx-dict-tooltip .tnx-dict-card {
+    display: flex;
+    flex-direction: column;
+    max-height: calc(100vh - 40px);
+    overflow: auto;
+    overscroll-behavior: contain;
     border: 1px solid var(--tnx2-accent);
     box-shadow: 0 0 10px var(--tnx2-accent-glow),
                 0 8px 24px rgb(0 0 0 / 70%);

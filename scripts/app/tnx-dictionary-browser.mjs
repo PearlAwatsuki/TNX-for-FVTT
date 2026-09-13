@@ -304,25 +304,6 @@ export class TnxDictionaryBrowser extends HandlebarsApplicationMixin(Application
         // @UUID コンテンツリンクのカード・ツールチップ(16-x): カード解説内のリンクに適用
         import("../chat/item-card-tooltips.mjs").then((m) => m.applyContentLinkCardTooltips(this.element));
 
-        // 固定高さカード: 入りきらない解説は文字サイズを縮小して収める(ルルブ同様・
-        // 2026-08-31 ユーザー指定)。レイアウト確定後に実測するため rAF 越しに実行
-        requestAnimationFrame(() => fitDictionaryCards(this.element));
-
-        // リサイズ追従(2026-08-31 ユーザー指定): 可変幅カード(スタイル/神業/組織=2列・
-        // 一般技能=縦積み)は幅が変わると収まりが変わるため、ウィンドウリサイズで再フィットする
-        this._resizeObserver?.disconnect();
-        this._resizeObserver = new ResizeObserver(() => {
-            clearTimeout(this._refitTimer);
-            this._refitTimer = setTimeout(() => fitDictionaryCards(this.element), 120);
-        });
-        this._resizeObserver.observe(this.element);
-    }
-
-    /** @override */
-    _onClose(options) {
-        super._onClose(options);
-        this._resizeObserver?.disconnect();
-        this._resizeObserver = null;
     }
 
     /** タブ切替 */
@@ -356,67 +337,6 @@ export class TnxDictionaryBrowser extends HandlebarsApplicationMixin(Application
             console.error("TNX | 購入の実行に失敗しました", err);
             ui.notifications.error(`購入の実行に失敗しました: ${err.message}`);
         }
-    }
-}
-
-/**
- * 固定高さのカード内で解説が入りきらない場合、解説の文字サイズを段階的に縮小して収める
- * (ルルブのカードと同じ流儀=カードの大きさは固定・文字で吸収。2026-08-31 ユーザー指定)。
- * 対象は固定高さスロット(.tnx-dict__card-slot)内のカードのみ(ツールチップ等の自動高さは対象外)。
- * @param {HTMLElement} root ブラウザのルート要素
- */
-/**
- * 固定高さの1カードについて、入りきらない本文(解説＋条件)の文字サイズを段階縮小して収める。
- * パラメータ行・ヘッダは縮めない(ルルブ同様)。冪等(既定サイズへ戻してから判定)。
- * @param {HTMLElement} card .tnx-dict-card 要素
- */
-export function fitDictionaryCard(card) {
-    // 第0段: 1/2・1/3幅セルの値(nowrap)がセル幅に入りきらない場合、値の文字幅を横方向に
-    // 圧縮して収める(2026-08-31 指示=セルを行送り(全幅昇格)せず、値のみ縮めてラベルは
-    // 縮めない。手法はシートの squeeze-text と同じ scaleX。冪等=毎回リセットしてから実測)
-    for (const cell of card.querySelectorAll(".tnx-dict-card__param:not(.tnx-dict-card__param--full)")) {
-        const span = cell.querySelector("span");
-        if (!span) continue;
-        span.style.transform = "";
-        const available = span.clientWidth;
-        const content = span.scrollWidth;
-        if (available > 0 && content > available) {
-            span.style.transform = `scaleX(${(available / content) * 0.98})`;
-        }
-    }
-    const targets = [...card.querySelectorAll(".tnx-dict-card__desc, .tnx-dict-card__condition")];
-    if (!targets.length) return;
-    for (const t of targets) t.style.fontSize = "";
-    const desc = card.querySelector(".tnx-dict-card__desc");
-    // あふれは2経路: ①解説枠の内側(flex 割当より内容が大きい=desc.scrollHeight)
-    // ②条件等がカード下端を突き抜ける(card.scrollHeight)。両方を見る
-    const overflows = () =>
-        (desc && desc.scrollHeight > desc.clientHeight + 1)
-        || card.scrollHeight > card.clientHeight + 1;
-    let size = Number.parseFloat(getComputedStyle(targets[0]).fontSize) || 12;
-    const MIN = 7.5;
-    while (overflows() && size > MIN) {
-        size -= 0.5;
-        for (const t of targets) t.style.fontSize = `${size}px`;
-    }
-    // 第二段(保険): 極端に長い名前で本文が最小でも収まらない場合、ヘッダの文字も縮める
-    // (通常の名前長では発動しない。2026-08-31 長名ツールチップ崩れの是正の一部)
-    const header = card.querySelector(".tnx-dict-card__header");
-    if (header && overflows()) {
-        let hSize = Number.parseFloat(getComputedStyle(header).fontSize) || 13;
-        header.style.fontSize = "";
-        const H_MIN = 9;
-        while (overflows() && hSize > H_MIN) {
-            hSize -= 0.5;
-            header.style.fontSize = `${hSize}px`;
-        }
-    }
-}
-
-export function fitDictionaryCards(root) {
-    if (!root) return;
-    for (const card of root.querySelectorAll(".tnx-dict__card-slot .tnx-dict-card")) {
-        fitDictionaryCard(card);
     }
 }
 
