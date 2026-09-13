@@ -448,31 +448,34 @@
                                             <div class="info-tier-list">
                                                 {{#each contentItem.tiers as |tierItem|}}
                                                     <div class="info-tier" data-tier-id="{{tierItem.id}}">
+                                                        <div class="tnx-editor-section__header">
+                                                            <label>追加情報</label>
+                                                            <a class="tnx-ring-btn" data-action="deleteInfoTier" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-tier-id="{{tierItem.id}}" title="この段を削除"><i class="fas fa-times"></i></a>
+                                                        </div>
+                                                        <div class="info-tier-targets">
+                                                            {{#each tierItem.targets as |tierTarget|}}
+                                                            <div class="info-tier-target">
+                                                                <label>
+                                                                    <select name="skillId" aria-label="使用技能" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-tier-id="{{tierItem.id}}" data-target-id="{{tierTarget.id}}">
+                                                                        {{#each tierTarget.skillOptions as |option|}}
+                                                                        <option value="{{option.id}}" {{#if option.selected}}selected{{/if}}>{{option.label}}</option>
+                                                                        {{/each}}
+                                                                    </select>
+                                                                </label>
+                                                                <label>目標値</label>
+                                                                <div class="number-input-spinner">
+                                                                    <button type="button" class="tnx-btn" data-action="spinDown" aria-label="減少">−</button>
+                                                                    <input type="number" name="tn" class="skill-tn" placeholder="-" value="{{tierTarget.tn}}" min="0" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-tier-id="{{tierItem.id}}" data-target-id="{{tierTarget.id}}">
+                                                                    <button type="button" class="tnx-btn" data-action="spinUp" aria-label="増加">＋</button>
+                                                                </div>
+                                                                <a class="tnx-ring-btn" data-action="deleteInfoTierTarget" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-tier-id="{{tierItem.id}}" data-target-id="{{tierTarget.id}}" title="この目標値だけを削除"><i class="fas fa-times"></i></a>
+                                                            </div>
+                                                            {{/each}}
+                                                            <button type="button" class="tnx-btn tnx-btn--sm" data-action="addInfoTierTarget" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-tier-id="{{tierItem.id}}"><i class="fas fa-plus"></i> 目標値だけを追加</button>
+                                                        </div>
                                                         <div class="tnx-editor-section">
                                                             <div class="tnx-editor-section__header">
-                                                                <label>追加情報</label>
-                                                                <a class="tnx-ring-btn" data-action="deleteInfoTier" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-tier-id="{{tierItem.id}}" title="この段を削除"><i class="fas fa-times"></i></a>
-                                                            </div>
-                                                            <div class="info-tier-targets">
-                                                                {{#each tierItem.targets as |tierTarget|}}
-                                                                <div class="info-tier-target">
-                                                                    <label>
-                                                                        <select name="skillId" aria-label="使用技能" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-tier-id="{{tierItem.id}}" data-target-id="{{tierTarget.id}}">
-                                                                            {{#each tierTarget.skillOptions as |option|}}
-                                                                            <option value="{{option.id}}" {{#if option.selected}}selected{{/if}}>{{option.label}}</option>
-                                                                            {{/each}}
-                                                                        </select>
-                                                                    </label>
-                                                                    <label>目標値</label>
-                                                                    <div class="number-input-spinner">
-                                                                        <button type="button" class="tnx-btn" data-action="spinDown" aria-label="減少">−</button>
-                                                                        <input type="number" name="tn" class="skill-tn" placeholder="-" value="{{tierTarget.tn}}" min="0" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-tier-id="{{tierItem.id}}" data-target-id="{{tierTarget.id}}">
-                                                                        <button type="button" class="tnx-btn" data-action="spinUp" aria-label="増加">＋</button>
-                                                                    </div>
-                                                                    <a class="tnx-ring-btn" data-action="deleteInfoTierTarget" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-tier-id="{{tierItem.id}}" data-target-id="{{tierTarget.id}}" title="この目標値だけを削除"><i class="fas fa-times"></i></a>
-                                                                </div>
-                                                                {{/each}}
-                                                                <button type="button" class="tnx-btn tnx-btn--sm" data-action="addInfoTierTarget" data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-tier-id="{{tierItem.id}}"><i class="fas fa-plus"></i> 目標値だけを追加</button>
+                                                                <label>本文</label>
                                                             </div>
                                                             <div class="tnx-editor-section__content">
                                                                 <prose-mirror name="text" value="{{tierItem.text}}" toggled data-info-id="{{infoItem.id}}" data-content-id="{{contentItem.id}}" data-tier-id="{{tierItem.id}}">{{{tierItem.enrichedText}}}</prose-mirror>
