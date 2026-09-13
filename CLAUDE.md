@@ -183,3 +183,9 @@ llm-wiki は別リポジトリのため、Code の起動時自動読み込みに
 - Conventional Commits に準拠し、`<type>: <description>` 形式。主なタイプは feat / fix / docs / chore / refactor / test / style。**description は日本語で簡潔に。**
 - バージョン番号は package.json / system.json / git タグの 3 箇所で同期する。バージョンを上げるコミットでは、**package.json と system.json の一致を確認してからコミットする**(将来的には不一致でテストを fail させる自動チェックの導入を推奨)。
 - リリースの詳細手順は wiki の System / Release_Process を参照する(タグ付け以降の作業分担は §2.3 のとおり)。
+
+## UI追加・変更時の必須方針（2026-09-13 ユーザー指示）
+
+- ボタン・アイコン・入力欄・配置は、該当画面と類似機能の既存TNX実装を確認してから再利用する。Foundry標準の無装飾ボタンや独自に考えたUIへ置き換えない。
+- 小さな操作は既存のFont AwesomeアイコンとTNXクラス（例: `tnx-icon-ctrl`、`tnx-ctrl-strip`）に統一する。既存がアイコン操作なら文字ボタンを新設しない。操作名はツールチップとアクセシブルなラベルで示す。
+- RL/PL、アクト開始前/開始後、既存タブの表示条件を確認し、既存の操作の流れに配置を合わせる。新しい保存先や別ウィンドウの必要性と、画面構成の判断を混同しない。

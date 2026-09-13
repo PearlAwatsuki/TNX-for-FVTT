@@ -97,7 +97,7 @@
             {{#each keyHandouts as |h|}}<div class="scp-send-row">
                 <a class="scp-send-label" data-action="openKeyHandout" data-id="{{h.id}}">{{h.title}}</a>
                 {{#if h.published}}<span>公開済み</span>{{/if}}
-                {{#if h.canPublish}}<button type="button" data-action="publishKeyHandout" data-id="{{h.id}}">公開</button>{{/if}}
+                {{#if h.canPublish}}<a class="tnx-icon-ctrl" data-action="publishKeyHandout" data-id="{{h.id}}" title="公開" aria-label="公開"><i class="fas fa-eye" aria-hidden="true"></i></a>{{/if}}
             </div>{{/each}}
         </fieldset>
         {{/if}}
