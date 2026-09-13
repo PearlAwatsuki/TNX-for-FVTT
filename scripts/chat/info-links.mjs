@@ -48,14 +48,19 @@ function refreshLink(link) {
     link.setAttribute("aria-disabled", String(!item));
 }
 
+/** ホバーと公開通知で HUD と同じ情報カードを共用する。 */
+async function renderInfoLinkCard(journal, item) {
+    const resolved = withResolvedInfoSkillNames(item, await loadGeneralSkillNameByKey());
+    return foundry.applications.handlebars.renderTemplate(
+        "systems/tokyo-nova-axleration/templates/chat/info-card.hbs",
+        await enrichInfoCardData(buildInfoCardData(resolved), { relativeTo: journal }));
+}
+
 /** HUD と同じカードを、閲覧者の公開状態に従ってホバー時に作る。 */
 export async function infoLinkTooltip(journal, item, { isGM = game.user.isGM } = {}) {
     if (!item) return { text: "参照先が見つかりません。" };
     if (!isGM && !item.isPublic) return { text: "未公開の情報項目・クリックで公開" };
-    const resolved = withResolvedInfoSkillNames(item, await loadGeneralSkillNameByKey());
-    const html = await foundry.applications.handlebars.renderTemplate(
-        "systems/tokyo-nova-axleration/templates/chat/info-card.hbs",
-        await enrichInfoCardData(buildInfoCardData(resolved), { relativeTo: journal }));
+    const html = await renderInfoLinkCard(journal, item);
     return { html, cssClass: "tnx-info-card-tooltip" };
 }
 
@@ -86,7 +91,7 @@ export async function publishInfoLink({ journalUuid, itemId, userId }) {
         return "上演中のアクトの情報項目だけを公開できます。";
     }
     let error = null;
-    await updateInfoItems(journal, items => {
+    const published = await updateInfoItems(journal, items => {
         const current = game.settings.get(SYSTEM_ID, "sessionState");
         if (!current?.actStarted || current.actId !== journal.id) {
             error = "アクトが切り替わったため公開できません。";
@@ -100,7 +105,17 @@ export async function publishInfoLink({ journalUuid, itemId, userId }) {
         }
         if (item.isPublic === true) return false;
         item.isPublic = true;
+        return item;
     });
+    // 保存に成功して新規公開した要求だけが送信する。同時クリック・既公開では送らない。
+    if (published) {
+        try {
+            await ChatMessage.create({ content: await renderInfoLinkCard(journal, published) });
+        } catch (err) {
+            console.error("TNX | 情報項目の公開通知に失敗", err);
+            return "情報項目は公開しましたが、チャット送信に失敗しました。シナリオパネルから再送してください。";
+        }
+    }
     return error;
 }
 

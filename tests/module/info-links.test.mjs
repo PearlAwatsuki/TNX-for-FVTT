@@ -38,6 +38,7 @@ beforeEach(() => {
         applications: { ux: { TextEditor: { enrichHTML: vi.fn(async t => t) } },
             handlebars: { renderTemplate: vi.fn(async (_path, data) => JSON.stringify(data)) } } });
     vi.stubGlobal("ui", { notifications: { warn: vi.fn(), info: vi.fn(), error: vi.fn() } });
+    vi.stubGlobal("ChatMessage", { create: vi.fn(async data => data) });
 });
 afterEach(() => { dom.window.close(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
@@ -47,6 +48,12 @@ describe("情報リンクの公開条件", () => {
         expect(await publishInfoLink(payload())).toBeNull();
         expect(items[1].isPublic).toBe(true);
         expect(items[1].contents).toEqual(before);
+        expect(ChatMessage.create).toHaveBeenCalledTimes(1);
+        const card = JSON.parse(ChatMessage.create.mock.calls[0][0].content);
+        expect(card.title).toBe("秘密の項目名");
+        expect(card.blocks[0].tnList).toBe("10, 15");
+        expect(JSON.stringify(card)).not.toContain("未開示本文");
+        expect(JSON.stringify(card)).not.toContain("追加の秘密");
     });
     it.each(["非公開の参照元", "未開示本文", "リンクなし", "secret内", "別項目"])("%s は公開不可", async kind => {
         if (kind === "非公開の参照元") items[0].isPublic = false;
@@ -56,6 +63,7 @@ describe("情報リンクの公開条件", () => {
         if (kind === "別項目") items[0].contents[0].text = "@Info[other]";
         expect(await publishInfoLink(payload())).toBeTruthy();
         expect(journal.setFlag).not.toHaveBeenCalled();
+        expect(ChatMessage.create).not.toHaveBeenCalled();
     });
     it("開示済み追加情報からも公開できる", async () => {
         items[0].contents[0].isDisclosed = false;
@@ -86,6 +94,7 @@ describe("情報リンクの公開条件", () => {
             publishInfoLink({ ...payload(), itemId: "other" })]);
         expect(items.slice(1).every(i => i.isPublic)).toBe(true);
         expect(journal.setFlag).toHaveBeenCalledTimes(2);
+        expect(ChatMessage.create).toHaveBeenCalledTimes(2);
     });
     it("判定開示と公開の同時更新で本文開示を巻き戻さない", async () => {
         await Promise.all([
@@ -98,8 +107,30 @@ describe("情報リンクの公開条件", () => {
     it("保存失敗後も次の要求を処理できる", async () => {
         journal.setFlag.mockRejectedValueOnce(new Error("offline"));
         await expect(publishInfoLink(payload())).rejects.toThrow("offline");
+        expect(ChatMessage.create).not.toHaveBeenCalled();
         expect(await publishInfoLink(payload())).toBeNull();
         expect(items[1].isPublic).toBe(true);
+    });
+    it("既公開の項目ではチャットを再送しない", async () => {
+        items[1].isPublic = true;
+        expect(await publishInfoLink(payload())).toBeNull();
+        expect(ChatMessage.create).not.toHaveBeenCalled();
+    });
+    it("開示済み本文を通知する際もリンクの元アクトを保持する", async () => {
+        items[1].contents[0].isDisclosed = true;
+        items[1].contents[0].text = "@Info[source]";
+        expect(await publishInfoLink(payload())).toBeNull();
+        expect(foundry.applications.ux.TextEditor.enrichHTML).toHaveBeenCalledWith("@Info[source]",
+            { async: true, relativeTo: journal });
+        expect(ChatMessage.create.mock.calls[0][0].content).not.toContain("追加の秘密");
+    });
+    it("チャット送信失敗は公開失敗と区別し、公開状態を維持する", async () => {
+        ChatMessage.create.mockRejectedValueOnce(new Error("offline"));
+        const log = vi.spyOn(console, "error").mockImplementation(() => {});
+        try {
+            expect(await publishInfoLink(payload())).toContain("情報項目は公開しましたが");
+            expect(items[1].isPublic).toBe(true);
+        } finally { log.mockRestore(); }
     });
 });
 
