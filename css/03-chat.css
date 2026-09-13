@@ -258,6 +258,19 @@
     text-underline-offset: 2px;
 }
 
+/* チャット共通の本文色より優先し、情報リンクを本文から識別できるようにする。 */
+.chat-message .message-content a.tnx-info-link {
+    color: var(--tnx2-text-accent);
+    font-weight: 700;
+    text-decoration-thickness: 1px;
+}
+
+.chat-message .message-content a.tnx-info-link:hover,
+.chat-message .message-content a.tnx-info-link:focus-visible {
+    color: var(--tnx2-accent);
+    text-decoration-thickness: 2px;
+}
+
 .tnx-info-link.broken {
     text-decoration: line-through;
     cursor: not-allowed;
