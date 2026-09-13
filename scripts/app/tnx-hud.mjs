@@ -746,7 +746,7 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
             // 本文のエンリッチ(16-x): ツールチップ内でも @UUID コンテンツリンク等を解決する
             const tooltipHtml = await foundry.applications.handlebars.renderTemplate(
                 "systems/tokyo-nova-axleration/templates/chat/info-card.hbs",
-                await enrichInfoCardData(buildInfoCardData(resolved)));
+                await enrichInfoCardData(buildInfoCardData(resolved), { relativeTo: journal }));
             return {
                 ...row,
                 hiddenMark: !row.isPublic,   // RL 向け=非公開の印

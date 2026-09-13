@@ -10,8 +10,8 @@
  */
 
 /** リッチテキストのエンリッチ(空安全・async)。 */
-export function enrichText(text) {
-    return foundry.applications.ux.TextEditor.enrichHTML(text ?? "", { async: true });
+export function enrichText(text, options = {}) {
+    return foundry.applications.ux.TextEditor.enrichHTML(text ?? "", { async: true, ...options });
 }
 
 /**
@@ -21,13 +21,13 @@ export function enrichText(text) {
  * @param {?{blocks?: Array<{rows?: Array<{text: string}>}>}} data
  * @returns {Promise<?object>} 同形のデータ(本文のみエンリッチ済み)
  */
-export async function enrichInfoCardData(data) {
+export async function enrichInfoCardData(data, options = {}) {
     if (!data || !Array.isArray(data.blocks)) return data;
     return {
         ...data,
         blocks: await Promise.all(data.blocks.map(async (b) => ({
             ...b,
-            rows: await Promise.all((b.rows ?? []).map(async (r) => ({ ...r, text: await enrichText(r.text) }))),
+            rows: await Promise.all((b.rows ?? []).map(async (r) => ({ ...r, text: await enrichText(r.text, options) }))),
         }))),
     };
 }

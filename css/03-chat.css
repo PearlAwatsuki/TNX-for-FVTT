@@ -252,3 +252,20 @@
     font-size: 0.95em;
     line-height: 1.4;
 }
+.tnx-info-link {
+    cursor: pointer;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.tnx-info-link--hidden::before {
+    content: "\f023";
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    margin-right: 0.25em;
+}
+
+.tnx-info-link.broken {
+    text-decoration: line-through;
+    cursor: not-allowed;
+}

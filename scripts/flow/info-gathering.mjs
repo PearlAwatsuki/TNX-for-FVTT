@@ -16,6 +16,7 @@
  */
 
 import { SYSTEM_ID } from "../constants.mjs";
+import { updateInfoItems } from "../session/info-items.mjs";
 import { getSessionState, getActiveActJournal } from "../session/session-state.mjs";
 import {
     withResolvedInfoSkillNames, infoDesignationRows, discloseInfoByAchievement,
@@ -119,18 +120,19 @@ export async function resolveInfoGatheringFromCheck(cc, result, { messageId = nu
 export async function applyInfoDisclosure({ itemId, contentId, entryTn = null, skillId = null, achievement, messageId = null }) {
     const journal = getActiveActJournal();
     if (!journal) return;
-    const items = foundry.utils.deepClone(journal.getFlag(SYSTEM_ID, "infoItems") ?? []);
-    const item = items.find(i => i.id === itemId);
-    const contents = item?.contents;
-    const index = contents?.findIndex(c => c.id === contentId) ?? -1;
-    if (index < 0) return;
-    const before = contents[index];
-    const after = discloseInfoByAchievement(before, { achievement, entryTn, skillId });
-    const newly = newlyDisclosedInfo(before, after);
-    if (!newly.entryOpened && !newly.tierIds.length) return;
-    contents[index] = after;
-    await journal.setFlag(SYSTEM_ID, "infoItems", items);
-    await announceInfoDisclosure(item, contentId, newly, messageId);
+    const result = await updateInfoItems(journal, items => {
+        const item = items.find(i => i.id === itemId);
+        const contents = item?.contents;
+        const index = contents?.findIndex(c => c.id === contentId) ?? -1;
+        if (index < 0) return false;
+        const before = contents[index];
+        const after = discloseInfoByAchievement(before, { achievement, entryTn, skillId });
+        const newly = newlyDisclosedInfo(before, after);
+        if (!newly.entryOpened && !newly.tierIds.length) return false;
+        contents[index] = after;
+        return { item, newly };
+    });
+    if (result) await announceInfoDisclosure(result.item, contentId, result.newly, messageId, journal);
 }
 
 /**
@@ -144,7 +146,7 @@ export async function applyInfoDisclosure({ itemId, contentId, entryTn = null, s
  * @param {{entryOpened: boolean, tierIds: Array<string>}} newly 開示の前後差分
  * @param {?string} messageId 結果カードの id(再判定経由などで無ければ帰結行はスキップ)
  */
-async function announceInfoDisclosure(item, contentId, newly, messageId) {
+async function announceInfoDisclosure(item, contentId, newly, messageId, journal) {
     const message = messageId ? game.messages.get(messageId) : null;
     if (message) {
         const patch = { [`flags.${SYSTEM_ID}.checkResult.infoDisclosed`]: true };
@@ -162,6 +164,6 @@ async function announceInfoDisclosure(item, contentId, newly, messageId) {
     if (!data) return;
     // 本文のエンリッチ(16-x): @UUID コンテンツリンク等を解決してから描画する
     const content = await foundry.applications.handlebars.renderTemplate(
-        "systems/tokyo-nova-axleration/templates/chat/info-card.hbs", await enrichInfoCardData(data));
+        "systems/tokyo-nova-axleration/templates/chat/info-card.hbs", await enrichInfoCardData(data, { relativeTo: journal }));
     await ChatMessage.create({ content });
 }

@@ -1,4 +1,5 @@
 import { SYSTEM_ID } from "./constants.mjs";
+import { registerInfoLinks, bindInfoLinks } from "./chat/info-links.mjs";
 import { fitCardTags, renderCardOutcome } from './chat/chat-card.mjs';
 import { TnxCombat } from './combat/tnx-combat.mjs';
 import { renderAttackCard, renderReactionCard } from './flow/attack-flow.mjs';
@@ -57,6 +58,7 @@ const CHAT_CARD_RENDERERS = [
     // @UUID コンテンツリンクのカード・ツールチップ(16-x): チャット内の辞典アイテムリンクに
     // ホバーで辞典カードを出す。クリック挙動はコアのまま
     { render: (_message, _html, root) => { if (root) applyContentLinkCardTooltips(root); } },
+    { render: (_message, _html, root) => { if (root) bindInfoLinks(root); } },
     // 攻撃カード(12-2): 状態領域のライブ描画(未解決=系統別リアクションボタン/解決後=成否表示に置換)
     { flag: "attackCheck",    render: renderAttackCard },
     // 個別リアクションカード(12・複数対象一括・2026-07-15): GM＋対象所有者に whisper・解決で全体公開
@@ -126,6 +128,7 @@ Hooks.on("tnxCutEnd", () => {
 Hooks.once("init", async function() {
     game.tnx = game.tnx || {}
     game.tnx.refreshSheets = handleRefreshSheets;
+    registerInfoLinks();
 
     // 登録は節ごとにモジュールへ分けてある(2026-09-07)。**この並びが実行順**——
     // シートは DataModel の後、設定は UI 注入より前でなければならない。並べ替えないこと。

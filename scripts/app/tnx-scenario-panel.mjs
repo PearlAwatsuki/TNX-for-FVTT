@@ -33,6 +33,7 @@ import {
 import { SYSTEM_ID } from "../constants.mjs";
 import { TnxSocketHandler } from "../core/tnx-socket-handler.mjs";
 import { enrichText, enrichInfoCardData } from "../chat/reference-links.mjs";
+import { updateInfoItems } from "../session/info-items.mjs";
 import {
     SCENE_AREA_OPTIONS, PHASE_ORDER, normalizeSceneRow, normalizeHandoutRow,
     nextSceneTarget, canShowNextScene, eventSceneCandidates, areEventScenesDone,
@@ -67,7 +68,7 @@ const { DialogV2 } = foundry.applications.api;
  * @param {object} data 描画コンテキスト
  * @returns {Promise<string>} HTML
  */
-async function renderChatCard(name, data) {
+async function renderChatCard(name, data, journal = null) {
     // リッチテキスト欄のエンリッチ(16-x): @UUID コンテンツリンク等をカード種別ごとの
     // 本文フィールドで解決する(ラベル等の非リッチ欄は触らない)
     const d = { ...data };
@@ -78,7 +79,7 @@ async function renderChatCard(name, data) {
     }
     if (name === "scene-switch-card" && d.message) d.message = await enrichText(d.message);
     if (name === "info-card") return foundry.applications.handlebars.renderTemplate(
-        `systems/tokyo-nova-axleration/templates/chat/${name}.hbs`, await enrichInfoCardData(d));
+        `systems/tokyo-nova-axleration/templates/chat/${name}.hbs`, await enrichInfoCardData(d, { relativeTo: journal }));
     return foundry.applications.handlebars.renderTemplate(
         `systems/tokyo-nova-axleration/templates/chat/${name}.hbs`, d);
 }
@@ -724,7 +725,7 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
         const data = buildInfoCardData(
             withResolvedInfoSkillNames(item, await loadGeneralSkillNameByKey()));
         if (!data.mode) return void ui.notifications.warn("送信できる技能・目標値がありません。");
-        await ChatMessage.create({ content: await renderChatCard("info-card", data) });
+        await ChatMessage.create({ content: await renderChatCard("info-card", data, journal) });
         ui.notifications.info(data.mode === "disclosed"
             ? `情報「${item.title}」の公開済み内容を送信しました。`
             : `情報「${item.title}」の目標値情報を送信しました。`);
@@ -735,13 +736,13 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
     static async _onToggleInfoPublic(_event, target) {
         const journal = getActiveActJournal();
         if (!journal) return;
-        const items = foundry.utils.deepClone(journal.getFlag(SYSTEM_ID, "infoItems") ?? []);
-        const item = items.find(i => i.id === target.dataset.id);
-        if (!item) return;
-        item.isPublic = item.isPublic !== true;
+        await updateInfoItems(journal, items => {
+            const item = items.find(i => i.id === target.dataset.id);
+            if (!item) return false;
+            item.isPublic = item.isPublic !== true;
+        });
         // 再描画は updateJournalEntry フック(tnx.mjs)が行う。ここで重ねて render すると
         // 二重描画になり、スクロール位置の控えが 0 の状態を拾って復元が壊れる(2026-08-16)
-        await journal.setFlag(SYSTEM_ID, "infoItems", items);
     }
 
     /**
@@ -752,13 +753,13 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
     static async _onToggleInfoDisclosed(_event, target) {
         const journal = getActiveActJournal();
         if (!journal) return;
-        const items = foundry.utils.deepClone(journal.getFlag(SYSTEM_ID, "infoItems") ?? []);
-        const contents = items.find(i => i.id === target.dataset.id)?.contents;
-        const index = contents?.findIndex(c => c.id === target.dataset.contentId) ?? -1;
-        if (index < 0) return;
-        contents[index] = toggleInfoDisclosure(contents[index], target.dataset.tierId || null, target.dataset.skillId || null);
+        await updateInfoItems(journal, items => {
+            const contents = items.find(i => i.id === target.dataset.id)?.contents;
+            const index = contents?.findIndex(c => c.id === target.dataset.contentId) ?? -1;
+            if (index < 0) return false;
+            contents[index] = toggleInfoDisclosure(contents[index], target.dataset.tierId || null, target.dataset.skillId || null);
+        });
         // 再描画は updateJournalEntry フックが行う(_onToggleInfoPublic と同じ理由で重ねない)
-        await journal.setFlag(SYSTEM_ID, "infoItems", items);
     }
 
     // ─── 折りたたみ(巡回・シーン一覧)＝クライアント設定に永続化 ─────────────

@@ -1,3 +1,4 @@
+import { updateInfoItems } from "../session/info-items.mjs";
 import { keyHandoutFields } from "../session/key-handouts.mjs";
 import { SYSTEM_ID } from "../constants.mjs";
 import { loadGroupedGeneralSkillChoices, loadGeneralSkillNameByKey, loadSkillChoices, idKeyPrefix, SKILL_PACKS, STYLE_PACK } from '../dictionary/skill-dictionary.mjs';
@@ -37,6 +38,7 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
             addScene:          TnxScenarioSheet._onAddScene,
             deleteScene:       TnxScenarioSheet._onDeleteScene,
             addInfoItem:       TnxScenarioSheet._onAddInfoItem,
+            copyInfoLink:      TnxScenarioSheet._onCopyInfoLink,
             deleteInfoItem:    TnxScenarioSheet._onDeleteInfoItem,
             addInfoContent:    TnxScenarioSheet._onAddInfoContent,
             deleteInfoContent: TnxScenarioSheet._onDeleteInfoContent,
@@ -265,7 +267,7 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
 
         // 閲覧ビューのエンリッチ(16-x): prose-mirror(toggled)の表示側には @UUID コンテンツ
         // リンク等を解決した HTML を流し込む(value=素データは不変・編集は従来どおり)
-        const enrichText = (t) => foundry.applications.ux.TextEditor.enrichHTML(t ?? "", { async: true });
+        const enrichText = (t) => foundry.applications.ux.TextEditor.enrichHTML(t ?? "", { async: true, relativeTo: this.document });
         context.enrichedTrailer = await enrichText(context.trailer);
         context.handouts = await Promise.all(context.handouts.map(async (h) => ({
             ...h, enrichedContent: await enrichText(h.content),
@@ -570,31 +572,31 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
             : input.type === "number" ? parseInt(input.value)
             : input.value;
 
-        const items = foundry.utils.deepClone(this.document.getFlag(SYSTEM_ID, "infoItems") || []);
-        const item = items.find(i => i.id === infoId);
-        if (!item) return;
+        await updateInfoItems(this.document, items => {
+            const item = items.find(i => i.id === infoId);
+            if (!item) return false;
 
-        if (contentId && tierId) {
-            // 段の目標値・本文(技能行と同じ name を使うため、段の判定を先に置く)
-            const tier = item.contents.find(c => c.id === contentId)?.tiers?.find(t => t.id === tierId);
-            if (tier && targetId) {
-                tier.targets = infoTierTargets(tier);
-                const condition = tier.targets.find(t => t.id === targetId);
-                if (condition && ["tn", "skillId"].includes(input.name)) {
-                    condition[input.name] = input.type === "number" && !Number.isFinite(value) ? null : value;
-                }
-            } else if (tier) tier[input.name] = value;
-        } else if (contentId && skillId) {
-            const skill = item.contents.find(c => c.id === contentId)?.skills.find(s => s.id === skillId);
-            if (skill) skill[input.name] = value;
-        } else if (contentId) {
-            const content = item.contents.find(c => c.id === contentId);
-            if (content) content[input.name] = value;
-        } else {
-            item[input.name] = value;
-        }
+            if (contentId && tierId) {
+                // 段の目標値・本文(技能行と同じ name を使うため、段の判定を先に置く)
+                const tier = item.contents.find(c => c.id === contentId)?.tiers?.find(t => t.id === tierId);
+                if (tier && targetId) {
+                    tier.targets = infoTierTargets(tier);
+                    const condition = tier.targets.find(t => t.id === targetId);
+                    if (condition && ["tn", "skillId"].includes(input.name)) {
+                        condition[input.name] = input.type === "number" && !Number.isFinite(value) ? null : value;
+                    }
+                } else if (tier) tier[input.name] = value;
+            } else if (contentId && skillId) {
+                const skill = item.contents.find(c => c.id === contentId)?.skills.find(s => s.id === skillId);
+                if (skill) skill[input.name] = value;
+            } else if (contentId) {
+                const content = item.contents.find(c => c.id === contentId);
+                if (content) content[input.name] = value;
+            } else {
+                item[input.name] = value;
+            }
 
-        await this.document.setFlag(SYSTEM_ID, "infoItems", items);
+        });
     }
 
     // ─── 静的アクションハンドラ ───────────────────────────────────────────────
@@ -694,19 +696,27 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
     // 14-3 で即オミット(2026-08-08 承認)。
 
     static async _onAddInfoItem(_event, _target) {
-        const items = foundry.utils.deepClone(this.document.getFlag(SYSTEM_ID, "infoItems") || []);
-        items.push({
-            id: foundry.utils.randomID(),
-            title: "新規情報",
-            isPublic: false,
-            contents: [{
+        await updateInfoItems(this.document, items => {
+            items.push({
                 id: foundry.utils.randomID(),
-                text: "",
-                isDisclosed: false,
-                skills: [{ id: foundry.utils.randomID(), identificationKeys: [], tn: null }],
-            }],
+                title: "新規情報",
+                isPublic: false,
+                contents: [{
+                    id: foundry.utils.randomID(),
+                    text: "",
+                    isDisclosed: false,
+                    skills: [{ id: foundry.utils.randomID(), identificationKeys: [], tn: null }],
+                }],
+            });
         });
-        await this.document.setFlag(SYSTEM_ID, "infoItems", items);
+    }
+
+    /** 項目名を省略した記法をコピーし、名前の変更や PL 向けの伏せ字に追随する。 */
+    static async _onCopyInfoLink(_event, target) {
+        const item = this.document.getFlag(SYSTEM_ID, "infoItems")?.find(i => i.id === target.dataset.infoId);
+        if (!item) return;
+        await game.clipboard.copyPlainText(`@Info[${item.id}]`);
+        ui.notifications.info("参照リンクをコピーしました。末尾に {表示名} を付けると名前を指定できます。");
     }
 
     static async _onDeleteInfoItem(_event, target) {
@@ -716,33 +726,35 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
             content: "<p>この情報項目全体を削除しますか？</p>",
         });
         if (!confirmed) return;
-        let items = foundry.utils.deepClone(this.document.getFlag(SYSTEM_ID, "infoItems") || []);
-        items = items.filter(i => i.id !== infoItemId);
-        await this.document.setFlag(SYSTEM_ID, "infoItems", items);
+        await updateInfoItems(this.document, items => {
+            const index = items.findIndex(i => i.id === infoItemId);
+            if (index < 0) return false;
+            items.splice(index, 1);
+        });
     }
 
     static async _onAddInfoContent(_event, target) {
         const infoId = target.dataset.infoId;
-        const items = foundry.utils.deepClone(this.document.getFlag(SYSTEM_ID, "infoItems") || []);
-        const item = items.find(i => i.id === infoId);
-        if (!item) return;
-        if (!Array.isArray(item.contents)) item.contents = [];
-        item.contents.push({
-            id: foundry.utils.randomID(),
-            text: "",
-            isDisclosed: false,
-            skills: [{ id: foundry.utils.randomID(), identificationKeys: [], tn: null }],
+        await updateInfoItems(this.document, items => {
+            const item = items.find(i => i.id === infoId);
+            if (!item) return false;
+            if (!Array.isArray(item.contents)) item.contents = [];
+            item.contents.push({
+                id: foundry.utils.randomID(),
+                text: "",
+                isDisclosed: false,
+                skills: [{ id: foundry.utils.randomID(), identificationKeys: [], tn: null }],
+            });
         });
-        await this.document.setFlag(SYSTEM_ID, "infoItems", items);
     }
 
     static async _onDeleteInfoContent(_event, target) {
         const { infoId, contentId } = target.dataset;
-        const items = foundry.utils.deepClone(this.document.getFlag(SYSTEM_ID, "infoItems") || []);
-        const item = items.find(i => i.id === infoId);
-        if (!item) return;
-        item.contents = item.contents.filter(c => c.id !== contentId);
-        await this.document.setFlag(SYSTEM_ID, "infoItems", items);
+        await updateInfoItems(this.document, items => {
+            const item = items.find(i => i.id === infoId);
+            if (!item) return false;
+            item.contents = item.contents.filter(c => c.id !== contentId);
+        });
     }
 
     /**
@@ -751,48 +763,48 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
      */
     static async _onAddInfoTier(_event, target) {
         const { infoId, contentId } = target.dataset;
-        const items = foundry.utils.deepClone(this.document.getFlag(SYSTEM_ID, "infoItems") || []);
-        const content = items.find(i => i.id === infoId)?.contents?.find(c => c.id === contentId);
-        if (!content) return;
-        if (!Array.isArray(content.tiers)) content.tiers = [];
-        content.tiers.push({
-            id: foundry.utils.randomID(), text: "", isDisclosed: false,
-            targets: [{ id: foundry.utils.randomID(), skillId: content.skills?.[0]?.id ?? "", tn: null }],
+        await updateInfoItems(this.document, items => {
+            const content = items.find(i => i.id === infoId)?.contents?.find(c => c.id === contentId);
+            if (!content) return false;
+            if (!Array.isArray(content.tiers)) content.tiers = [];
+            content.tiers.push({
+                id: foundry.utils.randomID(), text: "", isDisclosed: false,
+                targets: [{ id: foundry.utils.randomID(), skillId: content.skills?.[0]?.id ?? "", tn: null }],
+            });
         });
-        await this.document.setFlag(SYSTEM_ID, "infoItems", items);
     }
 
     /** 本文を共有する追加目標値の条件だけを増やす。 */
     static async _onAddInfoTierTarget(_event, target) {
         const { infoId, contentId, tierId } = target.dataset;
-        const items = foundry.utils.deepClone(this.document.getFlag(SYSTEM_ID, "infoItems") || []);
-        const content = items.find(i => i.id === infoId)?.contents?.find(c => c.id === contentId);
-        const tier = content?.tiers?.find(t => t.id === tierId);
-        if (!tier) return;
-        tier.targets = infoTierTargets(tier);
-        const next = content.skills?.find(skill => !tier.targets.some(t => t.skillId === skill.id));
-        tier.targets.push({ id: foundry.utils.randomID(), skillId: next?.id ?? content.skills?.[0]?.id ?? "", tn: null });
-        await this.document.setFlag(SYSTEM_ID, "infoItems", items);
+        await updateInfoItems(this.document, items => {
+            const content = items.find(i => i.id === infoId)?.contents?.find(c => c.id === contentId);
+            const tier = content?.tiers?.find(t => t.id === tierId);
+            if (!tier) return false;
+            tier.targets = infoTierTargets(tier);
+            const next = content.skills?.find(skill => !tier.targets.some(t => t.skillId === skill.id));
+            tier.targets.push({ id: foundry.utils.randomID(), skillId: next?.id ?? content.skills?.[0]?.id ?? "", tn: null });
+        });
     }
 
     static async _onDeleteInfoTierTarget(_event, target) {
         const { infoId, contentId, tierId, targetId } = target.dataset;
-        const items = foundry.utils.deepClone(this.document.getFlag(SYSTEM_ID, "infoItems") || []);
-        const tier = items.find(i => i.id === infoId)?.contents?.find(c => c.id === contentId)
-            ?.tiers?.find(t => t.id === tierId);
-        if (!tier) return;
-        tier.targets = infoTierTargets(tier).filter(t => t.id !== targetId);
-        await this.document.setFlag(SYSTEM_ID, "infoItems", items);
+        await updateInfoItems(this.document, items => {
+            const tier = items.find(i => i.id === infoId)?.contents?.find(c => c.id === contentId)
+                ?.tiers?.find(t => t.id === tierId);
+            if (!tier) return false;
+            tier.targets = infoTierTargets(tier).filter(t => t.id !== targetId);
+        });
     }
 
     /** 段を削除する(内容ブロック・技能行の削除と同じく確認なし。確認は情報項目全体のみ)。 */
     static async _onDeleteInfoTier(_event, target) {
         const { infoId, contentId, tierId } = target.dataset;
-        const items = foundry.utils.deepClone(this.document.getFlag(SYSTEM_ID, "infoItems") || []);
-        const content = items.find(i => i.id === infoId)?.contents?.find(c => c.id === contentId);
-        if (!content) return;
-        content.tiers = (content.tiers ?? []).filter(t => t.id !== tierId);
-        await this.document.setFlag(SYSTEM_ID, "infoItems", items);
+        await updateInfoItems(this.document, items => {
+            const content = items.find(i => i.id === infoId)?.contents?.find(c => c.id === contentId);
+            if (!content) return false;
+            content.tiers = (content.tiers ?? []).filter(t => t.id !== tierId);
+        });
     }
 
     /** 情報項目の技能行(infoId/contentId/skillId)を取り出す。 */
@@ -810,13 +822,13 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
         const key = select.value;
         select.value = "";
         if (!key) return;
-        const items = foundry.utils.deepClone(this.document.getFlag(SYSTEM_ID, "infoItems") || []);
-        const row = this._infoSkillRow(items, select.dataset);
-        if (!row) return;
-        const keys = infoSkillKeys(row);
-        if (keys.includes(key)) return;
-        row.identificationKeys = [...keys, key];
-        await this.document.setFlag(SYSTEM_ID, "infoItems", items);
+        await updateInfoItems(this.document, items => {
+            const row = this._infoSkillRow(items, select.dataset);
+            if (!row) return false;
+            const keys = infoSkillKeys(row);
+            if (keys.includes(key)) return false;
+            row.identificationKeys = [...keys, key];
+        });
     }
 
     /**
@@ -917,32 +929,32 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
 
     /** 情報項目の使用技能を行から外す(キー無し＝旧い自由記述のタグを消す)。 */
     static async _onRemoveInfoSkill(_event, target) {
-        const items = foundry.utils.deepClone(this.document.getFlag(SYSTEM_ID, "infoItems") || []);
-        const row = this._infoSkillRow(items, target.dataset);
-        if (!row) return;
-        const key = target.dataset.key;
-        if (key) row.identificationKeys = infoSkillKeys(row).filter(k => k !== key);
-        else row.name = "";
-        await this.document.setFlag(SYSTEM_ID, "infoItems", items);
+        await updateInfoItems(this.document, items => {
+            const row = this._infoSkillRow(items, target.dataset);
+            if (!row) return false;
+            const key = target.dataset.key;
+            if (key) row.identificationKeys = infoSkillKeys(row).filter(k => k !== key);
+            else row.name = "";
+        });
     }
 
     static async _onAddSkillCheck(_event, target) {
         const { infoId, contentId } = target.dataset;
-        const items = foundry.utils.deepClone(this.document.getFlag(SYSTEM_ID, "infoItems") || []);
-        const content = items.find(i => i.id === infoId)?.contents.find(c => c.id === contentId);
-        if (!content) return;
-        content.skills.push({ id: foundry.utils.randomID(), identificationKeys: [], tn: null });
-        await this.document.setFlag(SYSTEM_ID, "infoItems", items);
+        await updateInfoItems(this.document, items => {
+            const content = items.find(i => i.id === infoId)?.contents.find(c => c.id === contentId);
+            if (!content) return false;
+            content.skills.push({ id: foundry.utils.randomID(), identificationKeys: [], tn: null });
+        });
     }
 
     static async _onDeleteSkillCheck(_event, target) {
         const { infoId, contentId, skillId } = target.dataset;
-        const items = foundry.utils.deepClone(this.document.getFlag(SYSTEM_ID, "infoItems") || []);
-        const content = items.find(i => i.id === infoId)?.contents.find(c => c.id === contentId);
-        if (!content) return;
-        content.skills = content.skills.filter(s => s.id !== skillId);
-        if (content.skills.length === 0) content.skills.push({ id: foundry.utils.randomID(), identificationKeys: [], tn: null });
-        await this.document.setFlag(SYSTEM_ID, "infoItems", items);
+        await updateInfoItems(this.document, items => {
+            const content = items.find(i => i.id === infoId)?.contents.find(c => c.id === contentId);
+            if (!content) return false;
+            content.skills = content.skills.filter(s => s.id !== skillId);
+            if (content.skills.length === 0) content.skills.push({ id: foundry.utils.randomID(), identificationKeys: [], tn: null });
+        });
     }
 
     static async _onAddHandout(_event, _target) {

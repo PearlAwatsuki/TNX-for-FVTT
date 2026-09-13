@@ -53,6 +53,10 @@ export class TnxSocketHandler {
      */
     static onMessage(data) {
         switch (data?.type) {
+            case "infoLinkPublish":
+            case "infoLinkResult":
+                import("../chat/info-links.mjs").then(m => m.handleInfoLinkMessage(data));
+                break;
             case "presentAccessCard":
                 TnxSocketHandler._onPresentAccessCard(data);
                 break;
