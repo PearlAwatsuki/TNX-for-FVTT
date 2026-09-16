@@ -53,6 +53,14 @@ export class TnxSocketHandler {
      */
     static onMessage(data) {
         switch (data?.type) {
+            case "vehicleExitQuestion":
+            case "vehicleExitAnswer":
+                import("../session/vehicle-exit.mjs").then(m => m.handleVehicleExitMessage(data)).catch(error => ui.notifications.warn(error.message));
+                break;
+            case "vehicleOperation":
+            case "vehicleResult":
+                import("../session/vehicle-state.mjs").then(m => m.handleVehicleMessage(data));
+                break;
             case "infoLinkPublish":
             case "infoLinkResult":
                 import("../chat/info-links.mjs").then(m => m.handleInfoLinkMessage(data));

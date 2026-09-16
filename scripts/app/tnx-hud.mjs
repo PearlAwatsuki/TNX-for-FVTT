@@ -6,6 +6,7 @@ import { getCardCheckValue, getAbilityBySuit, SUIT_TO_ABILITY } from '../rules/t
 import { getUserFlagData } from '../core/user-flag-schema.mjs';
 import { getSessionState, getActiveActJournal } from '../session/session-state.mjs';
 import { isAppearing } from '../session/appearance-state.mjs';
+import { crewVehicle } from "../session/vehicle-state.mjs";
 import {
     hudInfoItems, hudInfoTnChips, withResolvedInfoSkillNames, buildInfoCardData, infoDesignationRows,
 } from '../rules/session.mjs';
@@ -250,6 +251,11 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
         const statusBase = "systems/tokyo-nova-axleration/assets/cards/access-cards/";
         const cards = [];
         const character = user.character;
+        const boarding = crewVehicle(character);
+        if (boarding && isAppearing(character)) {
+            const label = boarding.member.operationMode === "remote" ? "遠隔操縦" : boarding.member.role === "driver" ? "操縦" : "同乗";
+            cards.push({ plate: { en: "VEHICLE", ja: label }, label: `${label}：${boarding.vehicle.name}` });
+        }
         if (!user.isGM) {
             if (getUserFlagData(user).isScenePlayer) {
                 cards.push({ img: `${statusBase}scene_player.png`, label: "シーン・プレイヤー" });

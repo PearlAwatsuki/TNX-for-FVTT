@@ -13,9 +13,11 @@
  */
 
 import { SYSTEM_ID } from "../constants.mjs";
-import { pickTokenDropPosition, tokenDeletionImpliesExit } from "../rules/appearance.mjs";
+import { pickTokenDropPosition, pickDisembarkPosition, tokenDeletionImpliesExit } from "../rules/appearance.mjs";
 import { teamLinkedExitTargets } from "../rules/session.mjs";
 import { TNX_HOOKS } from "../rules/combat-events.mjs";
+import { registerVehicleTargetHUD } from "./vehicle-target-hud.mjs";
+import { prepareVehicleAppearance, syncVehicleTokens, crewVehicle, registerVehicleHooks, vehicles, disembarkPositions, requestVehicleOperation } from "./vehicle-state.mjs";
 
 
 /** 名前を伏せて登場しているキャラクターの、卓に見せる表示名(2026-08-09 ユーザー指示)。 */
@@ -52,9 +54,11 @@ export function displayActorName(actor) {
  */
 export async function setAppearing(actor, appearing, { hideName } = {}) {
     if (!actor) return;
+    if (actor.type === "vehicle") return; // 車両は登場記帳の主体ではない。
     if (!appearing) {
         const wasAppearing = isAppearing(actor);
         await actor.unsetFlag(SYSTEM_ID, "appearing");
+        if (crewVehicle(actor)) await requestVehicleOperation("exit", { actorUuid: actor.uuid });
         await setNameHidden(actor, false);
         // ゴーストも名前非公開と同様、登場と対のシーン単位の状態(2026-08-22 ユーザー指示
         // 「名前の表示非表示と同様に」)＝退場で落とす
@@ -64,6 +68,7 @@ export async function setAppearing(actor, appearing, { hideName } = {}) {
         if (wasAppearing) Hooks.callAll(TNX_HOOKS.actorExit, actor);
         return;
     }
+    await prepareVehicleAppearance(actor);
     await actor.setFlag(SYSTEM_ID, "appearing", true);
     if (hideName === undefined) return;
     return setNameHidden(actor, hideName);
@@ -109,8 +114,8 @@ export async function clearAllAppearing() {
 // ─── 盤面反映(14-8 改修・2026-08-23): 登場状態 ⇄ アクティブ盤面のトークン**存在**の双方向同期 ──
 // 「トークンを盤面に出す＝登場」(2026-08-23 ユーザー指示。ココフォリア式の「登場エリアへ駒を
 // 移動」は FVTT では分かりづらいという裁定)。未登場=トークンが無い・登場=トークンが有る・
-// **ゴースト登場=トークンが半透明**・退場=トークン削除。旧「未登場=hidden」の表示同期を置換。
-// - 権威は Actor フラグ・トークンはその反映。登場フラグ→トークン作成/全削除・isGhost→半透明表示
+// ゴースト本人と車両の乗員は非表示。ドローン・車両のコマを干渉と位置の窓口にする。
+// - 権威は Actor フラグ・トークンはその反映。登場フラグ→トークン作成/全削除・isGhost→不可視
 //   は activeGM クライアントが代行する
 // - 逆方向=RL の直接切替導線: トークンのドラッグ配置→登場・トークン削除→退場。削除は権限を
 //   持つ所有者(PL)でも退場になる
@@ -118,7 +123,7 @@ export async function clearAllAppearing() {
 //   巻き込みを想定した提案だったため)。チームの退場連動(ゲーム設定 teamLinkedExit・既定オフ)
 //   が**自分以外の登場中メンバーに及ぶときだけ**確認し、単独の退場は×・トークン削除とも
 //   確認なしで即適用する。連動の適用は GM=直接・PL=teamExit ソケットで activeGM に委譲
-// - 半透明表示→isGhost の逆同期はしない(isGhost は CS 修正という機構的意味を持つため、盤面の
+// - 不可視→isGhost の逆同期はしない(isGhost は CS 修正という機構的意味を持つため、盤面の
 //   表示操作から黙って変えない。ゴーストの切替は専用トグル=setGhost)
 // - 同一アクターの複数トークン(トループの分身コピー等)は、残りがある限り削除しても退場でない
 //   (tokenDeletionImpliesExit)。最後の1体の削除は deleteToken 後段(activeGM)が退場に落とす
@@ -130,41 +135,56 @@ const SYNC_OPTION = "tnxAppearanceSync";
 
 /** 確認ダイアログを出している最中のトークン(uuid)。連打での多重ダイアログを防ぐ。 */
 const pendingExitConfirms = new Set();
+const tokenSyncQueues = new Map();
+const disembarkReservations = new Map();
 
 /** 双方向同期のフック登録(ready で1回・全クライアントで呼んでよい)。 */
 export function registerAppearanceTokenSync() {
-    // 不透明度の設定値を保存し直さず、描画時だけ半分にする。全クライアントで適用する。
+    registerVehicleHooks();
+    registerVehicleTargetHUD();
+    // 本人の不可視は退場とは別。半透明描画を廃し、ターゲット等も車両経由にする。
     Hooks.on("refreshToken", (token, flags) => {
-        if (!token.mesh || !(flags.refreshMesh || flags.refreshState)) return;
-        if (token.actor?.system?.isGhost) token.mesh.alpha *= 0.5;
+        if (!(flags.refreshMesh || flags.refreshState)) return;
+        if (!game.user.isGM && (token.actor?.system?.isGhost || crewVehicle(token.actor))) token.visible = false;
     });
-    // 旧実装のゴースト不可視を、盤面を開いた際にも解除する。
-    const revealGhostTokens = async (canvas) => {
-        if (!canvas?.scene || game.users.activeGM?.id !== game.user.id) return;
-        const updates = canvas.scene.tokens
-            .filter(t => t.hidden && t.actor?.system?.isGhost)
-            .map(t => ({ _id: t.id, hidden: false }));
-        if (updates.length) await canvas.scene.updateEmbeddedDocuments("Token", updates);
+    const restoreVisibility = async () => {
+        if (game.users.activeGM?.id !== game.user.id) return;
+        for (const actor of game.actors) if (actor.type !== "vehicle" && (isAppearing(actor) || crewVehicle(actor))) await syncTokensForActor(actor);
     };
-    Hooks.on("canvasReady", revealGhostTokens);
-    revealGhostTokens(globalThis.canvas);
+    Hooks.on("canvasReady", restoreVisibility);
+    if (globalThis.canvas?.ready) restoreVisibility();
     // 登場フラグ→トークンの有無・isGhost→トークンの表示(activeGM が代行)
     Hooks.on("updateActor", (actor, changes) => {
         if (changes.system?.isGhost !== undefined) {
             for (const token of actor.getActiveTokens()) token.renderFlags.set({ refreshMesh: true });
         }
         if (game.users.activeGM?.id !== game.user.id) return;
+        if (actor.type === "vehicle") {
+            for (const member of game.actors.filter(a => a.type !== "vehicle" && isAppearing(a))) syncTokensForActor(member);
+            return;
+        }
         const f = changes.flags?.[SYSTEM_ID];
         if (f && ("appearing" in f || "-=appearing" in f)) syncTokensForActor(actor);
-        if (changes.system?.isGhost !== undefined) syncGhostVisibility(actor);
+        if (changes.system?.isGhost !== undefined) syncTokensForActor(actor);
+    });
+    Hooks.on("deleteActor", (actor) => {
+        if (actor.type !== "vehicle" || game.users.activeGM?.id !== game.user.id) return;
+        for (const member of game.actors.filter(a => a.type !== "vehicle" && isAppearing(a))) syncTokensForActor(member);
     });
     // トークンのドラッグ配置=登場(RL の直接切替導線)。分身コピーの追加は登場済みの短絡で素通り
     Hooks.on("createToken", (tokenDoc) => {
         if (game.users.activeGM?.id !== game.user.id) return;
         if (tokenDoc.parent?.id !== game.scenes.active?.id) return;
         const actor = game.actors.get(tokenDoc.actorId);
-        if (!actor || isAppearing(actor)) return;
-        setAppearing(actor, true);
+        if (!actor || actor.type === "vehicle") return;
+        if (isAppearing(actor)) {
+            if (crewVehicle(actor)) return syncTokensForActor(actor);
+            return;
+        }
+        return setAppearing(actor, true).catch(error => {
+            console.error(`${SYSTEM_ID} | トークン配置からの登場連携に失敗`, error);
+            ui.notifications.error(error.message);
+        });
     });
     // トークン削除=退場。チームの退場連動が他メンバーに及ぶときだけ削除を止めて確認を挟む
     // (pre フックは発行元でのみ走る=ダイアログは操作した本人にだけ出る)。それ以外は素通し=
@@ -217,14 +237,18 @@ export function manualExitTargets(actorId) {
  * @param {string} actorId 退場操作の対象(連動対象は GM 側で再解決)
  */
 export async function applyManualExit(actorId) {
-    if (!game.user.isGM) {
+    if (!game.user.isGM || (game.users?.activeGM && game.users.activeGM.id !== game.user.id)) {
         const { TnxSocketHandler } = await import("../core/tnx-socket-handler.mjs");
         return void TnxSocketHandler.emitTeamExit({ actorId });
     }
-    for (const id of manualExitTargets(actorId).targetIds) {
+    const targetIds = manualExitTargets(actorId).targetIds;
+    const { collectVehicleExitPassengers, confirmVehicleExitPassengers } = await import("./vehicle-exit.mjs");
+    const passengers = collectVehicleExitPassengers(targetIds);
+    for (const id of targetIds) {
         const actor = game.actors.get(id);
         if (actor) await setAppearing(actor, false);
     }
+    await confirmVehicleExitPassengers(passengers);
 }
 
 /**
@@ -265,17 +289,49 @@ async function confirmTokenTeamExit(actor, tokenDoc, targets) {
 }
 
 /** アクティブ盤面のトークンの有無を登場状態に合わせる(登場=作成・退場=全削除)。 */
-async function syncTokensForActor(actor) {
+export function syncTokensForActor(actor) {
+    const previous = tokenSyncQueues.get(actor.uuid) ?? Promise.resolve();
+    const next = previous.then(() => syncTokensForActorNow(actor)).catch(error => {
+        console.error("TNX | ヴィークル・登場配置の同期に失敗しました", error);
+        ui.notifications.warn(`登場配置を確認してください: ${error.message}`);
+    });
+    tokenSyncQueues.set(actor.uuid, next);
+    next.finally(() => { if (tokenSyncQueues.get(actor.uuid) === next) tokenSyncQueues.delete(actor.uuid); });
+    return next;
+}
+
+async function syncTokensForActorNow(actor) {
     const scene = game.scenes.active;
     if (!scene) return;
     const tokens = scene.tokens.filter(t => t.actorId === actor.id);
     if (!isAppearing(actor)) {
+        disembarkPositions.delete(actor.uuid);
         if (tokens.length) {
             await scene.deleteEmbeddedDocuments("Token", tokens.map(t => t.id), { [SYNC_OPTION]: true });
         }
+        for (const vehicle of vehicles()) {
+            if (!vehicle.system.crew.some(c => c.actorUuid === actor.uuid)) continue;
+            if (vehicle.system.crew.some(c => isAppearing(fromUuidSync(c.actorUuid)))) continue;
+            const unused = scene.tokens.filter(t => t.actorId === vehicle.id);
+            if (unused.length) await scene.deleteEmbeddedDocuments("Token", unused.map(t => t.id), { [SYNC_OPTION]: true });
+        }
+        if (crewVehicle(actor)) await requestVehicleOperation("exit", { actorUuid: actor.uuid });
         return;
     }
-    if (tokens.length) return;
+    if (await syncVehicleTokens(actor, scene)) {
+        // コアはToken削除時に紐づくCombatantも削除する。先に本人Actorへ参照を残す。
+        const ids = new Set(tokens.map(t => t.id));
+        for (const combat of game.combats ?? []) {
+            const updates = combat.combatants.filter(c => c.sceneId === scene.id && ids.has(c.tokenId))
+                .map(c => ({ _id: c.id, actorId: actor.id, tokenId: null }));
+            if (updates.length) await combat.updateEmbeddedDocuments("Combatant", updates);
+        }
+        if (tokens.length) await scene.deleteEmbeddedDocuments("Token", tokens.map(t => t.id), { [SYNC_OPTION]: true });
+        return;
+    }
+    if (tokens.length) { await syncGhostVisibility(actor); return; }
+    // 遠隔操縦終了を含め、ゴーストの肉体コマは生成しない。
+    if (actor.system?.isGhost) return;
     const proto = await actor.getTokenDocument();
     const rect = scene.dimensions?.sceneRect
         ?? { x: 0, y: 0, width: scene.width ?? 0, height: scene.height ?? 0 };
@@ -289,17 +345,41 @@ async function syncTokensForActor(actor) {
     const data = proto.toObject();
     data.x = x;
     data.y = y;
-    // 登場するコマは所有者も操作できるよう表示する。ゴーストの半透明化は描画フックで適用。
-    data.hidden = false;
-    await scene.createEmbeddedDocuments("Token", [data]);
+    const position = disembarkPositions.get(actor.uuid);
+    const reservations = disembarkReservations.get(scene.id) ?? new Set();
+    let reservation;
+    if (position?.sceneId === scene.id) {
+        const size = { width: (data.width ?? 1) * gridSize, height: (data.height ?? 1) * gridSize };
+        const point = pickDisembarkPosition({ origin: position, size, gridSize, bounds: rect,
+            occupied: [...scene.tokens.map(t => ({ x: t.x, y: t.y,
+                width: (t.width ?? 1) * gridSize, height: (t.height ?? 1) * gridSize })), ...reservations] });
+        data.x = point.x; data.y = point.y; data.elevation = position.elevation;
+        reservation = { ...point, ...size };
+        reservations.add(reservation);
+        disembarkReservations.set(scene.id, reservations);
+    }
+    try {
+        const created = await scene.createEmbeddedDocuments("Token", [data], { [SYNC_OPTION]: true });
+        if (!created?.length) throw new Error("本人のコマを配置できませんでした。登場配置を再確認してください。");
+        disembarkPositions.delete(actor.uuid);
+    } finally {
+        if (reservation) reservations.delete(reservation);
+        if (!reservations.size) disembarkReservations.delete(scene.id);
+    }
 }
 
-/** アクティブ盤面のトークンの不可視を解除する(半透明化は各クライアントの描画で適用)。 */
+/** システムによる非表示だけを復元し、RLの秘匿設定を保つ。 */
 async function syncGhostVisibility(actor) {
     const scene = game.scenes.active;
     if (!scene) return;
-    const updates = scene.tokens
-        .filter(t => t.actorId === actor.id && t.hidden)
-        .map(t => ({ _id: t.id, hidden: false }));
+    const shouldHide = actor.system?.isGhost === true || !!crewVehicle(actor);
+    const updates = [];
+    for (const token of scene.tokens.filter(t => t.actorId === actor.id)) {
+        const saved = token.getFlag?.(SYSTEM_ID, "boardingHidden");
+        if (shouldHide && (!saved || !token.hidden)) updates.push({ _id: token.id, hidden: true,
+            [`flags.${SYSTEM_ID}.boardingHidden`]: saved ?? { previous: !!token.hidden } });
+        else if (!shouldHide && saved) updates.push({ _id: token.id, hidden: saved.previous === true,
+            [`flags.${SYSTEM_ID}.-=boardingHidden`]: null });
+    }
     if (updates.length) await scene.updateEmbeddedDocuments("Token", updates);
 }

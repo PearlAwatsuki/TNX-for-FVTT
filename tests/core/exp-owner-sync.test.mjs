@@ -35,6 +35,8 @@ function applyUpdate(document, update) {
 let gm, cast, hooks, recordSheet;
 beforeEach(() => {
   vi.useFakeTimers();
+  vi.stubGlobal("Actor", { TYPES: ["cast", "guest", "troop", "extra", "vehicle"] });
+  vi.stubGlobal("ui", { notifications: { error: vi.fn() } });
   hooks = new Map();
   vi.stubGlobal("Hooks", { on: (name, fn) => {
     if (!hooks.has(name)) hooks.set(name, []);
@@ -67,6 +69,12 @@ afterEach(() => {
 });
 
 describe("GM 所有キャストの経験点同期", () => {
+  it("車両型が未読込なら再起動を通知し、既存の初回同期は続行する", async () => {
+    Actor.TYPES = ["cast", "guest", "troop", "extra"];
+    await onSystemReady();
+    expect(ui.notifications.error).toHaveBeenCalledWith(expect.stringContaining("Foundry本体（サーバー）"), { permanent: true });
+    expect(getUserFlagData(gm).history.h1.exp).toBe(12);
+  });
   it("GM のまま所有者を記録し、再評価でも書き込みを繰り返さない", async () => {
     await recordCastOwnerUser(cast);
     expect(cast.system.ownerUserId).toBe(gm.uuid);

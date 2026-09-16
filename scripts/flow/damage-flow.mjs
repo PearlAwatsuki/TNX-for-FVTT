@@ -24,6 +24,8 @@
 import { SYSTEM_ID } from "../constants.mjs";
 import { applyDamageChartResult } from "./condition-resolution.mjs";
 import { aggregateDefence, defenceForType, computeDamage, splitSharedBonusRows } from "../rules/damage.mjs";
+import { vehicleDefenceItems } from "../session/vehicle-state.mjs";
+import { vehicleDamageCategory } from "../rules/vehicle.mjs";
 import { evaluateBonusRows, evaluateSelfBonus, createEffectBonusEvaluator } from "../rules/tnx-formula.mjs";
 import { applyConsumptionPlan } from "./usage-consumption.mjs";
 import { getDamageChartKind } from "../data/damage-chart.mjs";
@@ -1078,13 +1080,14 @@ function collectDamageTakenRows(defender, f) {
  * 報酬点軽減の起動条件(2026-07-17)。カバーした側は自分ではリアクションしていないため受け値と同様に不成立扱い。
  * @param {Array<{uuid:string,name:string,parryGuard?:number,reactionEstablished?:boolean,coveredBy?:{uuid:string,name:string}}>} hitTargets
  */
-function buildDamageTargets(hitTargets) {
+export function buildDamageTargets(hitTargets) {
     const out = [];
     for (const t of (hitTargets ?? [])) {
         if (t.coveredBy) {
             out.push({ uuid: t.coveredBy.uuid, name: t.coveredBy.name, parryGuard: 0, reactionEstablished: false, coveringFor: t.name });
         } else {
-            out.push({ uuid: t.uuid, name: t.name, parryGuard: Number(t.parryGuard) || 0, reactionEstablished: t.reactionEstablished === true });
+            out.push({ uuid: t.uuid, name: t.name, parryGuard: Number(t.parryGuard) || 0, reactionEstablished: t.reactionEstablished === true,
+                ...(t.vehicleRoute ? { vehicleRoute: t.vehicleRoute } : {}) });
         }
     }
     return out;
@@ -1146,7 +1149,7 @@ function targetPlannedPreview(f, t) {
     // 防御力・受け値は「ダメージ算出」の一部＝各キャラの最終ダメージに含めて表示する(2026-07-16 ユーザー確定)
     let defence = 0;
     if (actor && category === "physical") {
-        const dv = defenceForType(aggregateDefence(actor.items.contents ?? []), f.damageType);
+        const dv = defenceForType(aggregateDefence(vehicleDefenceItems(actor)), f.damageType);
         if (dv) defence = dv;
     }
     const parry = Number(t.parryGuard) || 0;
@@ -1246,7 +1249,8 @@ async function openMitigationDialog(message, applyCategory = null) {
         // t.mods=その対象の防御側 modifyDamage(per-target・2026-07-15)。攻撃側合計へ対象ごとに反映する。
         // t.bonusRows=その対象のダメージ修正(2026-09-01・対象ごと評価。旧カードは共有行へフォールバック)
         if (actor) resolvedTargets.push({ actor, name: t.name, parryGuard: Number(t.parryGuard) || 0, mods: t.mods ?? [],
-            coveringFor: t.coveringFor ?? null, bonusRows: t.bonusRows ?? f.damageBonuses ?? [], srcIndex });
+            coveringFor: t.coveringFor ?? null, bonusRows: t.bonusRows ?? f.damageBonuses ?? [], srcIndex,
+            vehicleRoute: t.vehicleRoute, applyCategory: vehicleDamageCategory(t, f.category || "physical", applyCategory) });
     }
     if (!resolvedTargets.length) { ui.notifications.warn("対象が見つかりません。"); return; }
     if (!(game.user.isGM || resolvedTargets.some(r => r.actor.isOwner))) {
@@ -1276,7 +1280,7 @@ async function openMitigationDialog(message, applyCategory = null) {
                 wetNullified: true, ownBonusRows: [] };
         }
         if (category === "physical") {
-            const dv = defenceForType(aggregateDefence(r.actor.items.contents ?? []), f.damageType);
+            const dv = defenceForType(aggregateDefence(vehicleDefenceItems(r.actor)), f.damageType);
             if (dv) { auto += dv; parts.push(`防御力(${f.damageType || "?"}) −${dv}`); }
         }
         if (r.parryGuard) { auto += r.parryGuard; parts.push(`パリー受け値 −${r.parryGuard}`); }
@@ -1297,7 +1301,7 @@ async function openMitigationDialog(message, applyCategory = null) {
     // リアクション成立時の対象行クリック=算出後〜適用前の事後修正へ移動し、この欄は撤去)。
     const rowsHtml = rows.map(r => `
         <div class="tnx-damage-target-row" data-index="${r.index}">
-            <div class="tnx-damage-target-name">${esc(r.name)}${r.coveringFor ? `（${esc(r.coveringFor)}をカバー）` : ""}</div>
+            <div class="tnx-damage-target-name">${esc(r.name)}${r.coveringFor ? `（${esc(r.coveringFor)}をカバー）` : ""}${r.vehicleRoute?.mode === "remote" ? "（ドローン経由・精神ダメージとして適用）" : ""}</div>
             ${r.ownBonusRows.length ? `<div class="tnx-damage-fixed">${esc(formatOwnBonusRows(r.ownBonusRows))}</div>` : ""}
             <div class="tnx-damage-fixed">軽減（算出済み）: <b>${signedDisplay("−", r.autoMitigation)}</b>${r.mitigationParts.length ? `（${esc(r.mitigationParts.join("・"))}）` : ""}</div>
             <div class="form-group">
@@ -1338,7 +1342,7 @@ async function openMitigationDialog(message, applyCategory = null) {
             const fin  = root.querySelector(`[data-final="${r.index}"]`);
             const note = root.querySelector(`[data-note="${r.index}"]`);
             if (fin)  fin.textContent = String(final);
-            if (note) note.textContent = describeDamagePreview(r.actor, applyCat, final, stage);
+            if (note) note.textContent = describeDamagePreview(r.actor, r.applyCategory, final, stage);
         }
     };
 
@@ -1384,8 +1388,8 @@ async function openMitigationDialog(message, applyCategory = null) {
             });
         // 説得(精神攻撃のスタン宣言)は、チャートの効果タグ(戦闘不能)を付けず BS のみ付与する。
         // 別系統として適用する場合は説得の意味論が対応しないため付けない(元系統=精神の通常適用時のみ)
-        const applyText = await applyDamageToTarget(r.actor, applyCat, final, stage, {
-            persuade: stun && category === "mental" && applyCat === "mental",
+        const applyText = await applyDamageToTarget(r.actor, r.applyCategory, final, stage, {
+            persuade: stun && category === "mental" && r.applyCategory === "mental",
             extraFlags: f.insensibleBy ? { fromMiracle: true } : null, // 《不可知》のダメージ(17-6)
         });
         // 報酬点による軽減(bounty マーカー行)は適用済み表示で「報酬点 −N」に分離する(正の数で記録)
@@ -1393,6 +1397,8 @@ async function openMitigationDialog(message, applyCategory = null) {
             .reduce((s, m) => s + (Number(m.value) || 0), 0);
         appliedTargets.push({
             name: r.name,
+            applyCategory: r.applyCategory,
+            vehicleRoute: r.vehicleRoute ?? null,
             coveringFor: r.coveringFor ?? null,
             autoMitigation: r.autoMitigation,
             mitigationParts: r.mitigationParts.join("・"),
@@ -1449,6 +1455,10 @@ function describeDamagePreview(target, category, final, stage) {
  * @returns {Promise<string>}
  */
 export async function applyDamageToTarget(target, category, final, stage, { persuade = false, extraFlags = null } = {}) {
+    if (target.type === "vehicle") {
+        ui.notifications.warn("ヴィークル自体には通常ダメージを適用しません。乗員を対象にするか、アウトフィット破壊可能な効果を使用してください。");
+        return "ヴィークル: 通常ダメージの適用対象外";
+    }
     if (target.type === "extra") {
         ui.notifications.warn(`「${target.name}」はエキストラのためダメージの概念がありません（宣言で死亡）。`);
         return "エキストラ: ダメージ適用なし（宣言死）";

@@ -20,9 +20,12 @@ import { buildCastHistorySyncUpdate } from "../rules/exp-sync.mjs";
 import { autoAcquireForStyleSkill, autoImportDerivedData } from "./style-skill-acquisition.mjs";
 import { syncCastExpToUser, performInitialHistorySync, performUnsyncSeparation } from "./exp-user-sync.mjs";
 import { applyPendingMigrations } from "./migrations.mjs";
+import { vehicleRegistrationError } from "../session/vehicle-state.mjs";
 
 export async function onSystemReady() {
     game.tnx = game.tnx || {};
+    const vehicleError = vehicleRegistrationError();
+    if (vehicleError) ui.notifications.error(vehicleError, { permanent: true });
 
     // 効果シートを開いたままワールドを閉じた場合にだけ残る下書きの置き忘れを片づける
     await sweepEffectScratchItems();

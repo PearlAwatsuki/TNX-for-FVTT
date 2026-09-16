@@ -9,6 +9,7 @@
  */
 
 import { editTokenImage } from "./sheet-images.mjs";
+import { requestVehicleOperation } from "../session/vehicle-state.mjs";
 import { SYSTEM_ID } from "../constants.mjs";
 import { TnxSkillUtils } from '../core/tnx-skill-utils.mjs';
 import { bindListDragDrop } from "../ui/list-drag-drop.mjs";
@@ -85,6 +86,19 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             toggleAbilityDetails: TnxCharacterSheetBase._onToggleAbilityDetails,
             toggleSkillDesc:      TnxCharacterSheetBase._onToggleSkillDesc,
             openOutfitSheet:      TnxCharacterSheetBase._onOpenOutfitSheet,
+            openBoardedVehicle: function (_event, target) { fromUuidSync(target.dataset.uuid)?.sheet.render(true); },
+            leaveVehicle: async function () {
+                try { await requestVehicleOperation("leave", { actorUuid: this.actor.uuid }); }
+                catch (error) { ui.notifications.warn(error.message); }
+            },
+            openVehicle: async function (_event, target) {
+                const item = this.actor.items.get(target.closest("[data-item-id]")?.dataset.itemId);
+                if (!item) return;
+                try {
+                    const uuid = await requestVehicleOperation("create", { itemUuid: item.uuid });
+                    (await fromUuid(uuid))?.sheet.render(true);
+                } catch (error) { ui.notifications.warn(error.message); }
+            },
             addOutfit:            TnxCharacterSheetBase._onAddOutfit,
             loadPartPreset:       TnxCharacterSheetBase._onLoadPartPreset,
             togglePartOccupancy:  TnxCharacterSheetBase._onTogglePartOccupancy,

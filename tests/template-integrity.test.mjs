@@ -5,7 +5,7 @@
  *
  * 検証1: template.json の廃止確認 — ファイルが存在しないこと
  * 検証2: system.json の JSON 妥当性 — 末尾カンマ等の構文崩れを検出
- * 検証3: documentTypes に全 type(Actor 4 / Item 17 / Card 3)が揃っていること
+ * 検証3: documentTypes に全 type(Actor 5 / Item 17 / Card 3)が揃っていること
  * 検証4: DataModel ファイルと documentTypes.Item の整合 — 過不足がないこと
  *
  * このテストは Foundry ランタイムに依存しない(Node.js 単体で完結)。
@@ -111,11 +111,9 @@ describe("型定義健全性テスト", () => {
   describe("検証3: documentTypes に全 type が揃っている", () => {
     const docTypes = JSON.parse(systemRaw).documentTypes;
 
-    it("Actor が全 4 type を持つ", () => {
-      const expected = ["cast", "guest", "troop", "extra"];
-      for (const t of expected) {
-        expect(docTypes.Actor).toHaveProperty(t);
-      }
+    it("Actor が車両を含む全 5 type を持つ", () => {
+      const expected = ["cast", "guest", "troop", "extra", "vehicle"];
+      expect(Object.keys(docTypes.Actor).sort()).toEqual(expected.sort());
     });
 
     it("Item が全 17 type を持つ", () => {

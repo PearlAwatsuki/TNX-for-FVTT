@@ -26,6 +26,7 @@ import { TnxCheckFlow } from "./tnx-check-flow.mjs";
 import { SUIT_TO_ABILITY } from "../rules/tnx-check-engine.mjs";
 import { buildUsageCheckContext } from "./usage-check-context.mjs";
 import { resolveUsageTargetRefs } from "./target-resolution.mjs";
+import { preparedVehicle } from "../session/vehicle-state.mjs";
 import { TargetSelectionDialog } from "../ui/tnx-dialog.mjs";
 import { TnxSocketHandler } from "../core/tnx-socket-handler.mjs";
 import { resolveNoReaction, resolveOpposed, formatAttackLabel, combineWeaponAttack, resolveAttackRecheckState } from "../rules/attack-flow.mjs";
@@ -260,6 +261,7 @@ export async function postAttackCard({ payload, result, suit, cardCheckValue = n
         const targetActor = await fromUuid(t.uuid).catch(() => null);
         const entry = {
             uuid: t.uuid, name: t.name,
+            ...(t.vehicleRoute ? { vehicleRoute: t.vehicleRoute } : {}),
             controlValue: isAttack ? (targetActor?.system?.[ability]?.totalControl ?? 0) : 0,
             state: (state === "fumble" || state === "miss") ? "miss" : "pending",
             resolution: null, reactionAchievement: null, diff: null, parryGuard: 0,
@@ -893,7 +895,11 @@ export function renderReactionCard(message, html) {
  */
 function resolveUserIdentityActor({ warn = true } = {}) {
     const sel = canvas?.tokens?.controlled?.[0]?.actor ?? null;
-    if (sel?.isOwner) return sel;
+    if (sel?.type === "vehicle") {
+        const driver = sel.system.crew.find(c => c.role === "driver");
+        const actor = driver ? fromUuidSync(driver.actorUuid) : null;
+        if (actor?.isOwner) return actor;
+    } else if (sel?.isOwner) return sel;
     const assigned = game.user.character ?? null;
     if (assigned) return assigned;
     if (warn) {
@@ -1057,8 +1063,8 @@ function seedLegacyTarget(t) {
  */
 async function selectReactionSkill(reactor, confrontationRows, mode) {
     let rows = confrontationRows ?? [];
-    const vehicle = reactor.items.find(i => i.type === "vehicle" && i.system.isPrepared && i.system.operateSkillKey);
-    if (vehicle) {
+    const vehicle = preparedVehicle(reactor);
+    if (vehicle?.system.operateSkillKey) {
         rows = [
             ...(confrontationHasCannot(rows) ? [{ value: "cannot", name: "" }] : []),
             { value: "skillNameAsterisk", name: vehicle.system.operateSkillKey },

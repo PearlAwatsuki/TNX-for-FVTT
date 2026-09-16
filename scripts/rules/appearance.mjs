@@ -257,6 +257,26 @@ export function pickTokenDropPosition({ center, size, gridSize, occupied = [] })
     return { x, y };
 }
 
+/** 降車位置を車両の近傍から探す。コマの占有矩形と盤面境界を考慮する。 */
+export function pickDisembarkPosition({ origin, size, gridSize, bounds, occupied = [] }) {
+    const grid = gridSize > 0 ? gridSize : 100;
+    const base = { x: Math.round(origin.x / grid) * grid, y: Math.round(origin.y / grid) * grid };
+    const limit = Math.ceil(Math.max(bounds.width, bounds.height,
+        Math.abs(base.x - bounds.x), Math.abs(base.y - bounds.y)) / grid) + 2;
+    for (let radius = 0; radius <= limit; radius++) {
+        for (let dy = -radius; dy <= radius; dy++) {
+            for (let dx = -radius; dx <= radius; dx++) {
+                if (Math.max(Math.abs(dx), Math.abs(dy)) !== radius) continue;
+                const x = base.x + dx * grid, y = base.y + dy * grid;
+                if (x < bounds.x || y < bounds.y || x + size.width > bounds.x + bounds.width || y + size.height > bounds.y + bounds.height) continue;
+                if (occupied.some(p => x < p.x + p.width && x + size.width > p.x && y < p.y + p.height && y + size.height > p.y)) continue;
+                return { x, y };
+            }
+        }
+    }
+    throw new Error("降車するコマを置ける空き位置がありません。車両の周囲に空きを作ってください。");
+}
+
 /**
  * トークン削除が「退場」を意味するか(2026-08-23)。退場=トークン削除の新モデルでは、
  * そのアクターの**最後の1体**の削除だけが退場になる——トループの分身コピーのような同一

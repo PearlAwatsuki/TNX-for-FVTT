@@ -6,6 +6,7 @@
  */
 
 import { TokyoNovaCastSheet } from "../actor/tnx-cast-sheet.mjs";
+import { TokyoNovaVehicleSheet } from "../actor/tnx-vehicle-sheet.mjs";
 import { TokyoNovaGuestSheet } from "../actor/tnx-guest-sheet.mjs";
 import { TokyoNovaTroopSheet } from "../actor/tnx-troop-sheet.mjs";
 import { TokyoNovaExtraSheet } from "../actor/tnx-extra-sheet.mjs";
@@ -24,6 +25,9 @@ import { TnxSceneConfig } from "../app/tnx-scene-config.mjs";
 import { SYSTEM_ID } from "../constants.mjs";
 
 export function registerSheets() {
+    foundry.documents.collections.Actors.registerSheet("tokyo-nova", TokyoNovaVehicleSheet, {
+        types: ["vehicle"], makeDefault: true, label: "ヴィークルシート",
+    });
     foundry.applications.apps.DocumentSheetConfig.registerSheet(Scene, SYSTEM_ID, TnxSceneConfig, {
         makeDefault: true, label: "シーン設定",
     });

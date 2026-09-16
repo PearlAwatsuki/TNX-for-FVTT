@@ -23,6 +23,7 @@ import { TnxCheckFlow } from "./tnx-check-flow.mjs";
 import { TnxSocketHandler } from "../core/tnx-socket-handler.mjs";
 import { applyConsumptionPlan, resolveConsumeRowsForActor, promptConsumption } from "./usage-consumption.mjs";
 import { resolveUsageTargetRefs, currentTargetActors } from "./target-resolution.mjs";
+import { vehicleOutfit } from "../session/vehicle-state.mjs";
 import { TargetSelectionDialog, AmountInputDialog } from "../ui/tnx-dialog.mjs";
 import { conditionDisplayName } from "../rules/conditions.mjs";
 import { formatSkillName, itemDisplayName } from "../core/identification.mjs";
@@ -159,9 +160,13 @@ export async function handleNegateMiracleDamageClick(message) {
  * @param {object} usage 破壊タイプの用途
  */
 export async function useMiracleDestroy(actor, item, usage, { asOther = null } = {}) {
-    const target = await resolveSingleTarget(actor, usage);
+    const vehicleTargets = currentTargetActors({ rawVehicles: true }).filter(a => a.type === "vehicle");
+    if (vehicleTargets.length > 1) { ui.notifications.warn("破壊するヴィークルを一台選んでください。"); return false; }
+    const vehicleItem = vehicleOutfit(vehicleTargets[0]);
+    if (vehicleTargets.length && !vehicleItem) { ui.notifications.warn("ヴィークルの参照先が見つかりません。"); return false; }
+    const target = vehicleItem?.actor ?? await resolveSingleTarget(actor, usage);
     if (!target) return false;
-    const candidates = listDestroyableOutfits(target, usage);
+    const candidates = listDestroyableOutfits(target, usage).filter(i => !vehicleItem || i.uuid === vehicleItem.uuid);
     if (!candidates.length) { ui.notifications.warn(`「${target.name}」に破壊できるアウトフィットがありません。`); return false; }
     const rows = resolveConsumeRowsForActor(actor, item, usage.consumeTargets);
     const plan = await promptConsumption(actor, rows, { title: `使用回数の消費: ${item.name}` });

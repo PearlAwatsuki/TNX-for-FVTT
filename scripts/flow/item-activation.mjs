@@ -30,6 +30,7 @@ import { isOpposedConfrontation } from "../rules/confrontation.mjs";
 import { startPurchasePicker } from "./purchase-flow.mjs";
 import { useModification } from "./modification-flow.mjs";
 import { resolveUsageTargetRefs } from "./target-resolution.mjs";
+import { ghostCanInteract, preparedVehicle } from "../session/vehicle-state.mjs";
 
 /**
  * 技能/アイテムの用途起動＝**唯一の起動関数**(2026-07-15 ユーザー確定)。シートの技能クリックだけで
@@ -114,6 +115,10 @@ export async function activateItemCheck(actor, item, extraOpen = {}) {
     }
 
     // 神業(17-1): 消費先が空の用途は自身の使用回数×1を既定消費する(使用＝回数消費が定義に
+    if (!openExtra.appearance && !ghostCanInteract(actor)) {
+        ui.notifications.warn("ゴーストが行動するにはドローンで登場してください。");
+        return false;
+    }
     // 含まれる。実行時のみ補い保存しない)。用途の分岐(宣言・クリック待ち・治療 等)のどれを
     // 通っても効くよう、用途が決まった直後のここ1か所で差し替える。神業は判定を行わない
     // 《プリーズ！》で使わされる神業(openExtra.miracleFree・17-4)は「使用済みにならない」=既定消費を補わず
@@ -143,13 +148,7 @@ export async function activateItemCheck(actor, item, extraOpen = {}) {
     // (達成値÷10 段階の移動カード)をここで注入する(旧・戦闘タブの合成アクションを置換)
     if (selectedUsage.requiresVehicle === true) {
         const refId = selectedUsage.vehicleRef?.itemId || "";
-        let vehicle = null;
-        if (refId) {
-            const v = actor.items.get(refId);
-            vehicle = (v && v.type === "vehicle" && v.system.isPrepared) ? v : null;
-        } else {
-            vehicle = actor.items.find(i => i.type === "vehicle" && i.system.isPrepared) ?? null;
-        }
+        const vehicle = preparedVehicle(actor, refId);
         if (!vehicle) {
             ui.notifications.warn("準備済みのヴィークルが無いため、この判定は行えません。");
             return;

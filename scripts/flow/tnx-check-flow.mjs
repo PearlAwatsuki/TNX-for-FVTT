@@ -16,6 +16,7 @@
  */
 
 import { SYSTEM_ID } from "../constants.mjs";
+import { ghostCanInteract } from "../session/vehicle-state.mjs";
 import { getCardCheckValue, calcSkillCheck, calcControlCheck, normalizeSuit, ALL_SUITS, SUIT_TO_ABILITY } from '../rules/tnx-check-engine.mjs';
 import { gatherCheckBonusSources, collectActorEffectBuffs, actorHasSuitChangeBuff, actorCardValueOverride, readFlag } from '../data/item/helpers.mjs';
 import { evaluateBonusRows, evaluateSelfBonus, createEffectBonusEvaluator } from '../rules/tnx-formula.mjs';
@@ -123,6 +124,7 @@ export class TnxCheckFlow {
     static _activationBlockReason(context) {
         const actor = game.actors.get(context?.actorId);
         if (!actor) return null;
+        if (!context.appearance && !ghostCanInteract(actor)) return "ゴーストが判定するにはドローンで登場してください。";
         const conds = TnxCheckFlow._gatherConditions(actor);
 
         if (context?.skillIds?.length) {

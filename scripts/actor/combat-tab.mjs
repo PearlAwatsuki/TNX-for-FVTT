@@ -11,6 +11,7 @@ import { readFlag } from "../data/item/helpers.mjs";
 import { effectiveUsageTiming } from "../data/item/modification-params.mjs";
 import { usesMaxTotalOf, usesMaxBaseOf } from "../data/item/uses.mjs";
 import { aggregateDefence } from "../rules/damage.mjs";
+import { vehicleDefenceItems, crewVehicle } from "../session/vehicle-state.mjs";
 import { usageDisplayName } from "../rules/usage-types.mjs";
 
 /**
@@ -26,6 +27,9 @@ import { usageDisplayName } from "../rules/usage-types.mjs";
  * - 効果系(負傷・BS)は状態タブの領分で、戦闘タブには置かない(2026-07-02 ユーザー確定)。
  */
 export function prepareCombatData(actor, context) {
+    const boarding = crewVehicle(actor);
+    context.boarding = boarding ? { uuid: boarding.vehicle.uuid, name: boarding.vehicle.name,
+        role: boarding.member.operationMode === "remote" ? "遠隔操縦" : boarding.member.role === "driver" ? "操縦" : "同乗" } : null;
     const items = actor.items;
     const sys = actor.system;
     // 実効準備(isPreparedEffective)で使用可否を見る: オプション武器(搭載兵器等)は装備先が
@@ -70,7 +74,7 @@ export function prepareCombatData(actor, context) {
     // 防御力: 種別ごとの合計(準備済みの armor/cyborg/vehicle。防具・義体は合算適用・搭乗中
     // ヴィークルの防御力も加算する・2026-07-09 ユーザー確定)。ダメージ算出でも同じ値を使うため、
     // 合算はダメージ算出と同一の aggregateDefence に一本化する(2026-07-16 ユーザー指摘=戦闘タブの合計)。
-    context.combatDefenceTotal = aggregateDefence(items);
+    context.combatDefenceTotal = aggregateDefence(vehicleDefenceItems(actor));
 
     // タイミングごとの使用技能・アウトフィット(2026-07-02 確定→2026-07-17 用途駆動化):
     // **アイテムの timing でなく用途の timing で束ね、各行はその用途を直接起動するボタン**にする

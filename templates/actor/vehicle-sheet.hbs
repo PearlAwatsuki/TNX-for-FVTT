@@ -1,0 +1,60 @@
+<div class="vehicle-content">
+    <header class="vehicle-identity">
+        <img class="vehicle-portrait" src="{{actor.img}}" alt="{{actor.name}}" {{#if isEditMode}}data-action="editImage" data-edit="img" title="車両画像を変更"{{/if}}>
+        <div class="vehicle-identity-fields">
+            <div class="vehicle-eyebrow">{{#if drone}}ドローン ／ 遠隔操縦{{else}}ヴィークル{{/if}}</div>
+            {{#if isEditMode}}<input class="vehicle-name" type="text" name="name" value="{{actor.name}}" aria-label="車両名" placeholder="車両名">{{else}}<h1 class="vehicle-name-view">{{actor.name}}</h1>{{/if}}
+            <div class="vehicle-status-line">
+                <span class="vehicle-status {{#if statusWarning}}vehicle-status--warning{{/if}}">{{statusLabel}}</span>
+                <span>乗員 {{crewCount}} 名</span>
+            </div>
+        </div>
+    </header>
+    <section class="vehicle-panel" aria-label="車両データ">
+        <div class="tnx-section-header">
+            <h3>車両データ</h3>
+            {{#unless missing}}<a class="tnx-icon-ctrl vehicle-text-action" data-action="openOutfit"><i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i> 本体を開く</a>{{/unless}}
+        </div>
+        {{#if missing}}
+        <div class="vehicle-empty vehicle-drop-zone">
+            <i class="fas fa-car" aria-hidden="true"></i><strong>ヴィークル本体を登録</strong>
+            <p>{{#if isEditMode}}キャラクターが所持するヴィークルアウトフィットを、このシートにドロップしてください。{{else}}ヴィークル本体が登録されていません。{{#if editable}}編集モードで本体を設定してください。{{/if}}{{/if}}</p>
+        </div>
+        {{else}}
+        <a class="vehicle-source" data-action="openOutfit">{{outfit.name}}</a>
+        {{#if isEditMode}}<p class="vehicle-hint">{{#if crewCount}}搭乗中は本体の紐づけを変更できません。{{else}}別のヴィークル本体をドロップすると紐づけを変更できます。{{/if}}</p>{{/if}}
+        <div class="vehicle-specs">
+            {{#each summary}}
+            <div class="vehicle-spec {{#if full}}vehicle-spec--full{{/if}} {{#if third}}vehicle-spec--third{{/if}}"><span class="vehicle-spec-label">{{label}}</span><span class="vehicle-spec-value">{{value}}</span></div>
+            {{/each}}
+        </div>
+        {{/if}}
+    </section>
+    <section class="vehicle-panel" aria-label="乗員">
+        <div class="tnx-section-header"><h3>乗員 <span class="vehicle-count">{{crewCount}}</span></h3>
+            {{#if canBoard}}<a class="tnx-icon-ctrl vehicle-text-action" data-action="boardCrew"><i class="fas fa-user-plus" aria-hidden="true"></i> {{#if drone}}遠隔操縦を開始{{else}}搭乗する{{/if}}</a>{{/if}}
+        </div>
+        <div class="vehicle-crew-list">
+        {{#each crew}}
+            <article class="vehicle-crew-row {{#if selected}}vehicle-crew-row--selected{{/if}}">
+                <img class="vehicle-crew-portrait" src="{{img}}" alt="">
+                <div class="vehicle-crew-info">
+                    <span class="vehicle-role">{{roleLabel}}</span>
+                    {{#if available}}<a class="vehicle-crew-name" data-action="openCrew" data-uuid="{{actorUuid}}" title="キャラクターシートを開く">{{name}}</a>{{else}}<span class="vehicle-crew-name">{{name}}</span>{{/if}}
+                </div>
+                <div class="tnx-ctrl-strip vehicle-crew-actions">
+                    {{#if canTarget}}<a class="tnx-icon-ctrl vehicle-text-action {{#if selected}}active{{/if}}" data-action="targetCrew" data-uuid="{{actorUuid}}" title="ターゲットを切替"><i class="fas fa-crosshairs" aria-hidden="true"></i> {{#if selected}}選択中{{else}}対象{{/if}}</a>{{/if}}
+                    {{#if canAct}}<a class="tnx-icon-ctrl" data-action="combatCrew" data-uuid="{{actorUuid}}" title="乗員を戦闘に追加" aria-label="乗員を戦闘に追加"><i class="fas fa-shield-halved"></i></a>{{/if}}
+                    {{#if canEdit}}
+                    {{#if canDrive}}<a class="tnx-icon-ctrl" data-action="driveCrew" data-uuid="{{actorUuid}}" title="操縦者にする" aria-label="操縦者にする"><i class="fas fa-car"></i></a>{{/if}}
+                    <a class="tnx-icon-ctrl" data-action="leaveCrew" data-uuid="{{actorUuid}}" title="降車・遠隔操縦終了" aria-label="降車・遠隔操縦終了"><i class="fas fa-right-from-bracket"></i></a>
+                    {{/if}}
+                </div>
+            </article>
+        {{else}}
+            <div class="vehicle-empty"><i class="fas fa-user" aria-hidden="true"></i><strong>{{#if drone}}遠隔操縦者がいません{{else}}乗員がいません{{/if}}</strong></div>
+        {{/each}}
+        </div>
+        {{#if canBoard}}<p class="vehicle-hint">{{#if drone}}遠隔操縦中のキャラクターを表示します。{{else}}現在搭乗しているキャラクターを表示します。{{/if}}キャラクターのドロップからも操作できます。</p>{{/if}}
+    </section>
+</div>

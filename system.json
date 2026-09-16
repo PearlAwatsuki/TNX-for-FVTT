@@ -209,7 +209,8 @@
             "cast":   { "htmlFields": ["description"] },
             "guest":  { "htmlFields": ["description"] },
             "troop":  {},
-            "extra":  { "htmlFields": ["description"] }
+            "extra":  { "htmlFields": ["description"] },
+            "vehicle": { "htmlFields": ["description"] }
         },
         "Item": {
             "style":        { "htmlFields": ["description"] },

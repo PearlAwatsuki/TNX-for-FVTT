@@ -16,14 +16,48 @@
 import { planUsageTargets } from "../rules/usage-target-plan.mjs";
 import { isOpposedConfrontation } from "../rules/confrontation.mjs";
 import { TargetSelectionDialog } from "../ui/tnx-dialog.mjs";
+import { crewTarget, selectedCrew, vehicleOutfit, ghostCanInteract, crewVehicle, vehicleToken } from "../session/vehicle-state.mjs";
+import { isDrone } from "../rules/vehicle.mjs";
+
+/** 車両トークンは乗員の明示選択、ドローンは操縦者へ解決する。 */
+function tokenTargetRefs(token) {
+    const actor = token?.actor;
+    if (!actor || !token.isVisible) return [];
+    if (actor.type !== "vehicle") return actor.system?.isGhost || crewVehicle(actor) ? [] : [{ uuid: actor.uuid, name: actor.name }];
+    const selected = [...selectedCrew.values()].filter(t => t.vehicleRoute.tokenUuid === token.document.uuid)
+        .map(t => {
+            const member = actor.system.crew.find(c => c.actorUuid === t.uuid);
+            return member ? crewTarget(actor, member) : null;
+        }).filter(Boolean);
+    if (selected.length) return selected;
+    if (isDrone(vehicleOutfit(actor))) {
+        const driver = actor.system.crew.find(c => c.role === "driver");
+        const target = driver ? crewTarget(actor, driver) : null;
+        return target ? [target] : [];
+    }
+    return [];
+}
 
 /** 現在ターゲット中(レティクル)のアクターを列挙する。 */
-export function currentTargetActors() {
-    return [...(game.user?.targets ?? [])].map(t => t?.actor).filter(Boolean);
+export function currentTargetActors({ rawVehicles = false } = {}) {
+    const tokens = [...(game.user?.targets ?? [])];
+    if (rawVehicles) return tokens.map(t => t?.actor).filter(Boolean);
+    const actors = tokens.flatMap(tokenTargetRefs).map(t => fromUuidSync(t.uuid)).filter(Boolean);
+    return [...new Map(actors.map(a => [a.uuid, a])).values()];
 }
 
 /** アクターの場のトークンへレティクルを付与する(トークンが無ければ何もしない)。 */
 function targetActorToken(actor) {
+    const relation = crewVehicle(actor);
+    if (relation) {
+        const ref = crewTarget(relation.vehicle, relation.member);
+        if (ref) {
+            selectedCrew.clear();
+            vehicleToken(relation.vehicle)?.object?.setTarget(true, { releaseOthers: true });
+            selectedCrew.set(`${relation.vehicle.uuid}:${actor.uuid}`, ref);
+        }
+        return;
+    }
     const token = actor?.getActiveTokens?.()[0] ?? null;
     token?.setTarget(true, { releaseOthers: true });
 }
@@ -50,7 +84,11 @@ export function resolveTargetedOrSelf(actor) {
  * @returns {Promise<Array<{uuid:string,name:string}>|null>} null=中止(通知済み)。[]=対象なし
  */
 export async function resolveUsageTargetRefs(actor, usage) {
-    const targeted = currentTargetActors();
+    if (!ghostCanInteract(actor)) {
+        ui.notifications.warn("ゴーストがシーンに干渉するには、ドローンで登場してください。");
+        return null;
+    }
+    const targeted = currentTargetActors({ rawVehicles: true });
     const plan = planUsageTargets({
         target:           usage?.target,
         cannotTargetSelf: usage?.cannotTargetSelf === true,
@@ -63,13 +101,31 @@ export async function resolveUsageTargetRefs(actor, usage) {
         case "none":
             return [];
         case "targets": {
-            const byUuid = new Map(targeted.map(a => [a.uuid, { uuid: a.uuid, name: a.name }]));
+            const refs = [];
+            for (const token of game.user.targets ?? []) {
+                const resolved = tokenTargetRefs(token);
+                if (!resolved.length && token.actor?.type === "vehicle") {
+                    const options = token.actor.system.crew.map(c => crewTarget(token.actor, c)).filter(Boolean);
+                    if (!options.length) { ui.notifications.warn("この車両に攻撃対象となる乗員はいません。車両自体の破壊には破壊可能な効果を使用してください。"); return null; }
+                    const uuid = await TargetSelectionDialog.prompt({ title: "乗員をターゲット", label: token.actor.name,
+                        options: options.map(t => ({ value: t.uuid, label: t.name })), selectLabel: "決定" });
+                    const ref = options.find(t => t.uuid === uuid);
+                    if (!ref) return null;
+                    selectedCrew.set(`${token.actor.uuid}:${ref.uuid}`, ref);
+                    refs.push(ref);
+                } else if (!resolved.length) {
+                    ui.notifications.warn("ゴースト本人や非表示の乗員は直接ターゲットにできません。");
+                    return null;
+                } else refs.push(...resolved);
+            }
+            if (!refs.length) return promptTargetToken(actor);
+            const byUuid = new Map(refs.map(t => [`${t.uuid}:${t.vehicleRoute?.tokenUuid ?? ""}`, t]));
             return [...byUuid.values()];
         }
         case "autoSelf":
             // 対象「自身」(常時)・「単体」(非対決): 自分へレティクルを自動付与(2026-07-18 ユーザー確定)
             targetActorToken(actor);
-            return [{ uuid: actor.uuid, name: actor.name }];
+            return [([...selectedCrew.values()].find(t => t.uuid === actor.uuid)) ?? { uuid: actor.uuid, name: actor.name }];
         case "dialog":
         default:
             return promptTargetToken(actor);
@@ -91,8 +147,15 @@ export async function promptTargetToken(actor) {
     if (canvas?.ready) {
         for (const t of canvas.tokens.placeables) {
             const a = t.actor;
-            if (!a || a.uuid === actor.uuid || seen.has(t.id)) continue;
+            if (!a || !t.isVisible || a.system?.isGhost || a.uuid === actor.uuid || seen.has(t.id)) continue;
             seen.add(t.id);
+            if (a.type === "vehicle") {
+                for (const member of a.system.crew) {
+                    const ref = crewTarget(a, member);
+                    if (ref && ref.uuid !== actor.uuid) options.push({ value: `${t.id}|${member.actorUuid}`, label: ref.name });
+                }
+                continue;
+            }
             options.push({ value: t.id, label: a.name });
         }
     }
@@ -108,8 +171,16 @@ export async function promptTargetToken(actor) {
         selectLabel: "決定",
     });
     if (sel === null || sel === undefined || sel === "") return null; // キャンセル
-    const token = canvas.tokens?.get(sel);
+    const [tokenId, memberUuid] = sel.split("|");
+    const token = canvas.tokens?.get(tokenId);
     if (!token?.actor) return null;
     token.setTarget(true, { releaseOthers: true }); // 必ずレティクルを付与
+    if (memberUuid) {
+        const member = token.actor.system.crew.find(c => c.actorUuid === memberUuid);
+        const ref = member ? crewTarget(token.actor, member) : null;
+        if (!ref) return null;
+        selectedCrew.set(`${token.actor.uuid}:${memberUuid}`, ref);
+        return [ref];
+    }
     return [{ uuid: token.actor.uuid, name: token.actor.name }];
 }

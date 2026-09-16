@@ -8,6 +8,7 @@
 import { preloadHandlebarsTemplates } from "./preload-templates.mjs";
 import { SYSTEM_ID } from "../constants.mjs";
 import { CastDataModel } from "../data/actor/cast.mjs";
+import { VehicleDataModel as VehicleActorDataModel } from "../data/actor/vehicle.mjs";
 import { GuestDataModel } from "../data/actor/guest.mjs";
 import { TroopDataModel } from "../data/actor/troop.mjs";
 import { ExtraDataModel } from "../data/actor/extra.mjs";
@@ -42,8 +43,10 @@ import { registerEffectScratchHiding } from "./effect-authoring.mjs";
 import { CONDITION_KINDS, conditionDisplayName } from "../rules/conditions.mjs";
 import { decoratedItemName } from "./identification.mjs";
 import { registerAreaCombat } from "../combat/area-combat.mjs";
+import { registerVehicleCanvasDrop } from "../session/vehicle-target-hud.mjs";
 
 export async function registerSystemConfig() {
+    registerVehicleCanvasDrop();
     registerAreaCombat();
     // 効果の下書き置き場はアイテムディレクトリに出さない(組み立て中だけ存在する器)。
     // サイドバーの初回描画は ready より前なので、隠すフックの登録は init で行う
@@ -112,6 +115,7 @@ export async function registerSystemConfig() {
 
     // Actor DataModel の登録(全 Actor type)
     CONFIG.Actor.dataModels = {
+      vehicle: VehicleActorDataModel,
       cast:   CastDataModel,
       guest:  GuestDataModel,
       troop:  TroopDataModel,

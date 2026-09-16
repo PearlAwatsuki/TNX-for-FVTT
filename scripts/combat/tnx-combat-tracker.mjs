@@ -13,6 +13,7 @@
  */
 
 import { SYSTEM_ID } from "../constants.mjs";
+import { crewVehicle, vehicleToken } from "../session/vehicle-state.mjs";
 import { processLabel, footerPlan, rowActions } from "../rules/combat-tracker-view.mjs";
 import { participantOf } from "../combat/tnx-combat.mjs";
 
@@ -135,6 +136,32 @@ export class TnxCombatTracker extends CombatTracker {
   }
 
   // ─── 進行と宣言(実体は TnxCombat 側) ───
+
+  /** 乗員の手番を選んだ際は、盤面上の車両へ移動する。ダブルクリックは本人のシート。 */
+  _onCombatantMouseDown(event, target) {
+    if (event.type === "dblclick" || event.target instanceof HTMLInputElement || event.target instanceof HTMLButtonElement) {
+      return super._onCombatantMouseDown(event, target);
+    }
+    const combatant = this.viewed?.combatants.get(target?.dataset.combatantId);
+    const relation = crewVehicle(combatant?.actor);
+    const token = relation ? vehicleToken(relation.vehicle)?.object : null;
+    if (!token) return super._onCombatantMouseDown(event, target);
+    if (!this._isTokenVisible(token)) return;
+    token.control({ releaseOthers: true });
+    return canvas.animatePan(token.center);
+  }
+
+  _onPanToCombatant(combatant) {
+    const relation = crewVehicle(combatant.actor);
+    const token = relation ? vehicleToken(relation.vehicle) : null;
+    return super._onPanToCombatant(token ? { sceneId: token.parent.id, token } : combatant);
+  }
+
+  _onPingCombatant(combatant) {
+    const relation = crewVehicle(combatant.actor);
+    const token = relation ? vehicleToken(relation.vehicle) : null;
+    return super._onPingCombatant(token ? { sceneId: token.parent.id, token } : combatant);
+  }
 
   static async _onStartCombat() { await this.viewed?.startCombat(); }
   static async _onEndCombat()   { await this.viewed?.endCombat(); }

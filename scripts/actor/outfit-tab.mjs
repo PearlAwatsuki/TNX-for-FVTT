@@ -353,6 +353,7 @@ export async function prepareOutfitRow(actor, item, optionsByParent) {
 
     return {
         _id: item.id,
+        isVehicleBody: item.type === "vehicle" && !sys.isOption && !(sys.classifications ?? []).some(c => c.minor === "vehicleOption"),
         displayName,
         img: item.img,
         system: sys,

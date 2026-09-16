@@ -2405,3 +2405,221 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
     flex: 1;
     min-width: 180px;
 }
+
+/* 車両シート: 概要を上部にまとめ、乗員は操作位置の揃った行で表示する。 */
+.tokyo-nova.sheet.actor.vehicle .vehicle-name-view {
+    font-family: inherit;
+    font-size: 24px;
+    font-weight: 700;
+    margin: 0 0 10px;
+    border: 0;
+    color: var(--tnx2-text-primary);
+    overflow-wrap: anywhere;
+}
+.tokyo-nova.sheet.actor.vehicle .window-content {
+    padding: 0;
+    overflow: hidden;
+}
+.tokyo-nova.sheet.actor.vehicle .vehicle-content {
+    container-type: inline-size;
+    min-height: 0;
+    overflow: auto;
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+.tokyo-nova.sheet.actor.vehicle .vehicle-identity {
+    display: grid;
+    grid-template-columns: 96px minmax(0, 1fr);
+    gap: 18px;
+    align-items: center;
+    padding-bottom: 18px;
+    border-bottom: 2px solid var(--tnx2-accent-dim);
+}
+.tokyo-nova.sheet.actor.vehicle .vehicle-portrait {
+    width: 96px;
+    height: 96px;
+    object-fit: contain;
+    background: var(--tnx2-bg-0);
+    border: 1px solid var(--tnx2-border-active);
+    border-radius: var(--tnx2-radius);
+}
+.tokyo-nova.sheet.actor.vehicle .vehicle-portrait[data-edit] { cursor: pointer; }
+.tokyo-nova.sheet.actor.vehicle .vehicle-eyebrow {
+    color: var(--tnx2-text-accent);
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    margin-bottom: 6px;
+}
+.tokyo-nova.sheet.actor.vehicle input.vehicle-name {
+    width: 100%;
+    height: 38px;
+    margin: 0 0 10px;
+    padding: 2px 0;
+    font-size: 24px;
+    font-weight: 700;
+    background: transparent;
+    border: 0;
+    border-bottom: 1px solid var(--tnx2-border-subtle);
+    color: var(--tnx2-text-primary);
+    opacity: 1;
+}
+.tokyo-nova.sheet.actor.vehicle .vehicle-status-line {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    color: var(--tnx2-text-secondary);
+    font-size: 12px;
+}
+.tokyo-nova.sheet.actor.vehicle .vehicle-status {
+    border: 1px solid var(--tnx2-accent-dim);
+    background: var(--tnx2-accent-glow-sm);
+    padding: 2px 8px;
+    color: var(--tnx2-text-accent);
+    border-radius: var(--tnx2-radius);
+}
+.tokyo-nova.sheet.actor.vehicle .vehicle-status--warning {
+    color: var(--tnx2-color-danger-text);
+    border-color: var(--tnx2-color-danger);
+    background: var(--tnx2-bg-2);
+}
+.tokyo-nova.sheet.actor.vehicle .vehicle-panel {
+    flex: 0 0 auto;
+    min-width: 0;
+}
+.tokyo-nova.sheet.actor.vehicle .tnx-section-header { gap: 12px; }
+.tokyo-nova.sheet.actor.vehicle .vehicle-count {
+    margin-left: 6px;
+    color: var(--tnx2-text-secondary);
+    font-size: 12px;
+}
+.tokyo-nova.sheet.actor.vehicle .vehicle-source {
+    display: block;
+    font-weight: 600;
+    margin: 0 0 10px;
+    overflow-wrap: anywhere;
+}
+.tokyo-nova.sheet.actor.vehicle .vehicle-specs {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 1px;
+    border: 1px solid var(--tnx2-border-subtle);
+    background: var(--tnx2-border-subtle);
+}
+.tokyo-nova.sheet.actor.vehicle .vehicle-spec {
+    grid-column: span 3;
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    padding: 8px 12px;
+    background: var(--tnx2-bg-2);
+    min-width: 0;
+}
+.tokyo-nova.sheet.actor.vehicle .vehicle-spec--third { grid-column: span 2; }
+.tokyo-nova.sheet.actor.vehicle .vehicle-spec--full { grid-column: 1 / -1; }
+.tokyo-nova.sheet.actor.vehicle .vehicle-spec-label {
+    color: var(--tnx2-text-secondary);
+    font-size: 12px;
+    flex-shrink: 0;
+}
+.tokyo-nova.sheet.actor.vehicle .vehicle-spec-value {
+    color: var(--tnx2-text-primary);
+    overflow-wrap: anywhere;
+    font-variant-numeric: tabular-nums;
+}
+.tokyo-nova.sheet.actor.vehicle .vehicle-crew-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+.tokyo-nova.sheet.actor.vehicle .vehicle-crew-row {
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    background: var(--tnx2-bg-2);
+    border: 1px solid var(--tnx2-border-subtle);
+    border-left: 3px solid var(--tnx2-border-active);
+    border-radius: var(--tnx2-radius);
+}
+.tokyo-nova.sheet.actor.vehicle .vehicle-crew-row--selected {
+    border-left-color: var(--tnx2-accent);
+    background: var(--tnx2-accent-glow-sm);
+}
+.tokyo-nova.sheet.actor.vehicle .vehicle-crew-portrait {
+    width: 40px;
+    height: 40px;
+    object-fit: cover;
+    border: 0;
+    border-radius: var(--tnx2-radius);
+}
+.tokyo-nova.sheet.actor.vehicle .vehicle-crew-info { min-width: 0; }
+.tokyo-nova.sheet.actor.vehicle .vehicle-role {
+    display: block;
+    font-size: 11px;
+    color: var(--tnx2-text-accent);
+    margin-bottom: 4px;
+}
+.tokyo-nova.sheet.actor.vehicle .vehicle-presence {
+    color: var(--tnx2-text-secondary);
+    margin-left: 8px;
+}
+.tokyo-nova.sheet.actor.vehicle .vehicle-crew-name {
+    display: block;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+    color: var(--tnx2-text-primary);
+}
+.tokyo-nova.sheet.actor.vehicle [data-action]:focus-visible {
+    outline: 1px solid var(--tnx2-text-accent);
+    outline-offset: 3px;
+}
+.tokyo-nova.sheet.actor.vehicle .vehicle-text-action {
+    font-size: 12px;
+    white-space: nowrap;
+}
+.tokyo-nova.sheet.actor.vehicle .tnx-icon-ctrl { color: var(--tnx2-text-secondary); }
+.tokyo-nova.sheet.actor.vehicle .tnx-icon-ctrl:hover,
+.tokyo-nova.sheet.actor.vehicle .tnx-icon-ctrl.active { color: var(--tnx2-text-accent); }
+.tokyo-nova.sheet.actor.vehicle .vehicle-crew-actions { gap: 14px; }
+.tokyo-nova.sheet.actor.vehicle .vehicle-crew-actions a { padding: 5px 0; }
+.tokyo-nova.sheet.actor.vehicle .vehicle-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 22px 18px;
+    background: var(--tnx2-bg-2);
+    color: var(--tnx2-text-secondary);
+    text-align: center;
+}
+.tokyo-nova.sheet.actor.vehicle .vehicle-empty > i {
+    color: var(--tnx2-accent-dim);
+    font-size: 24px;
+}
+.tokyo-nova.sheet.actor.vehicle .vehicle-empty p {
+    margin: 0;
+    line-height: 1.7;
+    font-size: 12px;
+    max-width: 32em;
+}
+.tokyo-nova.sheet.actor.vehicle .vehicle-hint {
+    margin: 8px 0 0;
+    font-size: 12px;
+    color: var(--tnx2-text-secondary);
+    line-height: 1.7;
+}
+.tokyo-nova.sheet.actor.vehicle .vehicle-drop-zone {
+    border: 1px dashed var(--tnx2-border-active);
+    padding: 12px;
+    border-radius: var(--tnx2-radius);
+}
+@container (max-width: 480px) {
+    .tokyo-nova.sheet.actor.vehicle .vehicle-crew-row { grid-template-columns: 40px minmax(0, 1fr); }
+    .tokyo-nova.sheet.actor.vehicle .vehicle-crew-actions { grid-column: 2; }
+    .tokyo-nova.sheet.actor.vehicle .vehicle-spec { grid-column: span 3; }
+    .tokyo-nova.sheet.actor.vehicle .vehicle-spec--full { grid-column: 1 / -1; }
+}

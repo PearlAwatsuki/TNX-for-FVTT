@@ -23,6 +23,21 @@ import { DISABLED_TRIGGER_CLASS } from "./ui-trigger-disable.mjs";
 
 const { DialogV2 } = foundry.applications.api;
 
+/** 同乗者が操縦者と一緒に退場するか確認する。閉じる場合は退場させない。 */
+export class VehicleExitDialog {
+    static async prompt({ passengerName, driverName }) {
+        const esc = foundry.utils.escapeHTML;
+        return await DialogV2.wait({
+            window: { title: "同時に退場しますか？" }, classes: ["tokyo-nova", "dialog"],
+            content: `<p>${esc(driverName)}の退場に伴い、ヴィークルがシーンから消えます。</p><p>${esc(passengerName)}も同時に退場しますか？</p>`,
+            buttons: [
+                { action: "exit", label: "同時に退場する", callback: () => true },
+                { action: "stay", label: "降車してシーンに残る", callback: () => false },
+            ], close: () => false,
+        }) === true;
+    }
+}
+
 /**
  * number-input-spinner の ± ボタン用の共通 DialogV2 アクション。
  * step 後に input イベントを発火する(ライブプレビュー等のリスナーへ変更を伝えるため)。

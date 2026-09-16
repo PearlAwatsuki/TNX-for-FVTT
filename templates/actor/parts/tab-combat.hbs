@@ -1,4 +1,9 @@
                 <div class="tab combat" data-group="primary" data-tab="combat">
+                    {{#if boarding}}
+                    <div class="tnx-section-header"><h3>{{boarding.role}}：<a data-action="openBoardedVehicle" data-uuid="{{boarding.uuid}}">{{boarding.name}}</a></h3>
+                        <a class="tnx-icon-ctrl" data-action="leaveVehicle" title="降車・遠隔操縦終了" aria-label="降車・遠隔操縦終了"><i class="fas fa-right-from-bracket"></i></a>
+                    </div>
+                    {{/if}}
                     {{!-- 戦闘タブ(フェーズ10-5/10-6・2026-07-02 確定仕様)。
                          CS=公式プロファイルシートのCSボックス様式(カット進行中はグロー)。
                          武器=生身ライン(攻撃用/パリー用の書き換え元・通常武器の使用は用途に移管)。
