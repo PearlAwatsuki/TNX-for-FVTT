@@ -86,7 +86,7 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
     };
 
     static PARTS = {
-        main: { template: "systems/tokyo-nova-axleration/templates/item/outfit-sheet.hbs" },
+        main: { template: "systems/tokyo-nova-axleration/templates/item/outfit-sheet.hbs", scrollable: [".sheet-body", ".tab[data-tab='description']", ".tab[data-tab='setting']", ".tab[data-tab='usage']", ".tab[data-tab='effects']"] },
     };
 
     static TABS = {

@@ -117,14 +117,12 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
     /** @override */
     async _preRender(context, options) {
         await super._preRender?.(context, options);
-        const wc = this.element?.closest(".window-content");
-        this._windowScrollTop = wc ? wc.scrollTop : 0;
+        this._scrollTop = captureScrollTop(this.element, ".sheet-body");
     }
 
     /** @override */
     _preSyncPartState(partId, newElement, priorElement, state) {
         super._preSyncPartState?.(partId, newElement, priorElement, state);
-        state.tnxWindowScroll = priorElement.closest(".window-content")?.scrollTop || 0;
         const input = priorElement.ownerDocument.activeElement;
         if (!priorElement.contains(input) || !input?.matches("input, textarea")) return;
         
@@ -157,24 +155,12 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
                 input.setSelectionRange(state.tnxInputState.start, state.tnxInputState.end, state.tnxInputState.direction);
             }
         }
-
-        if (state.tnxWindowScroll) {
-            requestAnimationFrame(() => {
-                const wc = newElement.closest(".window-content");
-                if (wc) wc.scrollTop = state.tnxWindowScroll;
-            });
-        }
     }
 
     /** @override */
     _onRender(context, _options) {
         super._onRender?.(context, _options);
-        if (this._windowScrollTop) {
-            requestAnimationFrame(() => {
-                const wc = this.element?.closest(".window-content");
-                if (wc) wc.scrollTop = this._windowScrollTop;
-            });
-        }
+        restoreScrollTop(this.element, ".sheet-body", this._scrollTop);
         bindListDragDrop(this);
         const el = this.element;
 

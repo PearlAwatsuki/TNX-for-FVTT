@@ -13,7 +13,7 @@ export class TokyoNovaGeneralSkillSheet extends TokyoNovaItemSheet {
     };
 
     static PARTS = {
-        main: { template: "systems/tokyo-nova-axleration/templates/item/general-skill-sheet.hbs" },
+        main: { template: "systems/tokyo-nova-axleration/templates/item/general-skill-sheet.hbs", scrollable: [".sheet-body", ".tab[data-tab='description']", ".tab[data-tab='setting']", ".tab[data-tab='usage']", ".tab[data-tab='effects']"] },
     };
 
     static TABS = {

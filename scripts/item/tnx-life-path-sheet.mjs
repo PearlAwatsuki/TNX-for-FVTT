@@ -1,4 +1,3 @@
-import { wrapMenu } from "../ui/menu-wrapper.mjs";
 import { TokyoNovaItemSheet } from "./tnx-item-sheet.mjs";
 
 export class TokyoNovaLifePathSheet extends TokyoNovaItemSheet {
@@ -9,7 +8,7 @@ export class TokyoNovaLifePathSheet extends TokyoNovaItemSheet {
     };
 
     static PARTS = {
-        main: { template: "systems/tokyo-nova-axleration/templates/item/life-path-sheet.hbs" },
+        main: { template: "systems/tokyo-nova-axleration/templates/item/life-path-sheet.hbs", scrollable: [".sheet-body", ".tab[data-tab='description']", ".tab[data-tab='setting']", ".tab[data-tab='usage']", ".tab[data-tab='effects']"] },
     };
 
     static TABS = {

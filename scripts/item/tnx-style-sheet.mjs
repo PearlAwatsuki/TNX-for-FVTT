@@ -15,7 +15,7 @@ export class TokyoNovaStyleSheet extends TokyoNovaItemSheet {
     };
 
     static PARTS = {
-        main: { template: "systems/tokyo-nova-axleration/templates/item/style-sheet.hbs" },
+        main: { template: "systems/tokyo-nova-axleration/templates/item/style-sheet.hbs", scrollable: [".sheet-body", ".tab[data-tab='description']", ".tab[data-tab='setting']", ".tab[data-tab='usage']", ".tab[data-tab='effects']"] },
     };
 
     static TABS = {

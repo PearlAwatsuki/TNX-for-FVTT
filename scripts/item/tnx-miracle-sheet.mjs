@@ -29,7 +29,7 @@ export class TokyoNovaMiracleSheet extends TokyoNovaItemSheet {
     };
 
     static PARTS = {
-        main: { template: "systems/tokyo-nova-axleration/templates/item/miracle-sheet.hbs" },
+        main: { template: "systems/tokyo-nova-axleration/templates/item/miracle-sheet.hbs", scrollable: [".sheet-body", ".tab[data-tab='description']", ".tab[data-tab='setting']", ".tab[data-tab='usage']", ".tab[data-tab='effects']"] },
     };
 
     static TABS = {

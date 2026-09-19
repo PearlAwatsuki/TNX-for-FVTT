@@ -2634,3 +2634,15 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
     .tokyo-nova.sheet.actor.vehicle .vehicle-spec { grid-column: span 3; }
     .tokyo-nova.sheet.actor.vehicle .vehicle-spec--full { grid-column: 1 / -1; }
 }
+/* === SCROLL FIX FOR ITEM SHEETS (CORRECTED FLEXBOX) === */
+.tokyo-nova.sheet.item .window-content {
+    overflow: hidden;
+}
+.tokyo-nova.sheet.item .window-content form,
+.tokyo-nova.sheet.item .window-content form > section,
+.tokyo-nova.sheet.item .window-content > section {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 0;
+}
