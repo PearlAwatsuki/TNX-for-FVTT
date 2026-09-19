@@ -99,14 +99,19 @@ export const MIGRATIONS = Object.freeze([
         name: "アイテム上エンチャントAEのDataModel化",
         run: async () => {
             const migrateAEs = async (item) => {
-                const updates = [];
+                const toDelete = [];
+                const toCreate = [];
                 for (const effect of item.effects.contents) {
                     if (effect.flags?.[SYSTEM_ID]?.applyToParent === true && effect.type !== "enchantment") {
-                        updates.push({ _id: effect.id, type: "enchantment" });
+                        const data = effect.toObject();
+                        data.type = "enchantment";
+                        toCreate.push(data);
+                        toDelete.push(effect.id);
                     }
                 }
-                if (updates.length > 0) {
-                    await item.updateEmbeddedDocuments("ActiveEffect", updates);
+                if (toDelete.length > 0) {
+                    await item.deleteEmbeddedDocuments("ActiveEffect", toDelete);
+                    await item.createEmbeddedDocuments("ActiveEffect", toCreate, { keepId: true });
                 }
             };
             for (const it of game.items.contents) await migrateAEs(it);
