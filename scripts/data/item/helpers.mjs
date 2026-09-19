@@ -886,6 +886,8 @@ export function collectActorEffectBuffs(actor, scope = SYSTEM_ID) {
   for (const e of (actor?.effects ?? [])) push(e, actor);
   for (const item of (actor?.items ?? [])) {
     for (const e of (item.effects ?? [])) {
+      // 準備先への付与はアイテム間で完結する。元効果を判定・ダメージ等へ混ぜない。
+      if (e.flags?.[scope]?.applyToParent === true) continue;
       if (!effectAutoApplies(e, scope)) continue; // ペイロードは自動収集しない
       push(e, item);
     }

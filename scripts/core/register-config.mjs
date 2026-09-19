@@ -7,6 +7,7 @@
 
 import { preloadHandlebarsTemplates } from "./preload-templates.mjs";
 import { SYSTEM_ID } from "../constants.mjs";
+import { TokyoNovaActor } from "./actor.mjs";
 import { CastDataModel } from "../data/actor/cast.mjs";
 import { VehicleDataModel as VehicleActorDataModel } from "../data/actor/vehicle.mjs";
 import { GuestDataModel } from "../data/actor/guest.mjs";
@@ -94,6 +95,7 @@ export async function registerSystemConfig() {
     Handlebars.registerHelper('tnxDurationLabel', durationLabelOf);
 
     await preloadHandlebarsTemplates();
+    CONFIG.Actor.documentClass = TokyoNovaActor;
     CONFIG.Item.documentClass = TokyoNovaItem;
     // 名前装飾(フェーズ12)のためネイティブ AE 適用の一点(Actor への `name`)だけ抑止する
     CONFIG.ActiveEffect.documentClass = TokyoNovaActiveEffect;
