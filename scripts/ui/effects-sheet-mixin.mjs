@@ -20,14 +20,18 @@ export const EffectsSheetMixin = {
      * @param {object} context
      */
     prepareEffectsContext(document, context) {
-        const effects = { temporary: [], passive: [], inactive: [], transferred: [], payload: [] };
+        const effects = { temporary: [], passive: [], inactive: [], transferred: [], payload: [], enchantments: [] };
         const source = (typeof document.allApplicableEffects === "function")
             ? document.allApplicableEffects()
             : document.effects;
         // ActiveEffect ドキュメントは変異させない(sourceName 等は読み取り専用ゲッター)。
-        // 転送元の判別が必要なら template 側で組み込みの effect.sourceName を使う。
+        // 転送元の判別が困難なため template 側で埋め込みの effect.sourceName を使う。
         for (const effect of source) {
-            // ダメージ/カスケード由来の状態は AE 本体をリスト非表示にする(供給元が浮くため。
+            if (effect.type === "enchantment") {
+                effects.enchantments.push(effect);
+                continue;
+            }
+            // ダメージ/カスケード由来の状態は AE 本体をリスト非表示にする(供給元が浮くため、。
             // 状態自体はトークンのステータスアイコンで見える。技能由来 BS はフラグなし=表示)。
             const flags = effect.flags?.[SYSTEM_ID] ?? {};
             if (flags.hideFromList) continue;
@@ -60,6 +64,7 @@ export const EffectsSheetMixin = {
         for (const group of Object.values(effects)) group.sort(compare);
         context.allEffects = [...effects.temporary, ...effects.passive, ...effects.inactive].sort(compare);
         context.effects = effects;
+        context.isItem = document.documentName === "Item";
     },
 
     /**
@@ -92,6 +97,17 @@ export const EffectsSheetMixin = {
                 name: "新規効果",
                 img: "icons/svg/aura.svg",
                 origin: doc.uuid,
+            }]);
+            effect?.sheet.render({ force: true });
+        },
+
+        async createEnchantment(_event, _target) {
+            const doc = this.document;
+            const [effect] = await doc.createEmbeddedDocuments("ActiveEffect", [{
+                name: "新規エンチャント",
+                img: "icons/svg/aura.svg",
+                origin: doc.uuid,
+                type: "enchantment",
             }]);
             effect?.sheet.render({ force: true });
         },
@@ -130,6 +146,15 @@ export const EffectsSheetMixin = {
                         name: "新規効果",
                         img: "icons/svg/aura.svg",
                         origin: document.uuid,
+                    }]);
+                    return newEffects[0]?.sheet.render(true);
+                }
+                case "createEnchantment": {
+                    const newEffects = await document.createEmbeddedDocuments("ActiveEffect", [{
+                        name: "新規エンチャント",
+                        img: "icons/svg/aura.svg",
+                        origin: document.uuid,
+                        type: "enchantment",
                     }]);
                     return newEffects[0]?.sheet.render(true);
                 }

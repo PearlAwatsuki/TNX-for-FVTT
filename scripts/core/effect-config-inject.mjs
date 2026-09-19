@@ -236,19 +236,7 @@ export function registerEffectConfigInjection() {
         // 準備先(親アイテム)に適用(自動適用オンのときのみ意味を持つ): 素のパラメータキーの効果を
         // このアイテムの準備先ホストに効かせる(準備で転送・解除で除去)。アイテム上の効果でのみ表示
         let parentGroup = null;
-        let enchantGroup = null;
         if (app.document?.parent?.documentName === "Item") {
-            const isEnchant = app.document.type === "enchantment";
-            enchantGroup = document.createElement("div");
-            enchantGroup.classList.add("form-group", "tnx-enchantment-field");
-            enchantGroup.innerHTML = `
-                <label>アイテムにエンチャントを適用</label>
-                <div class="form-fields">
-                    <input type="hidden" name="type" value="base">
-                    <input type="checkbox" name="type" value="enchantment" ${isEnchant ? "checked" : ""}>
-                </div>`;
-            (transferGroup ?? anchor)?.after(enchantGroup);
-
             const cur = app.document.getFlag?.(SYSTEM_ID, "applyToParent") === true;
             parentGroup = document.createElement("div");
             parentGroup.classList.add("form-group", "tnx-apply-parent-field");
@@ -257,7 +245,7 @@ export function registerEffectConfigInjection() {
                 <div class="form-fields">
                     <input type="checkbox" name="flags.${SYSTEM_ID}.applyToParent" ${cur ? "checked" : ""}>
                 </div>`;
-            enchantGroup.after(parentGroup);
+            (transferGroup ?? anchor)?.after(parentGroup);
         }
 
         // 効果種別: 使用時付与でこの効果が果たす役割。通常効果(既定・値 "target")=カードの効果
@@ -287,9 +275,7 @@ export function registerEffectConfigInjection() {
         // 出し分け: 準備先=自動適用オンのときだけ表示する(常時自動適用の乗り先修飾のため。
         // 使用時付与ではコピー作成時に applyToParent を落とす=オフ時に意味を持つ経路が無い)
         const syncModeFields = () => {
-            const show = transferInput ? !!transferInput.checked : true;
-            if (parentGroup) parentGroup.style.display = show ? "" : "none";
-            if (enchantGroup) enchantGroup.style.display = show ? "" : "none";
+            if (parentGroup) parentGroup.style.display = (transferInput ? !!transferInput.checked : true) ? "" : "none";
         };
         syncModeFields();
         transferInput?.addEventListener("change", syncModeFields);
