@@ -304,6 +304,16 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
       else formulaApps.push(app);
     }
 
+    const getModeNum = (c) => {
+      if (typeof c.mode === "number") return c.mode;
+      if (c.type === "multiply") return 1;
+      if (c.type === "add") return 2;
+      if (c.type === "downgrade") return 3;
+      if (c.type === "upgrade") return 4;
+      if (c.type === "override") return 5;
+      return 2;
+    };
+
     const applyPhase = (phaseApps) => {
       // 同一効果の重複適用不可: 非 stackable は (対象, パス, モード, identity)ごとに最大値1つだけ。
       const best = new Map();
@@ -320,22 +330,36 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
       for (const app of best.values()) finalApps.push(app);
       // Foundry 既定の優先度(mode×10)で安定適用する
       finalApps.sort((a, b) =>
-        ((a.change.priority ?? a.change.mode * 10) - (b.change.priority ?? b.change.mode * 10)));
+        ((a.change.priority ?? getModeNum(a.change) * 10) - (b.change.priority ?? getModeNum(b.change) * 10)));
       for (const app of finalApps) {
-        const { effect, change, doc, totalPath, value } = app;
+        const { change, doc, totalPath, value } = app;
         // 特性フラグ(フェーズ12)は真偽値を直接代入(実効フィールドはスキーマ外・常に上書き)
         if (app.isBoolean) {
           foundry.utils.setProperty(doc, `system.${totalPath}`, value === true);
           continue;
         }
-        // 文字列上書き(ダメージ種別等)は effect.apply を経由せず直接代入する:
+        // 文字列の上書き(ダメージ種別等)は effect.apply を経由せず直接代入する:
         // 実効フィールドはスキーマ外のためコアの型キャストに乗らず、モードも常に上書き
-        // (加算は意味を成さない)ため(2026-07-13・「AE が効かない」報告の対処)
+        // (加算は意味を成さない)ため(2026-07-13・「AE が効かない」報告への対処)
         if (app.isString) {
           foundry.utils.setProperty(doc, `system.${totalPath}`, String(value));
           continue;
         }
-        effect.apply(doc, { ...change, key: `system.${totalPath}`, value: String(value) });
+        // 数値の適用(2026-09-19): 実効フィールドはスキーマ外のため、V14 のコアの applyChange では
+        // 無視される(型キャスト不能・存在しないフィールドとして扱われる)問題に対処。
+        // モードに従って自前で数値を適用する。
+        // V14対応: change.mode は非推奨となり change.type (文字列)へ移行された
+        const type = change.type ?? change.mode ?? 2; // デフォルト ADD (2 or "add")
+        const current = Number(foundry.utils.getProperty(doc, `system.${totalPath}`)) || 0;
+        const val = Number(value) || 0;
+        let result = current;
+        if (type === "add" || type === 2) result = current + val;
+        else if (type === "multiply" || type === 1) result = current * val;
+        else if (type === "override" || type === 5) result = val;
+        else if (type === "upgrade" || type === 4) result = Math.max(current, val);
+        else if (type === "downgrade" || type === 3) result = Math.min(current, val);
+        
+        foundry.utils.setProperty(doc, `system.${totalPath}`, result);
       }
     };
 
@@ -351,7 +375,7 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
     applyPhase(formulaApps);
 
     const byPriority = (a, b) =>
-      ((a.change.priority ?? a.change.mode * 10) - (b.change.priority ?? b.change.mode * 10));
+      ((a.change.priority ?? getModeNum(a.change) * 10) - (b.change.priority ?? getModeNum(b.change) * 10));
 
     // 部位行の追加(フェーズ12): 値=and/or[:消費数](数省略=1)。非 stackable は
     // (アイテム, 部位キー, 関係, identity)ごとに1回。実効 part(partAdded)へ積む(base 不変)
