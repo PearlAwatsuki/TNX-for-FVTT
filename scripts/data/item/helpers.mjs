@@ -49,6 +49,7 @@ export function modeValueField(choices) {
   return new fields.SchemaField({
     mode:  new fields.StringField({ required: true, blank: false, initial: "none", choices }),
     value: new fields.NumberField({ initial: 0 }),
+    total: new fields.NumberField({ required: false, nullable: true }), // V14: スキーマ外への代入が弾かれるため明示
   });
 }
 
@@ -57,7 +58,6 @@ export function modeValueField(choices) {
  * mode: "none" | "value" を持ち、"value" のときのみ S/P/I を使う。
  *
  * 使用 Item type: armor / cyborg / vehicle
- *
  * @returns {foundry.data.fields.SchemaField}
  */
 export function defenceField() {
@@ -67,6 +67,9 @@ export function defenceField() {
     S_defence: new fields.NumberField({ initial: 0 }),
     P_defence: new fields.NumberField({ initial: 0 }),
     I_defence: new fields.NumberField({ initial: 0 }),
+    S_total:   new fields.NumberField({ required: false, nullable: true }),
+    P_total:   new fields.NumberField({ required: false, nullable: true }),
+    I_total:   new fields.NumberField({ required: false, nullable: true }),
   });
 }
 

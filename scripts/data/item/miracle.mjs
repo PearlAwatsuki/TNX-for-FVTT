@@ -45,6 +45,7 @@ export class MiracleDataModel extends SystemDataModel.mixin(BaseTemplate, UsageT
         type:    new fields.StringField({ initial: "" }),
         max:     new fields.StringField({ initial: "1" }),
         spent:   new fields.NumberField({ initial: 0 }),
+        maxTotal:new fields.NumberField({ required: false, nullable: true }), // V14: AE適用先
       }),
       identificationKey: new fields.StringField({ initial: "" }),
       // 効果の参照(17-5・アイテム側の機能)。mode: ""=なし／choice=区分ごとに参照する神業を決めて1つ選んで

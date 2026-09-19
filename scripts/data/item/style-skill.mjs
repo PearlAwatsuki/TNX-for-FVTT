@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @fileoverview StyleSkillDataModel - スタイル技能 Item の DataModel
  *
  * 使用 template: base + usage + skillBase
@@ -170,13 +170,14 @@ export class StyleSkillDataModel extends SystemDataModel.mixin(BaseTemplate, Usa
       }),
 
       // 使用回数(outfitBase.uses と同型だが styleSkill 固有の別フィールド)
-      // spent = 消費済み回数（D&D 方式）。残り = max - spent
-      // max は**数値も式も受ける**(2026-08-09「1シーンにレベル回」)。実効値は派生 uses.maxTotal(uses.mjs)
+      // spent = 消費済み回数(D&D 方式)。残り = max - spent
+      // max は**数値も式も受け入れる**(2026-08-09「1シーンにレベル回」等)。実効値は派生 uses.maxTotal(uses.mjs)
       uses: new fields.SchemaField({
         isLimit: new fields.BooleanField({ initial: false }),
         spent:   new fields.NumberField({ initial: 0 }),
         max:     new fields.StringField({ initial: "" }),
         type:    new fields.StringField({ initial: "" }),
+        maxTotal:new fields.NumberField({ required: false, nullable: true }), // V14: AE適用先
       }),
 
       identificationKey: new fields.StringField({ initial: "" }),

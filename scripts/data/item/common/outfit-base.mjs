@@ -224,6 +224,7 @@ export class OutfitBaseTemplate extends SystemDataModel {
         type:    new fields.StringField({ initial: "" }),
         max:     new fields.StringField({ initial: "" }),
         spent:   new fields.NumberField({ initial: 0 }),
+        maxTotal:new fields.NumberField({ required: false, nullable: true }), // V14: AE適用先
       }),
       parentItemId:   new fields.StringField({ initial: "" }),
       parentSlotKind: new fields.StringField({ initial: "" }),
