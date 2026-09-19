@@ -93,13 +93,38 @@ export const EffectsSheetMixin = {
     ACTIONS: {
         async createEffect(_event, _target) {
             const doc = this.document;
-            return ActiveEffect.implementation.createDialog({
-                name: "新規効果",
-                img: "icons/svg/aura.svg",
-                origin: doc.uuid,
-            }, {
-                parent: doc,
-                pack: doc.pack
+            const content = `
+            <form>
+                <div class="form-group">
+                    <label>名前</label>
+                    <div class="form-fields"><input type="text" name="name" value="新規効果" autofocus></div>
+                </div>
+                <div class="form-group">
+                    <label>タイプ</label>
+                    <div class="form-fields">
+                        <select name="type">
+                            <option value="base">通常のアクティブ効果</option>
+                            <option value="enchantment">アイテムへのエンチャント</option>
+                        </select>
+                    </div>
+                </div>
+            </form>`;
+            return Dialog.prompt({
+                title: "アクティブ効果新規作成",
+                content: content,
+                label: "作成",
+                callback: async (html) => {
+                    const form = html[0].querySelector("form");
+                    const name = form.name.value || "新規効果";
+                    const type = form.type.value || "base";
+                    const [effect] = await doc.createEmbeddedDocuments("ActiveEffect", [{
+                        name,
+                        type,
+                        img: "icons/svg/aura.svg",
+                        origin: doc.uuid,
+                    }]);
+                    effect?.sheet.render({ force: true });
+                }
             });
         },
 
@@ -133,11 +158,39 @@ export const EffectsSheetMixin = {
 
             switch (action) {
                 case "createEffect": {
-                    return ActiveEffect.implementation.createDialog({
-                        name: "新規効果",
-                        img: "icons/svg/aura.svg",
-                        origin: document.uuid,
-                    }, { parent: document, pack: document.pack });
+                    const content = `
+                    <form>
+                        <div class="form-group">
+                            <label>名前</label>
+                            <div class="form-fields"><input type="text" name="name" value="新規効果" autofocus></div>
+                        </div>
+                        <div class="form-group">
+                            <label>タイプ</label>
+                            <div class="form-fields">
+                                <select name="type">
+                                    <option value="base">通常のアクティブ効果</option>
+                                    <option value="enchantment">アイテムへのエンチャント</option>
+                                </select>
+                            </div>
+                        </div>
+                    </form>`;
+                    return Dialog.prompt({
+                        title: "アクティブ効果新規作成",
+                        content: content,
+                        label: "作成",
+                        callback: async (html) => {
+                            const form = html[0].querySelector("form");
+                            const name = form.name.value || "新規効果";
+                            const type = form.type.value || "base";
+                            const newEffects = await document.createEmbeddedDocuments("ActiveEffect", [{
+                                name,
+                                type,
+                                img: "icons/svg/aura.svg",
+                                origin: document.uuid,
+                            }]);
+                            newEffects[0]?.sheet.render(true);
+                        }
+                    });
                 }
                 case "editEffect":
                     return effect?.sheet.render(true);
