@@ -345,21 +345,11 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
           foundry.utils.setProperty(doc, `system.${totalPath}`, String(value));
           continue;
         }
-        // 数値の適用(2026-09-19): 実効フィールドはスキーマ外のため、V14 のコアの applyChange では
-        // 無視される(型キャスト不能・存在しないフィールドとして扱われる)問題に対処。
-        // モードに従って自前で数値を適用する。
-        // V14対応: change.mode は非推奨となり change.type (文字列)へ移行された
-        const type = change.type ?? change.mode ?? 2; // デフォルト ADD (2 or "add")
-        const current = Number(foundry.utils.getProperty(doc, `system.${totalPath}`)) || 0;
-        const val = Number(value) || 0;
-        let result = current;
-        if (type === "add" || type === 2) result = current + val;
-        else if (type === "multiply" || type === 1) result = current * val;
-        else if (type === "override" || type === 5) result = val;
-        else if (type === "upgrade" || type === 4) result = Math.max(current, val);
-        else if (type === "downgrade" || type === 3) result = Math.min(current, val);
-        
-        foundry.utils.setProperty(doc, `system.${totalPath}`, result);
+        // 数値の適用(2026-09-19): 実効フィールドはスキーマ外のため、V14対応では
+        // app.effect.apply を呼び出して適用します。
+        const mappedChange = { ...change, key: `system.${totalPath}`, value: String(value) };
+        if (change.type !== undefined) mappedChange.type = change.type;
+        app.effect.apply(doc, mappedChange);
       }
     };
 

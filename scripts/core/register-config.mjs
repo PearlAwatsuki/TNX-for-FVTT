@@ -9,6 +9,8 @@ import { preloadHandlebarsTemplates } from "./preload-templates.mjs";
 import { SYSTEM_ID } from "../constants.mjs";
 import { CastDataModel } from "../data/actor/cast.mjs";
 import { VehicleDataModel as VehicleActorDataModel } from "../data/actor/vehicle.mjs";
+import { BaseEffectDataModel } from "../data/effect/base-effect.mjs";
+import { EnchantmentEffectDataModel } from "../data/effect/enchantment-effect.mjs";
 import { GuestDataModel } from "../data/actor/guest.mjs";
 import { TroopDataModel } from "../data/actor/troop.mjs";
 import { ExtraDataModel } from "../data/actor/extra.mjs";
@@ -123,6 +125,12 @@ export async function registerSystemConfig() {
     CONFIG.Combatant.documentClass = TnxCombatant;
     // カット進行のサイドバートラッカー(13-4)。既定のコンバットトラッカーを上書きする。
     CONFIG.ui.combat = TnxCombatTracker;
+
+    // ActiveEffect DataModel の登録
+    CONFIG.ActiveEffect.dataModels = {
+      base: BaseEffectDataModel,
+      enchantment: EnchantmentEffectDataModel,
+    };
 
     // Actor DataModel の登録(全 Actor type)
     CONFIG.Actor.dataModels = {

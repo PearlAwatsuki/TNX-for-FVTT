@@ -94,6 +94,27 @@ export const MIGRATIONS = Object.freeze([
             if (user) await user.update({ name: "Ruler" });
         },
     },
+    {
+        version: 6,
+        name: "アイテム上エンチャントAEのDataModel化",
+        run: async () => {
+            const migrateAEs = async (item) => {
+                const updates = [];
+                for (const effect of item.effects.contents) {
+                    if (effect.flags?.[SYSTEM_ID]?.applyToParent === true && effect.type !== "enchantment") {
+                        updates.push({ _id: effect.id, type: "enchantment" });
+                    }
+                }
+                if (updates.length > 0) {
+                    await item.updateEmbeddedDocuments("ActiveEffect", updates);
+                }
+            };
+            for (const it of game.items.contents) await migrateAEs(it);
+            for (const actor of game.actors.contents) {
+                for (const it of actor.items.contents) await migrateAEs(it);
+            }
+        },
+    },
 ]);
 
 /** 未登録の設定を読んでも落ちないようにする(旧ゲートは将来削除されうる)。 */
