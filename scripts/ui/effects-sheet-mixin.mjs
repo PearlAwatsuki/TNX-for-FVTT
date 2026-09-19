@@ -20,18 +20,14 @@ export const EffectsSheetMixin = {
      * @param {object} context
      */
     prepareEffectsContext(document, context) {
-        const effects = { temporary: [], passive: [], inactive: [], transferred: [], payload: [], enchantments: [] };
+        const effects = { temporary: [], passive: [], inactive: [], transferred: [], payload: [] };
         const source = (typeof document.allApplicableEffects === "function")
             ? document.allApplicableEffects()
             : document.effects;
         // ActiveEffect ドキュメントは変異させない(sourceName 等は読み取り専用ゲッター)。
-        // 転送元の判別が困難なため template 側で埋め込みの effect.sourceName を使う。
+        // 転送元の判別が必要なら template 側で組み込みの effect.sourceName を使う。
         for (const effect of source) {
-            if (effect.type === "enchantment") {
-                effects.enchantments.push(effect);
-                continue;
-            }
-            // ダメージ/カスケード由来の状態は AE 本体をリスト非表示にする(供給元が浮くため、。
+            // ダメージ/カスケード由来の状態は AE 本体をリスト非表示にする(供給元が浮くため。
             // 状態自体はトークンのステータスアイコンで見える。技能由来 BS はフラグなし=表示)。
             const flags = effect.flags?.[SYSTEM_ID] ?? {};
             if (flags.hideFromList) continue;
@@ -64,7 +60,6 @@ export const EffectsSheetMixin = {
         for (const group of Object.values(effects)) group.sort(compare);
         context.allEffects = [...effects.temporary, ...effects.passive, ...effects.inactive].sort(compare);
         context.effects = effects;
-        context.isItem = document.documentName === "Item";
     },
 
     /**
@@ -93,39 +88,12 @@ export const EffectsSheetMixin = {
     ACTIONS: {
         async createEffect(_event, _target) {
             const doc = this.document;
-            const content = `
-            <form>
-                <div class="form-group">
-                    <label>名前</label>
-                    <div class="form-fields"><input type="text" name="name" value="新規効果" autofocus></div>
-                </div>
-                <div class="form-group">
-                    <label>タイプ</label>
-                    <div class="form-fields">
-                        <select name="type">
-                            <option value="base">通常のアクティブ効果</option>
-                            <option value="enchantment">アイテムへのエンチャント</option>
-                        </select>
-                    </div>
-                </div>
-            </form>`;
-            return Dialog.prompt({
-                title: "アクティブ効果新規作成",
-                content: content,
-                label: "作成",
-                callback: async (html) => {
-                    const form = html[0].querySelector("form");
-                    const name = form.name.value || "新規効果";
-                    const type = form.type.value || "base";
-                    const [effect] = await doc.createEmbeddedDocuments("ActiveEffect", [{
-                        name,
-                        type,
-                        img: "icons/svg/aura.svg",
-                        origin: doc.uuid,
-                    }]);
-                    effect?.sheet.render({ force: true });
-                }
-            });
+            const [effect] = await doc.createEmbeddedDocuments("ActiveEffect", [{
+                name: "新規効果",
+                img: "icons/svg/aura.svg",
+                origin: doc.uuid,
+            }]);
+            effect?.sheet.render({ force: true });
         },
 
         async editEffect(_event, target) {
@@ -158,39 +126,12 @@ export const EffectsSheetMixin = {
 
             switch (action) {
                 case "createEffect": {
-                    const content = `
-                    <form>
-                        <div class="form-group">
-                            <label>名前</label>
-                            <div class="form-fields"><input type="text" name="name" value="新規効果" autofocus></div>
-                        </div>
-                        <div class="form-group">
-                            <label>タイプ</label>
-                            <div class="form-fields">
-                                <select name="type">
-                                    <option value="base">通常のアクティブ効果</option>
-                                    <option value="enchantment">アイテムへのエンチャント</option>
-                                </select>
-                            </div>
-                        </div>
-                    </form>`;
-                    return Dialog.prompt({
-                        title: "アクティブ効果新規作成",
-                        content: content,
-                        label: "作成",
-                        callback: async (html) => {
-                            const form = html[0].querySelector("form");
-                            const name = form.name.value || "新規効果";
-                            const type = form.type.value || "base";
-                            const newEffects = await document.createEmbeddedDocuments("ActiveEffect", [{
-                                name,
-                                type,
-                                img: "icons/svg/aura.svg",
-                                origin: document.uuid,
-                            }]);
-                            newEffects[0]?.sheet.render(true);
-                        }
-                    });
+                    const newEffects = await document.createEmbeddedDocuments("ActiveEffect", [{
+                        name: "新規効果",
+                        img: "icons/svg/aura.svg",
+                        origin: document.uuid,
+                    }]);
+                    return newEffects[0]?.sheet.render(true);
                 }
                 case "editEffect":
                     return effect?.sheet.render(true);

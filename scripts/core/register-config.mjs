@@ -9,8 +9,6 @@ import { preloadHandlebarsTemplates } from "./preload-templates.mjs";
 import { SYSTEM_ID } from "../constants.mjs";
 import { CastDataModel } from "../data/actor/cast.mjs";
 import { VehicleDataModel as VehicleActorDataModel } from "../data/actor/vehicle.mjs";
-import { BaseEffectDataModel } from "../data/effect/base-effect.mjs";
-import { EnchantmentEffectDataModel } from "../data/effect/enchantment-effect.mjs";
 import { GuestDataModel } from "../data/actor/guest.mjs";
 import { TroopDataModel } from "../data/actor/troop.mjs";
 import { ExtraDataModel } from "../data/actor/extra.mjs";
@@ -126,11 +124,11 @@ export async function registerSystemConfig() {
     // カット進行のサイドバートラッカー(13-4)。既定のコンバットトラッカーを上書きする。
     CONFIG.ui.combat = TnxCombatTracker;
 
-    // ActiveEffect DataModel の登録
-    CONFIG.ActiveEffect.dataModels = {
-      base: BaseEffectDataModel,
-      enchantment: EnchantmentEffectDataModel,
-    };
+    // 型分離の試行中に保存された AE は通常の AE として読み込む。
+    // データの削除・再作成はせず、V14 標準の changes スキーマだけを借りる。
+    if (foundry.data?.ActiveEffectTypeDataModel) {
+        CONFIG.ActiveEffect.dataModels.enchantment = foundry.data.ActiveEffectTypeDataModel;
+    }
 
     // Actor DataModel の登録(全 Actor type)
     CONFIG.Actor.dataModels = {

@@ -234,14 +234,14 @@ export function registerEffectConfigInjection() {
         }
 
         // 準備先(親アイテム)に適用(自動適用オンのときのみ意味を持つ): 素のパラメータキーの効果を
-        // このアイテムの準備先ホストに効かせる(準備で転送・解除で除去)。エンチャントでのみ表示
+        // このアイテムの準備先ホストに効かせる(準備で転送・解除で除去)。アイテム上の効果でのみ表示
         let parentGroup = null;
-        if (app.document?.type === "enchantment") {
+        if (app.document?.parent?.documentName === "Item") {
             const cur = app.document.getFlag?.(SYSTEM_ID, "applyToParent") === true;
             parentGroup = document.createElement("div");
             parentGroup.classList.add("form-group", "tnx-apply-parent-field");
             parentGroup.innerHTML = `
-                <label>準備先に適用</label>
+                <label>準備先（親アイテム）に適用</label>
                 <div class="form-fields">
                     <input type="checkbox" name="flags.${SYSTEM_ID}.applyToParent" ${cur ? "checked" : ""}>
                 </div>`;
@@ -272,7 +272,13 @@ export function registerEffectConfigInjection() {
             //   攻撃用途の「適用される効果（ダメージ時）」リスト所属で決まる(usage.damageEffects)
         }
 
-        // 出し分けは不要となりました。自動適用オフ時でも準備先に適用を設定可能にします。
+        // 出し分け: 準備先=自動適用オンのときだけ表示する(常時自動適用の乗り先修飾のため。
+        // 使用時付与ではコピー作成時に applyToParent を落とす=オフ時に意味を持つ経路が無い)
+        const syncModeFields = () => {
+            if (parentGroup) parentGroup.style.display = (transferInput ? !!transferInput.checked : true) ? "" : "none";
+        };
+        syncModeFields();
+        transferInput?.addEventListener("change", syncModeFields);
 
         // コンディション(BS)の効果値フィールドを詳細タブの**末尾**に注入する(フェーズ9-4)。
         // - BS 種別ごとに <fieldset><legend>BS名</legend> で囲む(箇条書きの羅列を避ける)。
@@ -343,38 +349,32 @@ export function registerEffectConfigInjection() {
         injectConditionFieldsets();
 
         // status 選択を群(BS/戦闘不能/肉体/精神/社会)へグループ化する。
-        // エンチャントはアクターではないため、ステータス状態を持たない（UIから撤去）。
-        if (app.document?.type === "enchantment") {
-            const statusGroup = statusCtrl?.closest('.form-group');
-            if (statusGroup) statusGroup.style.display = "none";
-        } else {
-            // 描画後に option を動かすと <multi-select> が壊れる(2026-06-24 修正)。そこで Foundry の
-            // ファクトリ createMultiSelectInput で optgroup 構築済みの要素を作って置換する。
-            // 失敗時は既定の選択欄にフォールバック(絶対に壊さない)。変更時は statuses を即永続化(再注入で欄を出す)。
-            const persist = (el) => async () => {
-                const v = el.value;
-                const ids = Array.isArray(v) ? v : (v ? [v] : []);
-                await app.document?.update({ statuses: ids });
-            };
-            let boundCtrl = statusCtrl;
-            if (statusCtrl) {
-                try {
-                    const groups = Object.values(CONDITION_GROUP_LABELS);
-                    const options = Object.entries(CONDITION_KINDS).map(([id, def]) => ({
-                        value: id, label: def.label, group: CONDITION_GROUP_LABELS[def.group] ?? "",
-                    }));
-                    const grouped = foundry.applications.fields.createMultiSelectInput({
-                        name: statusCtrl.getAttribute("name") || "statuses",
-                        type: "multi", options, groups, value: [...(app.document?.statuses ?? [])],
-                    });
-                    statusCtrl.replaceWith(grouped);
-                    boundCtrl = grouped;
-                } catch (e) {
-                    console.warn("Tokyo NOVA: status のグループ化に失敗、既定の選択欄を使用します", e);
-                    boundCtrl = statusCtrl;
-                }
-                boundCtrl.addEventListener("change", persist(boundCtrl));
+        // 描画後に option を動かすと <multi-select> が壊れる(2026-06-24 修正)。そこで Foundry の
+        // ファクトリ createMultiSelectInput で optgroup 構成済みの要素を作って置換する。
+        // 失敗時は既定の選択欄にフォールバック(絶対に壊さない)。変更時は statuses を即永続化(再注入で欄即出)。
+        const persist = (el) => async () => {
+            const v = el.value;
+            const ids = Array.isArray(v) ? v : (v ? [v] : []);
+            await app.document?.update({ statuses: ids });
+        };
+        let boundCtrl = statusCtrl;
+        if (statusCtrl) {
+            try {
+                const groups = Object.values(CONDITION_GROUP_LABELS);
+                const options = Object.entries(CONDITION_KINDS).map(([id, def]) => ({
+                    value: id, label: def.label, group: CONDITION_GROUP_LABELS[def.group] ?? "",
+                }));
+                const grouped = foundry.applications.fields.createMultiSelectInput({
+                    name: statusCtrl.getAttribute("name") || "statuses",
+                    type: "multi", options, groups, value: [...(app.document?.statuses ?? [])],
+                });
+                statusCtrl.replaceWith(grouped);
+                boundCtrl = grouped;
+            } catch (e) {
+                console.warn("Tokyo NOVA: status のグループ化に失敗、既定の選択欄を使用します。", e);
+                boundCtrl = statusCtrl;
             }
+            boundCtrl.addEventListener("change", persist(boundCtrl));
         }
     });
 

@@ -96,29 +96,10 @@ export const MIGRATIONS = Object.freeze([
     },
     {
         version: 6,
-        name: "アイテム上エンチャントAEのDataModel化",
-        run: async () => {
-            const migrateAEs = async (item) => {
-                const toDelete = [];
-                const toCreate = [];
-                for (const effect of item.effects.contents) {
-                    if (effect.flags?.[SYSTEM_ID]?.applyToParent === true && effect.type !== "enchantment") {
-                        const data = effect.toObject();
-                        data.type = "enchantment";
-                        toCreate.push(data);
-                        toDelete.push(effect.id);
-                    }
-                }
-                if (toDelete.length > 0) {
-                    await item.deleteEmbeddedDocuments("ActiveEffect", toDelete);
-                    await item.createEmbeddedDocuments("ActiveEffect", toCreate, { keepId: true });
-                }
-            };
-            for (const it of game.items.contents) await migrateAEs(it);
-            for (const actor of game.actors.contents) {
-                for (const it of actor.items.contents) await migrateAEs(it);
-            }
-        },
+        name: "欠番（エンチャント型への移行は撤回）",
+        // 適用済みワールドの版番号を再利用しない。未適用ワールドでも AE を書き換えない。
+        // 保存済み enchantment は register-config の標準 DataModel 互換登録で扱う。
+        run: async () => {},
     },
 ]);
 
