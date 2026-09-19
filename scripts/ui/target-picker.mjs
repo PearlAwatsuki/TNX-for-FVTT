@@ -15,9 +15,11 @@
 import { addTargets, removeTarget, moveTarget } from "../rules/target-picker.mjs";
 import { currentTargetActors } from "../flow/target-resolution.mjs";
 
+import { getActingActor } from "../session/vehicle-state.mjs";
+
 /** 盤面で選択中のトークンのアクター。 */
 export function collectSelectedActors() {
-    return (canvas?.tokens?.controlled ?? []).map(t => t?.actor).filter(Boolean);
+    return (canvas?.tokens?.controlled ?? []).map(t => getActingActor(t?.actor)).filter(Boolean);
 }
 
 /** レティクルを付けた対象のアクター。 */

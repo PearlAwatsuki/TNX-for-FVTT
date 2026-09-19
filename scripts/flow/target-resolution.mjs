@@ -16,7 +16,7 @@
 import { planUsageTargets } from "../rules/usage-target-plan.mjs";
 import { isOpposedConfrontation } from "../rules/confrontation.mjs";
 import { TargetSelectionDialog } from "../ui/tnx-dialog.mjs";
-import { crewTarget, selectedCrew, vehicleOutfit, ghostCanInteract, crewVehicle, vehicleToken } from "../session/vehicle-state.mjs";
+import { crewTarget, selectedCrew, vehicleOutfit, ghostCanInteract, crewVehicle, vehicleToken, droneTarget, dronePilot } from "../session/vehicle-state.mjs";
 import { isDrone } from "../rules/vehicle.mjs";
 
 /** 車両トークンは乗員の明示選択、ドローンは操縦者へ解決する。 */
@@ -32,7 +32,11 @@ function tokenTargetRefs(token) {
     if (selected.length) return selected;
     if (isDrone(vehicleOutfit(actor))) {
         const driver = actor.system.crew.find(c => c.role === "driver");
-        const target = driver ? crewTarget(actor, driver) : null;
+        if (driver) {
+            const target = crewTarget(actor, driver);
+            return target ? [target] : [];
+        }
+        const target = droneTarget(actor);
         return target ? [target] : [];
     }
     return [];
@@ -154,6 +158,8 @@ export async function promptTargetToken(actor) {
                     const ref = crewTarget(a, member);
                     if (ref && ref.uuid !== actor.uuid) options.push({ value: `${t.id}|${member.actorUuid}`, label: ref.name });
                 }
+                const pilotRef = droneTarget(a);
+                if (pilotRef && pilotRef.uuid !== actor.uuid) options.push({ value: `${t.id}|${pilotRef.uuid}`, label: pilotRef.name });
                 continue;
             }
             options.push({ value: t.id, label: a.name });
@@ -177,7 +183,11 @@ export async function promptTargetToken(actor) {
     token.setTarget(true, { releaseOthers: true }); // 必ずレティクルを付与
     if (memberUuid) {
         const member = token.actor.system.crew.find(c => c.actorUuid === memberUuid);
-        const ref = member ? crewTarget(token.actor, member) : null;
+        let ref = member ? crewTarget(token.actor, member) : null;
+        if (!ref) {
+            const pilot = dronePilot(token.actor);
+            if (pilot && pilot.uuid === memberUuid) ref = droneTarget(token.actor);
+        }
         if (!ref) return null;
         selectedCrew.set(`${token.actor.uuid}:${memberUuid}`, ref);
         return [ref];

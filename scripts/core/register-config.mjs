@@ -103,7 +103,18 @@ export async function registerSystemConfig() {
     // かつ v13 のトークンアクターで transfer:true が転送されないバグがある。
     // false にすると、transfer:false の効果はアイテム自身へ、transfer:true の効果は
     // アイテム上から親アクターへ仮想適用される(着地点 effectMod に正しく流れ込む)。
-    CONFIG.ActiveEffect.legacyTransferral = false;
+    // v14 では設定自体が廃止されているため存在チェックする。
+    if ("legacyTransferral" in CONFIG.ActiveEffect) {
+        CONFIG.ActiveEffect.legacyTransferral = false;
+    }
+
+    // v14: ActiveEffect の適用フェーズを登録（二段階適用制御）。
+    if (CONFIG.ActiveEffect.phases !== undefined) {
+        CONFIG.ActiveEffect.phases = {
+            initial: { priority: 10 },
+            final:   { priority: 20 },
+        };
+    }
 
     // カット進行(戦闘システム・フェーズ13)の Combat/Combatant 派生クラスを登録。
     // 13-2 は「器」＝クラス新設・登録・カット開始シードのロジック集約まで。
@@ -172,6 +183,13 @@ export async function registerSystemConfig() {
         img:  def.img ?? "icons/svg/aura.svg",
         flags: { [SYSTEM_ID]: { conditionKind: id, hideFromList: true } },
     }));
+    // v14 では CONFIG.statusEffects がオブジェクト形式に変更。
+    // v14 中は後方互換レイヤーがあるため配列でも動作するが、将来に備え変換を入れる。
+    if (game.release?.generation >= 14) {
+        CONFIG.statusEffects = Object.fromEntries(
+            CONFIG.statusEffects.map(e => [e.id, e])
+        );
+    }
 
     // トークンリソースバーの割当候補(フェーズ11-4)。トループの heads=人数/エニグマポイントが
     // HP のように機能する(Troops.md)。他 type はチャート式ダメージのためバー非対応。

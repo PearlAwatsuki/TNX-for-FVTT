@@ -43,7 +43,7 @@ export function registerEffectConfigInjection() {
             { match: (k) => !!flagKeyParam(k), options: [opt("true", "オン"), opt("false", "オフ")] },
         ];
         const syncChangeValueInputs = () => {
-            for (const keyInput of root.querySelectorAll('[name^="changes."][name$=".key"]')) {
+            for (const keyInput of root.querySelectorAll('[name^="changes."][name$=".key"], [name^="system.changes."][name$=".key"]')) {
                 const valueName = keyInput.name.replace(/\.key$/, ".value");
                 const valueEl = root.querySelector(`[name="${CSS.escape(valueName)}"]`);
                 if (!valueEl) continue;
@@ -168,7 +168,7 @@ export function registerEffectConfigInjection() {
             root.appendChild(relList);
         }
         // キー入力の候補付けは毎レンダー(変更行の追加にも追従)
-        for (const keyInput of root.querySelectorAll('[name^="changes."][name$=".key"]')) {
+        for (const keyInput of root.querySelectorAll('[name^="changes."][name$=".key"], [name^="system.changes."][name$=".key"]')) {
             keyInput.setAttribute("list", "tnx-ae-key-suggestions");
         }
         syncChangeValueInputs();

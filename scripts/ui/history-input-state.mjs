@@ -4,8 +4,15 @@ export function HistoryInputStateMixin(Base) {
         _preSyncPartState(partId, newElement, priorElement, state) {
             super._preSyncPartState(partId, newElement, priorElement, state);
             const input = priorElement.ownerDocument.activeElement;
-            if (!priorElement.contains(input) || !input?.matches(".history-input")) return;
-            state.focus = `.history-input[data-id="${CSS.escape(input.dataset.id)}"][data-field="${CSS.escape(input.dataset.field)}"]`;
+            if (!priorElement.contains(input) || !input?.matches("input, textarea")) return;
+            
+            let selector = "";
+            if (input.id) selector = `#${CSS.escape(input.id)}`;
+            else if (input.name) selector = `${input.tagName.toLowerCase()}[name="${CSS.escape(input.name)}"]`;
+            else if (input.dataset.id && input.dataset.field) selector = `${input.tagName.toLowerCase()}[data-id="${CSS.escape(input.dataset.id)}"][data-field="${CSS.escape(input.dataset.field)}"]`;
+            else selector = input.tagName.toLowerCase(); // Fallback
+
+            state.focus = selector;
             // キャストのタブ復帰は通常_onRenderまで遅れる。非表示の入力へはfocusできないため、
             // 新しいDOMを挿入する前に、入力中のタブの表示状態を引き継ぐ。
             const tab = input.closest(".tab[data-group][data-tab]");

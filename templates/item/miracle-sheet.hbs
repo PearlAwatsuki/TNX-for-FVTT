@@ -25,7 +25,7 @@
 
                 </div>
                 <div class="tnx-editor-section__content">
-                    {{editor enrichedDescription target="system.description" engine="prosemirror" button=true owner=owner editable=editable}}
+                    <prose-mirror name="system.description" data-document-uuid="{{document.uuid}}" value="{{system.description}}" toggled="true">{{{enrichedDescription}}}</prose-mirror>
                 </div>
             </div>
             <div class="tnx-editor-section">
@@ -33,7 +33,7 @@
                     <label>条件</label>
                 </div>
                 <div class="tnx-editor-section__content">
-                    {{editor enrichedConditionDescription target="system.usageCondition" engine="prosemirror" button=true owner=owner editable=editable}}
+                    <prose-mirror name="system.usageCondition" data-document-uuid="{{document.uuid}}" value="{{system.usageCondition}}" toggled="true">{{{enrichedConditionDescription}}}</prose-mirror>
                 </div>
             </div>
         </div>

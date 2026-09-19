@@ -7,6 +7,7 @@ vi.mock("../../scripts/session/vehicle-state.mjs", () => ({
     selectedCrew: new Map(), vehicleOutfit: () => null,
     crewTarget: (vehicle, member) => member.gone ? null : ({ uuid: member.actorUuid, name: member.actorUuid,
         vehicleRoute: { vehicleUuid: vehicle.uuid, tokenUuid: "Token.car" } }),
+    dronePilot: () => null,
 }));
 import { selectedCrew, requestVehicleOperation } from "../../scripts/session/vehicle-state.mjs";
 import { showVehicleTargets, closeVehicleTargets, registerVehicleTargetHUD, registerVehicleCanvasDrop } from "../../scripts/session/vehicle-target-hud.mjs";

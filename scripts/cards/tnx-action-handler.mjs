@@ -616,6 +616,32 @@ export class TnxActionHandler {
     }
 
     /**
+     * 手札から特定のカードを山札の一番上に戻す
+     * @param {string} cardId - 戻すカードのID
+     */
+    static async returnHandCardToDeck(cardId) {
+        const deck = await this.getActiveDeck();
+        const handId = getUserFlagData(game.user).handPileId;
+        const hand = handId ? await fromUuid(handId) : null;
+        
+        if (!deck || !hand || !cardId) {
+            if (!hand) ui.notifications.error("操作対象の手札が設定されていません。");
+            return;
+        }
+        
+        const card = hand.cards.get(cardId);
+        if (!card) return;
+
+        // 山札に移動し、裏向きにする
+        await hand.pass(deck, [cardId], { 
+            chatNotification: false,
+            updateData: { face: null }
+        });
+
+        ui.notifications.info(`「${card.name}」を手札から山札に戻しました。`);
+    }
+
+    /**
      * カード情報をチャットに投稿する共通ヘルパー
      * @param {Card} card - チャットに投稿するカードドキュメント
      * @param {object} [options={}] - 追加オプション

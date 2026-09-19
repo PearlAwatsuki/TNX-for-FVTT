@@ -1,4 +1,5 @@
 import { bindListDragDrop } from "../ui/list-drag-drop.mjs";
+import { captureScrollTop, restoreScrollTop } from "../ui/scroll-preserve.mjs";
 import { EffectsSheetMixin } from "../ui/effects-sheet-mixin.mjs";
 import { TnxUsageSheet, USAGE_TYPES } from "../app/tnx-usage-sheet.mjs";
 import { deriveUsageAutoFill, updateUsageActions } from "../core/usage-derivation.mjs";
@@ -114,7 +115,52 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
     }
 
     /** @override */
+    async _preRender(context, options) {
+        await super._preRender?.(context, options);
+        this._scrollTop = captureScrollTop(this.element, ".sheet-body");
+    }
+
+    /** @override */
+    _preSyncPartState(partId, newElement, priorElement, state) {
+        super._preSyncPartState?.(partId, newElement, priorElement, state);
+        const input = priorElement.ownerDocument.activeElement;
+        if (!priorElement.contains(input) || !input?.matches("input, textarea")) return;
+        
+        let selector = "";
+        if (input.id) selector = `#${CSS.escape(input.id)}`;
+        else if (input.name) selector = `${input.tagName.toLowerCase()}[name="${CSS.escape(input.name)}"]`;
+        else if (input.dataset.id && input.dataset.field) selector = `${input.tagName.toLowerCase()}[data-id="${CSS.escape(input.dataset.id)}"][data-field="${CSS.escape(input.dataset.field)}"]`;
+        else selector = input.tagName.toLowerCase();
+
+        state.focus = selector;
+        state.tnxInputState = {
+            value: input.value,
+            start: input.selectionStart,
+            end: input.selectionEnd,
+            direction: input.selectionDirection,
+        };
+    }
+
+    /** @override */
+    _syncPartState(partId, newElement, priorElement, state) {
+        const input = state.tnxInputState ? newElement.querySelector(state.focus) : null;
+        if (input) input.value = state.tnxInputState.value;
+        
+        super._syncPartState?.(partId, newElement, priorElement, 
+            state.tnxInputState ? { ...state, focus: undefined } : state);
+            
+        if (input) {
+            input.focus({ preventScroll: true });
+            if (state.tnxInputState.start !== null) {
+                input.setSelectionRange(state.tnxInputState.start, state.tnxInputState.end, state.tnxInputState.direction);
+            }
+        }
+    }
+
+    /** @override */
     _onRender(context, _options) {
+        super._onRender?.(context, _options);
+        restoreScrollTop(this.element, ".sheet-body", this._scrollTop);
         bindListDragDrop(this);
         const el = this.element;
 

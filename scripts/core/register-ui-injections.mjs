@@ -14,21 +14,22 @@ import { FOCUS_SYSTEM_FLAG, defaultFocusSystemData } from "../focus-system/data.
 import { getPartSlotPreset } from "../app/part-slot-preset-app.mjs";
 import { manualEditDamage } from "../flow/damage-flow.mjs";
 import { applyAttackPatch } from "../flow/attack-flow.mjs";
+import { wrapMenu } from "../ui/menu-wrapper.mjs";
 
 export function registerUiInjections() {
     // プレイヤーリストの右クリックメニューに「レコードシートを開く」を追加する。
     // 自分の分は全員、他人の分は GM のみ表示。
     Hooks.on("getUserContextOptions", (_html, options) => {
-        options.push({
-            name: "レコードシートを開く",
+        options.push(...wrapMenu([{
+            label: "レコードシートを開く",
             icon: '<i class="fas fa-id-card"></i>',
-            condition: (li) => {
+            visible: (li) => {
                 const el = li instanceof Element ? li : li[0];
                 const userId = el?.dataset?.userId ?? el?.dataset?.documentId;
                 if (!userId) return false;
                 return game.user.isGM || userId === game.user.id;
             },
-            callback: (li) => {
+            onClick: (li) => {
                 const el = li instanceof Element ? li : li[0];
                 const userId = el?.dataset?.userId ?? el?.dataset?.documentId;
                 if (!userId) return;
@@ -40,7 +41,7 @@ export function registerUiInjections() {
                 if (existing) { existing.bringToFront(); return; }
                 new TnxRecordSheet(user).render(true);
             },
-        });
+        }]));
     });
 
     // 判定・ダメージへの特殊処理の正規の置き場=チャットカードの右クリックメニュー(GM のみ表示・
@@ -53,51 +54,51 @@ export function registerUiInjections() {
             const el = li instanceof Element ? li : li[0];
             return game.messages.get(el?.dataset?.messageId);
         };
-        options.push(
+        options.push(...wrapMenu([
             {
-                name: "再判定（この判定をやり直す）",
-                icon: '<i class="fas fa-rotate-right"></i>',
-                condition: (li) => {
+                label: "再判定（この判定をやり直す）",
+            icon: '<i class="fas fa-rotate-right"></i>',
+            visible: (li) => {
                     if (!game.user.isGM) return false;
                     const m = msgOf(li);
                     return !!m?.getFlag(SYSTEM_ID, "checkRecheck") && !TnxCheckFlow.recheckBlockReason(m);
                 },
-                callback: (li) => TnxCheckFlow.startRecheck(msgOf(li)),
+                onClick: (li) => TnxCheckFlow.startRecheck(msgOf(li)),
             },
             {
-                name: "達成値を修正（手動）",
+                label: "達成値を修正（手動）",
                 icon: '<i class="fas fa-pen"></i>',
                 // スナップショット持ちのカードに限る: 継続処理系(移動/治療等)は達成値だけ書き換えると
                 // 適用済みの帰結と乖離し、事後修正のライブ描画もスナップショット持ちでしか動かない
-                condition: (li) => game.user.isGM && !!msgOf(li)?.getFlag(SYSTEM_ID, "checkRecheck"),
-                callback: (li) => TnxCheckFlow.manualEditAchievement(msgOf(li)),
+                visible: (li) => game.user.isGM && !!msgOf(li)?.getFlag(SYSTEM_ID, "checkRecheck"),
+                onClick: (li) => TnxCheckFlow.manualEditAchievement(msgOf(li)),
             },
             {
-                name: "ダメージを修正（手動）",
+                label: "ダメージを修正（手動）",
                 icon: '<i class="fas fa-burst"></i>',
                 // 達成値の手動修正と同じ最終裁定ツール=適用済みでも制限しない(2026-07-14 ユーザー確定)
-                condition: (li) => game.user.isGM && !!msgOf(li)?.getFlag(SYSTEM_ID, "damageRoll"),
-                callback: async (li) => {
+                visible: (li) => game.user.isGM && !!msgOf(li)?.getFlag(SYSTEM_ID, "damageRoll"),
+                onClick: async (li) => {
                     await manualEditDamage(msgOf(li));
                 },
             },
             {
-                name: "ダメージ処理をリセット",
+                label: "ダメージ処理をリセット",
                 icon: '<i class="fas fa-rotate-left"></i>',
                 // 攻撃カードの damageRolled を戻し「ダメージカードを出す」ボタンを復活させる=算出の
                 // やり直し(2026-07-14 ユーザー確定)。出済みのダメージカードは残る(整理は手動)。
                 // タイミング系ゲート(再判定・事後修正)もリセット後は自然に再び開く
-                condition: (li) => {
+                visible: (li) => {
                     if (!game.user.isGM) return false;
                     const f = msgOf(li)?.getFlag(SYSTEM_ID, "attackCheck");
                     return !!f && f.damageRolled === true;
                 },
-                callback: async (li) => {
+                onClick: async (li) => {
                     await applyAttackPatch(msgOf(li), { damageRolled: false });
                     ui.notifications.info("ダメージ処理をリセットしました（出済みのダメージカードは必要に応じて削除してください）。");
                 },
             },
-        );
+        ]));
     });
 
     // v13: 標準ボタン行(header-actions)の直後に「アクトシートを作成」ボタンを 2 段目として挿入する。

@@ -29,8 +29,8 @@ export class TokyoNovaActiveEffect extends ActiveEffect {
   /** @override — Actor ドキュメントへの `name` 変更(名前装飾)はネイティブ適用しない(フェーズ12)。 */
   apply(document, change) {
     if (document instanceof Actor && change?.key === "name") return {};
-    // v14 では instance.apply が廃止された。TNX が評価済みの値は静的 API に渡す。
-    if (typeof super.apply !== "function") {
+    // v14 では instance.apply が廃止され applyChange に統合された。
+    if (typeof this.constructor.applyChange === "function") {
       return this.constructor.applyChange(document, { ...change, effect: this });
     }
     return super.apply(document, change);

@@ -1,4 +1,4 @@
-import { vehicleOutfit, requestVehicleOperation, toggleCrewTarget, selectedCrew, crewTarget } from "../session/vehicle-state.mjs";
+import { vehicleOutfit, requestVehicleOperation, toggleCrewTarget, selectedCrew, crewTarget, dronePilot } from "../session/vehicle-state.mjs";
 import { buildOutfitSummaryRows } from "../ui/outfit-view.mjs";
 import { isDrone } from "../rules/vehicle.mjs";
 import { isOutfitDestroyed, isOutfitMalfunctioning, isOutfitUnusable } from "../data/item/helpers.mjs";
@@ -32,6 +32,19 @@ export class TokyoNovaVehicleSheet extends HandlebarsApplicationMixin(ActorSheet
             leaveCrew: async function (_event, target) { await this._changeCrew("leave", target); },
             driveCrew: async function (_event, target) { await this._changeCrew("board", target); },
             combatCrew: async function (_event, target) { await this._changeCrew("combat", target); },
+            openPilot: function () {
+                const driver = this.actor.system.crew.find(c => c.role === "driver");
+                if (driver) return fromUuidSync(driver.actorUuid)?.sheet.render(true);
+                const pilot = dronePilot(this.actor);
+                if (pilot) return pilot.sheet.render(true);
+                ui.notifications.info("操縦者がいません。");
+            },
+            endDrone: async function () {
+                const pilot = dronePilot(this.actor);
+                if (!pilot) return;
+                await requestVehicleOperation("endDrone", { actorUuid: pilot.uuid });
+                this.render(false);
+            },
         },
     };
     static PARTS = { main: { template: "systems/tokyo-nova-axleration/templates/actor/vehicle-sheet.hbs", scrollable: [""] } };
@@ -40,13 +53,17 @@ export class TokyoNovaVehicleSheet extends HandlebarsApplicationMixin(ActorSheet
         const context = await super._prepareContext(options);
         const item = vehicleOutfit(this.actor);
         const crew = this.actor.system.crew.filter(c => fromUuidSync(c.actorUuid)?.getFlag(SYSTEM_ID, "appearing") === true);
+        const driver = crew.find(c => c.role === "driver");
+        const pilot = dronePilot(this.actor);
+        const pilotActor = driver ? fromUuidSync(driver.actorUuid) : pilot;
         return { ...context, actor: this.actor, system: this.actor.system, editable: this.isEditable,
             isEditMode: this.isEditable && this._isEditMode,
-            canBoard: this.isEditable && !!item && !isOutfitUnusable(item.system),
+            canBoard: this.isEditable && !!item && !isOutfitUnusable(item.system) && item.system.passenger?.mode === "value" && item.system.passenger?.value > 0,
             outfit: item, missing: !item, drone: isDrone(item),
             statusLabel: !item ? "未連携" : isOutfitDestroyed(item.system) ? "破壊" : isOutfitMalfunctioning(item.system) ? "故障" : item.system.isPrepared ? "準備中" : "未準備",
             statusWarning: !item || isOutfitDestroyed(item.system) || isOutfitMalfunctioning(item.system),
             crewCount: crew.length,
+            pilotActor: pilotActor,
             summary: item ? buildOutfitSummaryRows(item.system, item.type) : [],
             crew: crew.map(c => {
                 const actor = fromUuidSync(c.actorUuid);

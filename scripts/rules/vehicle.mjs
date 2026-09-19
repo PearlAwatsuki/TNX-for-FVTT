@@ -1,11 +1,33 @@
-/** ヴィークル本体とオプションを区別する。Foundry非依存。 */
+/** ヴィークル本体とオプションを区別する。 */
 export function isVehicleBody(item) {
-    return item?.type === "vehicle" && !item.system?.isOption
-        && !(item.system?.classifications ?? []).some(c => c.minor === "vehicleOption");
+    if (item?.type !== "vehicle" || item.system?.isOption) return false;
+    const minors = getMinors(item);
+    return !minors.includes("vehicleOption");
 }
 
 export function isDrone(item) {
-    return isVehicleBody(item) && (item.system?.classifications ?? []).some(c => c.minor === "drone");
+    if (!isVehicleBody(item)) return false;
+    return getMinors(item).includes("drone");
+}
+
+/** 分類がドローンのみ（純粋ドローン）。ゴースト登場を強制する。 */
+export function isDroneOnly(item) {
+    if (!isVehicleBody(item)) return false;
+    const minors = getMinors(item).filter(m => m); // 空文字を除外
+    return minors.length > 0 && minors.every(m => m === "drone");
+}
+
+// ヘルパー：アイテムが持つすべての小分類（minor）の配列を返す
+function getMinors(item) {
+    const minors = [];
+    if (item?.system?.minorCategory) minors.push(item.system.minorCategory);
+    const adds = item?.system?.additionalCategories;
+    if (Array.isArray(adds)) {
+        for (const add of adds) {
+            if (add?.minor) minors.push(add.minor);
+        }
+    }
+    return minors;
 }
 
 /** 乗員編集の検証。人数なしは上限を推測しない。 */

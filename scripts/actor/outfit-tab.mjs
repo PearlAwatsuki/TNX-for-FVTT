@@ -125,15 +125,18 @@ export function computeColValue(key, sys, effectiveValues, partCtx = null) {
         case "control":
             return mvT(sys.controlMod) !== null ? String(mvT(sys.controlMod)) : "-";
         case "slot": {
-            const s = (sys.slots ?? []).find(s => s.kind === "normal");
+            const slots = Array.isArray(sys.slots) ? sys.slots : (sys.slots ? Object.values(sys.slots) : []);
+            const s = slots.find(s => s.kind === "normal");
             return mvT(s?.count) !== null ? String(mvT(s.count)) : "-";
         }
         case "soft": {
-            const s = (sys.slots ?? []).find(s => s.kind === "software");
+            const slots = Array.isArray(sys.slots) ? sys.slots : (sys.slots ? Object.values(sys.slots) : []);
+            const s = slots.find(s => s.kind === "software");
             return mvT(s?.count) !== null ? String(mvT(s.count)) : "-";
         }
         case "hard": {
-            const s = (sys.slots ?? []).find(s => s.kind === "hardware");
+            const slots = Array.isArray(sys.slots) ? sys.slots : (sys.slots ? Object.values(sys.slots) : []);
+            const s = slots.find(s => s.kind === "hardware");
             return mvT(s?.count) !== null ? String(mvT(s.count)) : "-";
         }
         case "cycle":

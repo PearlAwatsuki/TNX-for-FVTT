@@ -9,6 +9,7 @@
  */
 
 import { HistoryInputStateMixin } from "../ui/history-input-state.mjs";
+import { captureScrollTop, restoreScrollTop } from "../ui/scroll-preserve.mjs";
 
 import {
   getUserFlagData,
@@ -78,7 +79,14 @@ export class TnxRecordSheet extends HistoryInputStateMixin(HandlebarsApplication
   }
 
   /** @override */
+  async _preRender(context, options) {
+    await super._preRender?.(context, options);
+    this._scrollTop = captureScrollTop(this.element, ".record-sheet-body");
+  }
+
+  /** @override */
   _onRender(_context, _options) {
+    restoreScrollTop(this.element, ".record-sheet-body", this._scrollTop);
     if (!this._canEdit()) return;
     for (const input of this.element.querySelectorAll(".history-input")) {
       input.addEventListener("change", this._onHistoryInputChange.bind(this));

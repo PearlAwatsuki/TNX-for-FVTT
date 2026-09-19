@@ -47,9 +47,12 @@ export function enumeratePurchaseUsages(actor) {
     return out;
 }
 
+import { getActingActor } from "../session/vehicle-state.mjs";
+
 /** 辞典ブラウザの購入ボタンから起動する。uuid=辞典アイテム(コンペンディウム)。 */
 export async function startPurchaseFromBrowser(uuid) {
-    const actor = canvas.tokens?.controlled?.[0]?.actor ?? game.user.character;
+    const sel = getActingActor(canvas.tokens?.controlled?.[0]?.actor);
+    const actor = sel ?? game.user.character;
     if (!actor) {
         return void ui.notifications.warn("購入するアクターがいません。トークンを選択するか、担当キャラクターを設定してください。");
     }

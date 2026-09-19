@@ -1,6 +1,7 @@
 import { SYSTEM_ID } from "../constants.mjs";
 import { getAreaAtPoint, validateAreaBoard } from "../rules/area-combat.mjs";
 import { TnxTokenRuler } from "./tnx-token-ruler.mjs";
+import { fillRect, strokeLines } from "../util/pixi-compat.mjs";
 
 let graphics, highlights, preview, hovered;
 
@@ -26,23 +27,26 @@ function drawBoard() {
     graphics.eventMode = highlights.eventMode = "none";
     const { x, y } = board.origin;
     const { width, height } = board.cell;
-    graphics.lineStyle(2, Number.parseInt(board.style.color.slice(1), 16), board.style.alpha);
+    const color = Number.parseInt(board.style.color.slice(1), 16);
+    const alpha = board.style.alpha;
+    const segments = [];
     for (let column = 0; column <= board.columns; column++) {
-        graphics.moveTo(x + column * width, y).lineTo(x + column * width, y + height * board.rows);
+        segments.push([x + column * width, y, x + column * width, y + height * board.rows]);
     }
     for (let row = 0; row <= board.rows; row++) {
-        graphics.moveTo(x, y + row * height).lineTo(x + width * board.columns, y + row * height);
+        segments.push([x, y + row * height, x + width * board.columns, y + row * height]);
     }
+    strokeLines(graphics, 2, color, alpha, segments);
     canvas.stage.addChild(graphics, highlights);
     refreshHighlights();
 }
 
 function fillArea(board, area, color) {
     if (!area) return;
-    highlights.beginFill(color, 0.12).drawRect(
+    fillRect(highlights, color, 0.12,
         board.origin.x + area.column * board.cell.width,
         board.origin.y + area.row * board.cell.height, board.cell.width, board.cell.height,
-    ).endFill();
+    );
 }
 
 function refreshHighlights() {

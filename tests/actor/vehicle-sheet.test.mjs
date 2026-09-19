@@ -6,6 +6,7 @@ vi.mock("../../scripts/ui/tnx-dialog.mjs", () => ({ TargetSelectionDialog: { pro
 vi.mock("../../scripts/session/vehicle-state.mjs", () => ({
     vehicleOutfit: vi.fn(), requestVehicleOperation: vi.fn(), toggleCrewTarget: vi.fn(),
     selectedCrew: new Map(), crewTarget: () => null, crewVehicle: () => null,
+    dronePilot: () => null,
 }));
 foundry.applications.api.HandlebarsApplicationMixin = base => base;
 foundry.applications.sheets = { ActorSheetV2: class {
@@ -56,12 +57,12 @@ describe("車両シートの編集と搭乗操作", () => {
         await sheet._promptBoard();
         expect(requestVehicleOperation).toHaveBeenCalledWith("board", { vehicleUuid: "Actor.car", actorUuid: actor.uuid, role: "passenger" });
     });
-    it("ドロップも役割の確認を通し、ドローンは遠隔操縦者だけを提示する", async () => {
+    it("ドロップも役割の確認を通し、ドローンにも物理搭乗は操縦者として提示する", async () => {
         item.system.classifications = [{ minor: "drone" }];
         actor.system.isGhost = false;
         TargetSelectionDialog.prompt.mockResolvedValueOnce("driver");
         await sheet._promptBoard(actor);
-        expect(TargetSelectionDialog.prompt).toHaveBeenCalledWith(expect.objectContaining({ options: [{ value: "driver", label: "遠隔操縦者" }] }));
+        expect(TargetSelectionDialog.prompt).toHaveBeenCalledWith(expect.objectContaining({ options: [{ value: "driver", label: "操縦者" }, { value: "passenger", label: "同乗者" }] }));
         expect(requestVehicleOperation).toHaveBeenCalledOnce();
     });
     it("既存方式の切替をヘッダーに一つだけ配置する", () => {

@@ -89,29 +89,32 @@ export async function activateItemCheck(actor, item, extraOpen = {}) {
         }
     }
 
-    const usableUsages = (asOther?.source ?? item).system.actions ?? [];
+    const allUsages = (asOther?.source ?? item).system.actions ?? [];
 
     // 用途を決定（直接指定→カバー再入の引き継ぎ→1つなら自動選択→複数はピッカー表示）。
     // カバーの判定起動(covering)は、待ち受け開始時に確定した用途を再選択せず引き継ぐ。
     let selectedUsage;
     if (directUsageId) {
-        selectedUsage = usableUsages.find(a => a._id === directUsageId) ?? null;
+        selectedUsage = allUsages.find(a => a._id === directUsageId) ?? null;
         if (!selectedUsage) return;
     } else if (openExtra.covering?.usageId) {
-        selectedUsage = usableUsages.find(a => a._id === openExtra.covering.usageId) ?? null;
+        selectedUsage = allUsages.find(a => a._id === openExtra.covering.usageId) ?? null;
         if (!selectedUsage) return;
-    } else if (!usableUsages.length) {
-        // 神業(17-1)は用途が無くても機能する: 残回数ゲート→使用回数の消費→神業カード。
-        // 用途は前提条件でなく、固有の挙動(打ち消し・防御・ダメージ等)を足すためのもの
-        // 《プリーズ！》で使わされる(openExtra.miracleFree)ときは残回数ゲートも消費も無い(17-4)
-        if (item.type === "miracle") return useMiracleWithoutUsage(item, { free: !!openExtra.miracleFree, asOther });
-        await item.postDescriptionCard();
-        return;
-    } else if (usableUsages.length === 1) {
-        selectedUsage = usableUsages[0];
     } else {
-        selectedUsage = await promptCheckUsage(usableUsages, item.name);
-        if (!selectedUsage) return;
+        const selectableUsages = allUsages.filter(u => !u.hideFromUsageSelection);
+        if (!selectableUsages.length) {
+            // 神業(17-1)は用途が無くても機能する: 残回数ゲート→使用回数の消費→神業カード。
+            // 用途は前提条件でなく、固有の挙動(打ち消し・防御・ダメージ等)を足すためのもの
+            // 《プリーズ！》で使わされる(openExtra.miracleFree)ときは残回数ゲートも消費も無い(17-4)
+            if (item.type === "miracle") return useMiracleWithoutUsage(item, { free: !!openExtra.miracleFree, asOther });
+            await item.postDescriptionCard();
+            return;
+        } else if (selectableUsages.length === 1) {
+            selectedUsage = selectableUsages[0];
+        } else {
+            selectedUsage = await promptCheckUsage(selectableUsages, item.name);
+            if (!selectedUsage) return;
+        }
     }
 
     // 神業(17-1): 消費先が空の用途は自身の使用回数×1を既定消費する(使用＝回数消費が定義に

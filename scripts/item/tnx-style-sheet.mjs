@@ -1,3 +1,4 @@
+import { wrapMenu } from "../ui/menu-wrapper.mjs";
 import { TokyoNovaItemSheet } from "./tnx-item-sheet.mjs";
 
 export class TokyoNovaStyleSheet extends TokyoNovaItemSheet {
@@ -5,7 +6,7 @@ export class TokyoNovaStyleSheet extends TokyoNovaItemSheet {
     static DEFAULT_OPTIONS = {
         classes: ["tokyo-nova", "sheet", "item", "style"],
         position: { width: 600, height: 600 },
-        actions: {
+        actions: { ...TokyoNovaItemSheet.DEFAULT_OPTIONS.actions,
             openLinkedSheet:       TokyoNovaStyleSheet._onOpenLinkedSheet,
             createAndLinkMiracle:  TokyoNovaStyleSheet._onCreateAndLinkMiracle,
             decrementLevel:        TokyoNovaStyleSheet._onDecrementLevel,
@@ -59,10 +60,10 @@ export class TokyoNovaStyleSheet extends TokyoNovaItemSheet {
 
         const CM = foundry.applications.ux.ContextMenu.implementation;
         new CM(this.element, '[data-context-menu-type="manage-miracle"]', [{
-            name: "リンク解除",
+            label: "リンク解除",
             icon: '<i class="fas fa-unlink"></i>',
-            condition: () => !!this.item.system.miracle?.id,
-            callback: async () => {
+            visible: () => !!this.item.system.miracle?.id,
+            onClick: async () => {
                 await this.item.update({ "system.miracle.id": "", "system.miracle.name": "" });
                 ui.notifications.info("神業とのリンクを解除しました。");
             },

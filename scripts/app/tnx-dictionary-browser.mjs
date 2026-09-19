@@ -29,6 +29,7 @@ import { applyTriggerDisable } from "../ui/ui-trigger-disable.mjs";
 import { purchaseUnavailableReason, preActUnavailableReason } from "../rules/purchase.mjs";
 import { getSessionState } from "../session/session-state.mjs";
 import { startPurchaseWithUsage, startPurchaseFromBrowser } from "../flow/purchase-flow.mjs";
+import { getActingActor } from "../session/vehicle-state.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -282,8 +283,8 @@ export class TnxDictionaryBrowser extends HandlebarsApplicationMixin(Application
         // (選択トークン→担当キャラ)で解決——以後の選択変更に再レンダーは追従しないため、
         // クリック時のフロー側ゲートが最終防衛のまま残る。技能起点の選択モードは常に通常の購入判定
         const preActMode = !this._purchaseOrigin && !getSessionState().actStarted;
-        const preActMundane = (canvas.tokens?.controlled?.[0]?.actor ?? game.user.character)
-            ?.system?.mundane?.total ?? 0;
+        const sel = getActingActor(canvas.tokens?.controlled?.[0]?.actor) ?? game.user.character;
+        const preActMundane = sel?.system?.mundane?.total ?? 0;
         applyTriggerDisable(this.element, '[data-action="dictPurchase"]', (el) => {
             // 神業の入手(17-6): 購入値・常備化経験点・外界の条件を問わない(効果文「ルールブックに載っている
             // アウトフィットでもよいし…」)

@@ -310,7 +310,7 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
       const finalApps = [];
       for (const app of phaseApps) {
         if (app.stackable) { finalApps.push(app); continue; }
-        const k = `${app.doc.id}|${app.totalPath}|${app.change.mode}|${app.identity}`;
+        const k = `${app.doc.id}|${app.totalPath}|${app.change.type ?? app.change.mode}|${app.identity}`;
         const prev = best.get(k);
         // 文字列上書きは大小比較しない(同一効果内の重複は先勝ち)
         const better = !prev || (typeof app.value === "number" && typeof prev.value === "number"

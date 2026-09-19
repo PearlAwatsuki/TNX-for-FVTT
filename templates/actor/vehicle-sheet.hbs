@@ -13,7 +13,10 @@
     <section class="vehicle-panel" aria-label="車両データ">
         <div class="tnx-section-header">
             <h3>車両データ</h3>
-            {{#unless missing}}<a class="tnx-icon-ctrl vehicle-text-action" data-action="openOutfit"><i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i> 本体を開く</a>{{/unless}}
+            <div>
+                {{#if pilotActor}}<a class="tnx-icon-ctrl vehicle-text-action" data-action="openPilot" style="margin-right: 12px;"><i class="fas fa-user" aria-hidden="true"></i> 操縦者</a>{{/if}}
+                {{#unless missing}}<a class="tnx-icon-ctrl vehicle-text-action" data-action="openOutfit"><i class="fas fa-arrow-up-right-from-square" aria-hidden="true"></i> 本体</a>{{/unless}}
+            </div>
         </div>
         {{#if missing}}
         <div class="vehicle-empty vehicle-drop-zone">
@@ -32,7 +35,7 @@
     </section>
     <section class="vehicle-panel" aria-label="乗員">
         <div class="tnx-section-header"><h3>乗員 <span class="vehicle-count">{{crewCount}}</span></h3>
-            {{#if canBoard}}<a class="tnx-icon-ctrl vehicle-text-action" data-action="boardCrew"><i class="fas fa-user-plus" aria-hidden="true"></i> {{#if drone}}遠隔操縦を開始{{else}}搭乗する{{/if}}</a>{{/if}}
+            {{#if canBoard}}<a class="tnx-icon-ctrl vehicle-text-action" data-action="boardCrew"><i class="fas fa-user-plus" aria-hidden="true"></i> 搭乗する</a>{{/if}}
         </div>
         <div class="vehicle-crew-list">
         {{#each crew}}
@@ -52,7 +55,9 @@
                 </div>
             </article>
         {{else}}
-            <div class="vehicle-empty"><i class="fas fa-user" aria-hidden="true"></i><strong>{{#if drone}}遠隔操縦者がいません{{else}}乗員がいません{{/if}}</strong></div>
+            {{#unless ../isRemoteDrone}}
+            <div class="vehicle-empty"><i class="fas fa-user" aria-hidden="true"></i><strong>{{#if ../drone}}遠隔操縦者がいません{{else}}乗員がいません{{/if}}</strong></div>
+            {{/unless}}
         {{/each}}
         </div>
         {{#if canBoard}}<p class="vehicle-hint">{{#if drone}}遠隔操縦中のキャラクターを表示します。{{else}}現在搭乗しているキャラクターを表示します。{{/if}}キャラクターのドロップからも操作できます。</p>{{/if}}

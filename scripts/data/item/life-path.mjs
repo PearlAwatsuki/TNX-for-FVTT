@@ -36,6 +36,8 @@ export class LifePathDataModel extends SystemDataModel.mixin(BaseTemplate) {
         },
       }),
       skillName:    new fields.StringField({ initial: "" }),
+      skillId:      new fields.StringField({ initial: "" }),
+      skillImg:     new fields.StringField({ initial: "" }),
       identificationKey: new fields.StringField({ initial: "" }),
     };
   }

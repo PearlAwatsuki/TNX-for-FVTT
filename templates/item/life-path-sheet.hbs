@@ -21,7 +21,7 @@
                     <label>説明</label>
                 </div>
                 <div class="tnx-editor-section__content">
-                    {{editor enrichedDescription target="system.description" engine="prosemirror" button=true owner=owner editable=editable}}
+                    <prose-mirror name="system.description" data-document-uuid="{{document.uuid}}" value="{{system.description}}" toggled="true">{{{enrichedDescription}}}</prose-mirror>
                 </div>
             </div>
         </div>
@@ -41,7 +41,21 @@
                     </div>
                     <div class="form-group">
                         <label>習得技能</label>
-                        <input type="text" name="system.skillName" value="{{system.skillName}}" placeholder="技能名を入力"/>
+                        {{#if linkedSkill}}
+                            <button type="button" class="tnx-linked-btn" data-action="openLinkedSheet" data-context-menu-type="manage-skill" title="クリックでシートを開く">
+                                <img src="{{linkedSkill.img}}" class="tnx-linked-btn__icon"/>
+                                <span class="tnx-linked-btn__label">{{linkedSkill.name}}</span>
+                            </button>
+                        {{else if linkedSkillFallback}}
+                            <button type="button" class="tnx-linked-btn" data-context-menu-type="manage-skill" title="右クリックで解除">
+                                <img src="{{linkedSkillFallback.img}}" class="tnx-linked-btn__icon"/>
+                                <span class="tnx-linked-btn__label">{{linkedSkillFallback.name}}</span>
+                            </button>
+                        {{else}}
+                            <div class="tnx-import-box tnx-import-box--dropzone" data-drop-area="skill">
+                                <span>技能アイテムをここにドロップ</span>
+                            </div>
+                        {{/if}}
                     </div>
                 </div>
             </fieldset>

@@ -17,7 +17,7 @@ import { pickTokenDropPosition, pickDisembarkPosition, tokenDeletionImpliesExit 
 import { teamLinkedExitTargets } from "../rules/session.mjs";
 import { TNX_HOOKS } from "../rules/combat-events.mjs";
 import { registerVehicleTargetHUD } from "./vehicle-target-hud.mjs";
-import { prepareVehicleAppearance, syncVehicleTokens, crewVehicle, registerVehicleHooks, vehicles, disembarkPositions, requestVehicleOperation } from "./vehicle-state.mjs";
+import { prepareVehicleAppearance, syncVehicleTokens, crewVehicle, droneVehicle, registerVehicleHooks, vehicles, disembarkPositions, requestVehicleOperation } from "./vehicle-state.mjs";
 
 
 /** 名前を伏せて登場しているキャラクターの、卓に見せる表示名(2026-08-09 ユーザー指示)。 */
@@ -315,10 +315,16 @@ async function syncTokensForActorNow(actor) {
             const unused = scene.tokens.filter(t => t.actorId === vehicle.id);
             if (unused.length) await scene.deleteEmbeddedDocuments("Token", unused.map(t => t.id), { [SYNC_OPTION]: true });
         }
+        const drone = droneVehicle(actor);
+        if (drone) {
+            const unused = scene.tokens.filter(t => t.actorId === drone.id);
+            if (unused.length) await scene.deleteEmbeddedDocuments("Token", unused.map(t => t.id), { [SYNC_OPTION]: true });
+        }
         if (crewVehicle(actor)) await requestVehicleOperation("exit", { actorUuid: actor.uuid });
         return;
     }
-    if (await syncVehicleTokens(actor, scene)) {
+    const vehicleSync = await syncVehicleTokens(actor, scene);
+    if (vehicleSync?.handled && vehicleSync?.onboard) {
         // コアはToken削除時に紐づくCombatantも削除する。先に本人Actorへ参照を残す。
         const ids = new Set(tokens.map(t => t.id));
         for (const combat of game.combats ?? []) {
@@ -330,8 +336,7 @@ async function syncTokensForActorNow(actor) {
         return;
     }
     if (tokens.length) { await syncGhostVisibility(actor); return; }
-    // 遠隔操縦終了を含め、ゴーストの肉体コマは生成しない。
-    if (actor.system?.isGhost) return;
+    // ゴーストであっても肉体コマ（ゴーストコマ）を生成する（ユーザー要望）。
     const proto = await actor.getTokenDocument();
     const rect = scene.dimensions?.sceneRect
         ?? { x: 0, y: 0, width: scene.width ?? 0, height: scene.height ?? 0 };
@@ -345,6 +350,12 @@ async function syncTokensForActorNow(actor) {
     const data = proto.toObject();
     data.x = x;
     data.y = y;
+    if (actor.system?.isGhost) {
+        data.hidden = true;
+        data.flags = data.flags || {};
+        data.flags[SYSTEM_ID] = data.flags[SYSTEM_ID] || {};
+        data.flags[SYSTEM_ID].boardingHidden = { previous: !!proto.hidden };
+    }
     const position = disembarkPositions.get(actor.uuid);
     const reservations = disembarkReservations.get(scene.id) ?? new Set();
     let reservation;
@@ -362,6 +373,7 @@ async function syncTokensForActorNow(actor) {
         const created = await scene.createEmbeddedDocuments("Token", [data], { [SYNC_OPTION]: true });
         if (!created?.length) throw new Error("本人のコマを配置できませんでした。登場配置を再確認してください。");
         disembarkPositions.delete(actor.uuid);
+        await syncGhostVisibility(actor);
     } finally {
         if (reservation) reservations.delete(reservation);
         if (!reservations.size) disembarkReservations.delete(scene.id);

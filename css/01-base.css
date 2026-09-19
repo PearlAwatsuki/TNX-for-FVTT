@@ -94,6 +94,11 @@
     box-sizing: border-box;
 }
 
+/* v14 コアの code タグ display: block 強制を打ち消す */
+.tokyo-nova code {
+    display: inline;
+}
+
 /* ウィンドウ枠 — シート・ダイアログのみ
    IMPORTANT: position は Foundry の @layer applications { .application { position: absolute } } に委ねる。
               ここで position を上書きすると座標系が壊れる (.application は @layer 内なので

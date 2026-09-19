@@ -49,6 +49,7 @@ for (const name of ["Combat", "Combatant", "CombatTracker", "ActiveEffect", "Ite
 }
 
 let _idCounter = 0;
+globalThis.ui = { notifications: { error: () => {}, warn: () => {}, info: () => {} } };
 
 globalThis.foundry = {
   abstract: {

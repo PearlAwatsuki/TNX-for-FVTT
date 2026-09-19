@@ -1,3 +1,4 @@
+import { wrapMenu } from "../ui/menu-wrapper.mjs";
 import { SYSTEM_ID, SOCKET_CHANNEL } from "../constants.mjs";
 import { TnxActionHandler, buildNeuroCardChatHTML } from '../cards/tnx-action-handler.mjs';
 import { TnxCheckFlow } from '../flow/tnx-check-flow.mjs';
@@ -391,18 +392,17 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
 
         const CM = foundry.applications.ux.ContextMenu.implementation;
 
-        new CM(el, '.deck-card[data-action="drawNeuro"]', [
-            {
-                name: "切り札を配布する",
+        new CM(el, '.deck-card[data-action="drawNeuro"]', wrapMenu([{
+                label: "切り札を配布する",
                 icon: '<i class="fas fa-star"></i>',
-                condition: game.user.isGM,
-                callback: () => TnxActionHandler.dealTrumpFromNeuroDeck(),
+                visible: game.user.isGM,
+                onClick: () => TnxActionHandler.dealTrumpFromNeuroDeck(),
             },
             {
-                name: "シャッフルする",
+                label: "シャッフルする",
                 icon: '<i class="fas fa-random"></i>',
-                condition: game.user.isGM,
-                callback: async () => {
+                visible: game.user.isGM,
+                onClick: async () => {
                     const neuroDeck = await TnxActionHandler.getActiveNeuroDeck();
                     if (neuroDeck) {
                         await neuroDeck.shuffle({ chatNotification: false });
@@ -411,43 +411,41 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
                 },
             },
             {
-                name: "リセットする",
+                label: "リセットする",
                 icon: '<i class="fas fa-undo"></i>',
-                condition: game.user.isGM,
-                callback: async () => {
+                visible: game.user.isGM,
+                onClick: async () => {
                     const neuroDeck = await TnxActionHandler.getActiveNeuroDeck();
                     if (neuroDeck) {
                         await neuroDeck.recall({ chatNotification: false });
                         ui.notifications.info("ニューロデッキをリセット（全カードを山札に回収）しました。");
                     }
                 },
-            },
-        ], { jQuery: false, fixed: true });
+            },]), { jQuery: false, fixed: true });
 
-        new CM(el, '.deck-card[data-action="drawFromDeck"]', [
-            {
+        new CM(el, '.deck-card[data-action="drawFromDeck"]', wrapMenu([{
                 // 山札からの判定は判定ダイアログ経由に移行済み。ここは公開で1枚めくる汎用操作
                 // (2026-07-09 改名。判定には使わないが山札をめくる必要自体はありうる)
-                name: "山札から1枚めくる",
+                label: "山札から1枚めくる",
                 icon: '<i class="fas fa-clone"></i>',
-                callback: () => TnxActionHandler.flipFromDeck(),
+                onClick: () => TnxActionHandler.flipFromDeck(),
             },
             {
-                name: "初期手札を配布",
+                label: "初期手札を配布",
                 icon: '<i class="fas fa-hand-holding"></i>',
-                condition: game.user.isGM,
-                callback: () => TnxActionHandler.dealInitialHands(),
+                visible: game.user.isGM,
+                onClick: () => TnxActionHandler.dealInitialHands(),
             },
             {
-                name: "複数枚ドローする",
+                label: "複数枚ドローする",
                 icon: '<i class="fas fa-cards"></i>',
-                callback: () => TnxActionHandler.drawMultipleCardsFromDeck(),
+                onClick: () => TnxActionHandler.drawMultipleCardsFromDeck(),
             },
             {
-                name: "シャッフルする",
+                label: "シャッフルする",
                 icon: '<i class="fas fa-random"></i>',
-                condition: game.user.isGM,
-                callback: async () => {
+                visible: game.user.isGM,
+                onClick: async () => {
                     const cardDeck = await TnxActionHandler.getActiveDeck();
                     if (cardDeck) {
                         await cardDeck.shuffle({ chatNotification: false });
@@ -456,16 +454,16 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
                 },
             },
             {
-                name: "捨て札を回収",
+                label: "捨て札を回収",
                 icon: '<i class="fas fa-recycle"></i>',
-                condition: game.user.isGM,
-                callback: () => TnxActionHandler.retrieveDiscardPile(),
+                visible: game.user.isGM,
+                onClick: () => TnxActionHandler.retrieveDiscardPile(),
             },
             {
-                name: "リセットする",
+                label: "リセットする",
                 icon: '<i class="fas fa-undo"></i>',
-                condition: game.user.isGM,
-                callback: async () => {
+                visible: game.user.isGM,
+                onClick: async () => {
                     const cardDeck = await TnxActionHandler.getActiveDeck();
                     if (cardDeck) {
                         await cardDeck.recall({ chatNotification: false });
@@ -477,41 +475,36 @@ export class TnxHud extends HandlebarsApplicationMixin(ApplicationV2) {
                         }
                     }
                 },
-            },
-        ], { jQuery: false, fixed: true });
+            },]), { jQuery: false, fixed: true });
 
-        new CM(el, '.deck-card[data-action="takeFromDiscard"]', [
-            {
-                name: "1枚手札に戻す",
+        new CM(el, '.deck-card[data-action="takeFromDiscard"]', wrapMenu([{
+                label: "1枚手札に戻す",
                 icon: '<i class="fas fa-hand-holding"></i>',
-                callback: () => TnxActionHandler.takeFromDiscard(),
+                onClick: () => TnxActionHandler.takeFromDiscard(),
             },
             {
-                name: "1枚山札に戻す",
+                label: "1枚山札に戻す",
                 icon: '<i class="fas fa-arrow-up"></i>',
-                condition: game.user.isGM,
-                callback: () => TnxActionHandler.returnTopDiscardToDeck(),
+                visible: game.user.isGM,
+                onClick: () => TnxActionHandler.returnTopDiscardToDeck(),
             },
             {
-                name: "全て山札に戻す",
+                label: "全て山札に戻す",
                 icon: '<i class="fas fa-recycle"></i>',
-                condition: game.user.isGM,
-                callback: () => TnxActionHandler.retrieveDiscardPile(),
-            },
-        ], { jQuery: false, fixed: true });
+                visible: game.user.isGM,
+                onClick: () => TnxActionHandler.retrieveDiscardPile(),
+            },]), { jQuery: false, fixed: true });
 
-        new CM(el, '.hand-area .card-in-hand', [
-            {
-                name: "指定枚数を渡す",
+        new CM(el, '.hand-area .card-in-hand', wrapMenu([{
+                label: "指定枚数を渡す",
                 icon: '<i class="fas fa-users"></i>',
-                callback: () => TnxActionHandler.selectAndPassMultipleCards(),
+                onClick: () => TnxActionHandler.selectAndPassMultipleCards(),
             },
             {
-                name: "捨てる",
+                label: "捨てる",
                 icon: '<i class="fas fa-trash-alt"></i>',
-                callback: (header) => TnxActionHandler.discardCard(header.dataset.cardId),
-            },
-        ], { jQuery: false, fixed: true });
+                onClick: (header) => TnxActionHandler.discardCard(header.dataset.cardId),
+            },]), { jQuery: false, fixed: true });
     }
 
     // ─── ドラッグゴースト ──────────────────────────────────────────────────────

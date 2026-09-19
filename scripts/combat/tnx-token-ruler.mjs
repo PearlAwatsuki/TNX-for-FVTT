@@ -1,5 +1,6 @@
 import { SYSTEM_ID } from "../constants.mjs";
 import { measureAreaPath, validateAreaBoard } from "../rules/area-combat.mjs";
+import { fillRect } from "../util/pixi-compat.mjs";
 
 /** コアの経路・秘匿・物理計測を維持し、ラベルの表示単位だけをエリアへ置き換える。 */
 export class TnxTokenRuler extends foundry.canvas.placeables.tokens.TokenRuler {
@@ -26,16 +27,22 @@ export class TnxTokenRuler extends foundry.canvas.placeables.tokens.TokenRuler {
         }
         this._areaGraphics.visible = this.visible;
         for (const area of result.transitions) {
-            this._areaGraphics.beginFill(0x88ccee, 0.10).drawRect(
+            fillRect(this._areaGraphics, 0x88ccee, 0.10,
                 config.origin.x + area.column * config.cell.width,
                 config.origin.y + area.row * config.cell.height, config.cell.width, config.cell.height,
-            ).endFill();
+            );
         }
     }
 
     clear() {
         this._areaGraphics?.clear();
         return super.clear();
+    }
+
+    /** v14 では PlaceableObject#clear → _clear に改名。 */
+    _clear() {
+        this._areaGraphics?.clear();
+        return super._clear();
     }
 
     destroy() {

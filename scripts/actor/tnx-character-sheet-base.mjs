@@ -13,6 +13,7 @@ import { requestVehicleOperation } from "../session/vehicle-state.mjs";
 import { SYSTEM_ID } from "../constants.mjs";
 import { TnxSkillUtils } from '../core/tnx-skill-utils.mjs';
 import { bindListDragDrop } from "../ui/list-drag-drop.mjs";
+import { captureScrollTop, restoreScrollTop } from "../ui/scroll-preserve.mjs";
 import { EffectsSheetMixin } from "../ui/effects-sheet-mixin.mjs";
 import { OUTFIT_CATEGORIES, getMinorCategoryLabel } from '../data/item/outfit-categories.mjs';
 import { getPartSlotPreset, PartSlotPresetApp } from '../app/part-slot-preset-app.mjs';
@@ -413,8 +414,14 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         await this.actor.update({ "system.host": { uuid: "", name: "" } });
     }
 
+    async _preRender(context, options) {
+        await super._preRender?.(context, options);
+        this._scrollTop = captureScrollTop(this.element, ".sheet-body");
+    }
+
     _onRender(context, _options) {
         super._onRender(context, _options);
+        restoreScrollTop(this.element, ".sheet-body", this._scrollTop);
         bindListDragDrop(this);
         // 宿主のドロップ受け(RL のみ・トループの所有者欄と同方式・17-6)
         const hostZone = this.element.querySelector(".cast-host-dropzone");
@@ -584,6 +591,43 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             }
             this.element?.classList.remove("tnx-no-transitions");
         });
+    }
+
+    /** @override */
+    _preSyncPartState(partId, newElement, priorElement, state) {
+        super._preSyncPartState?.(partId, newElement, priorElement, state);
+        const input = priorElement.ownerDocument.activeElement;
+        if (!priorElement.contains(input) || !input?.matches("input, textarea")) return;
+        
+        let selector = "";
+        if (input.id) selector = `#${CSS.escape(input.id)}`;
+        else if (input.name) selector = `${input.tagName.toLowerCase()}[name="${CSS.escape(input.name)}"]`;
+        else if (input.dataset.id && input.dataset.field) selector = `${input.tagName.toLowerCase()}[data-id="${CSS.escape(input.dataset.id)}"][data-field="${CSS.escape(input.dataset.field)}"]`;
+        else selector = input.tagName.toLowerCase(); // Fallback
+
+        state.focus = selector;
+        state.tnxInputState = {
+            value: input.value,
+            start: input.selectionStart,
+            end: input.selectionEnd,
+            direction: input.selectionDirection,
+        };
+    }
+
+    /** @override */
+    _syncPartState(partId, newElement, priorElement, state) {
+        const input = state.tnxInputState ? newElement.querySelector(state.focus) : null;
+        if (input) input.value = state.tnxInputState.value;
+        
+        super._syncPartState?.(partId, newElement, priorElement, 
+            state.tnxInputState ? { ...state, focus: undefined } : state);
+            
+        if (input) {
+            input.focus({ preventScroll: true });
+            if (state.tnxInputState.start !== null) {
+                input.setSelectionRange(state.tnxInputState.start, state.tnxInputState.end, state.tnxInputState.direction);
+            }
+        }
     }
 
     /** @override タブ切替後、表示されたタブの .squeeze-text を縮小し直す(非表示時は clientWidth=0 で効かないため)。 */

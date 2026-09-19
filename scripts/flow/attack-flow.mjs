@@ -26,7 +26,7 @@ import { TnxCheckFlow } from "./tnx-check-flow.mjs";
 import { SUIT_TO_ABILITY } from "../rules/tnx-check-engine.mjs";
 import { buildUsageCheckContext } from "./usage-check-context.mjs";
 import { resolveUsageTargetRefs } from "./target-resolution.mjs";
-import { preparedVehicle } from "../session/vehicle-state.mjs";
+import { preparedVehicle, getActingActor } from "../session/vehicle-state.mjs";
 import { TargetSelectionDialog } from "../ui/tnx-dialog.mjs";
 import { TnxSocketHandler } from "../core/tnx-socket-handler.mjs";
 import { resolveNoReaction, resolveOpposed, formatAttackLabel, combineWeaponAttack, resolveAttackRecheckState } from "../rules/attack-flow.mjs";
@@ -894,12 +894,10 @@ export function renderReactionCard(message, html) {
  * @returns {Actor|null}
  */
 function resolveUserIdentityActor({ warn = true } = {}) {
-    const sel = canvas?.tokens?.controlled?.[0]?.actor ?? null;
-    if (sel?.type === "vehicle") {
-        const driver = sel.system.crew.find(c => c.role === "driver");
-        const actor = driver ? fromUuidSync(driver.actorUuid) : null;
-        if (actor?.isOwner) return actor;
-    } else if (sel?.isOwner) return sel;
+    let sel = canvas?.tokens?.controlled?.[0]?.actor ?? null;
+    sel = getActingActor(sel);
+    if (sel?.isOwner) return sel;
+
     const assigned = game.user.character ?? null;
     if (assigned) return assigned;
     if (warn) {

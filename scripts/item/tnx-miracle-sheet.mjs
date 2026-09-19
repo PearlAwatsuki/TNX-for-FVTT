@@ -20,7 +20,7 @@ export class TokyoNovaMiracleSheet extends TokyoNovaItemSheet {
     static DEFAULT_OPTIONS = {
         classes: ["tokyo-nova", "sheet", "item", "miracle"],
         position: { width: 600, height: 600 },
-        actions: {
+        actions: { ...TokyoNovaItemSheet.DEFAULT_OPTIONS.actions,
             asOtherChoiceAdd:    TokyoNovaMiracleSheet._onAsOtherChoiceAdd,
             asOtherChoiceDelete: TokyoNovaMiracleSheet._onAsOtherChoiceDelete,
             asOtherChoiceOpen:   TokyoNovaMiracleSheet._onAsOtherChoiceOpen,

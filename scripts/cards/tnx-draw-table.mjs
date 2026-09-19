@@ -226,9 +226,9 @@ export function registerDrawTableHooks() {
                         opt.icon = icon.startsWith("<")
                             ? '<i class="fa-solid fa-cards"></i>'
                             : "fa-solid fa-cards";
-                        // コールバックを差し替え: ダイスロールではなく仮想ドロー
-                        const origCb = opt.callback;
-                        opt.callback = (li) => {
+                        // コールバックを差し替え: ダイスロールではなく仮想ドロー(V14対応のため onClick も処理)
+                        const origCb = opt.onClick || opt.callback;
+                        const newCb = (li) => {
                             const el = li instanceof HTMLElement ? li : li?.[0];
                             const tableId = el?.dataset?.documentId ?? li?.data?.("documentId");
                             const table = game.tables?.get(tableId);
@@ -237,6 +237,9 @@ export function registerDrawTableHooks() {
                             }
                             return origCb?.call(this, li);
                         };
+                        opt.onClick = newCb;
+                        // V13互換用
+                        opt.callback = newCb;
                     }
                     return options;
                 };

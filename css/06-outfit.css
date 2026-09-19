@@ -923,7 +923,9 @@
 
 /* フラグ列(携帯/準備ボタン) */
 .tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-col--flags {
-    flex: 0 0 30px;
+    flex: 0 0 40px;
+    min-width: 40px;
+    max-width: 40px;
     display: flex;
     justify-content: center;
     gap: 4px;
@@ -931,7 +933,9 @@
 
 /* アクション列(展開+メニュー) */
 .tokyo-nova.sheet.actor .tab[data-tab="outfits"] .outfit-col--actions {
-    flex: 0 0 30px;
+    flex: 0 0 45px;
+    min-width: 45px;
+    max-width: 45px;
     display: flex;
     align-items: center;
     justify-content: center;

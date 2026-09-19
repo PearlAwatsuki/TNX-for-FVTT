@@ -23,7 +23,7 @@ import { standInMatchesKey } from "../rules/designation-response.mjs";
 import { getSessionState, getCurrentSceneAppearance } from "../session/session-state.mjs";
 import { isAppearing, setAppearing, setGhost } from "../session/appearance-state.mjs";
 import { preparedVehicle } from "../session/vehicle-state.mjs";
-import { isDrone } from "../rules/vehicle.mjs";
+import { isDrone, isDroneOnly } from "../rules/vehicle.mjs";
 import { SCENE_AREA_OPTIONS } from "../rules/session.mjs";
 import { formatSkillName } from "../core/identification.mjs";
 
@@ -97,7 +97,9 @@ export async function startAppearanceCheck() {
  */
 async function promptAppearanceOptions(actor, sceneSkillKeys = []) {
     const vehicle = preparedVehicle(actor);
-    const droneAppearance = isDrone(vehicle);
+    const zeroPassenger = vehicle?.system?.passenger?.mode === "value" && vehicle.system.passenger.value === 0;
+    const droneOnly = vehicle ? isDrone(vehicle) && (isDroneOnly(vehicle) || zeroPassenger) : false;
+    const droneCapable = vehicle ? isDrone(vehicle) : false;
     const skills = actor.items.filter(i => i.type === "generalSkill");
     const sceneKeys = new Set(sceneSkillKeys ?? []);
 
@@ -149,14 +151,14 @@ async function promptAppearanceOptions(actor, sceneSkillKeys = []) {
             </div>
             <div class="form-group">
                 <label>ゴーストとして登場する</label>
-                <div class="form-fields"><input type="checkbox" name="ghost" ${droneAppearance ? "checked disabled" : ""} /></div>
-            </div>${vehicle ? `<p>準備済みヴィークル：${esc(vehicle.name)}${droneAppearance ? "（ドローンでゴースト登場）" : ""}</p>` : ""}`,
+                <div class="form-fields"><input type="checkbox" name="ghost" ${droneOnly ? "checked disabled" : droneCapable ? "checked" : ""} /></div>
+            </div>${vehicle ? `<p>準備済みヴィークル：${esc(vehicle.name)}${droneOnly ? "（強制ゴースト）" : droneCapable ? "（ゴーストで登場すると遠隔操縦）" : ""}</p>` : ""}`,
         buttons: [
             {
                 action: "ok", icon: "fas fa-check", label: "判定へ", default: true,
                 callback: (_event, _button, dialog) => ({
                     skillId: dialog.element.querySelector('[name="skillId"]')?.value ?? "",
-                    ghost:   droneAppearance || dialog.element.querySelector('[name="ghost"]')?.checked === true,
+                    ghost:   droneOnly || dialog.element.querySelector('[name="ghost"]')?.checked === true,
                 }),
             },
             { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => false },

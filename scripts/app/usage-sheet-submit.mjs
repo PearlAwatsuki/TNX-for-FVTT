@@ -25,6 +25,8 @@ export async function submitUsageForm(sheet, event, form, formData) {
         "timing.timingOther": raw["timing.timingOther"] ?? usage.timing.timingOther,
         // 戦闘タブに表示しない(2026-07-20): 戦闘タブの再表示からこの用途を除外する
         hideInCombatTab: raw["hideInCombatTab"] ?? usage.hideInCombatTab,
+        // この用途を表示しない(2026-09-18): 用途選択ダイアログから除外する
+        hideFromUsageSelection: raw["hideFromUsageSelection"] ?? usage.hideFromUsageSelection,
         // 「ウェットの対象には効果がない」(2026-09-01 承認): ダメージ全体+適用効果の付与を
         // ウェットの対象に対して無効化する(適用される効果セクションのトグル)
         noEffectVsWet: raw["noEffectVsWet"] ?? (usage.noEffectVsWet === true),

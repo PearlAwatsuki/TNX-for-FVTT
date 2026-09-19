@@ -1,3 +1,4 @@
+import { wrapMenu } from "../ui/menu-wrapper.mjs";
 import { TokyoNovaItemSheet } from "./tnx-item-sheet.mjs";
 import { TnxSkillUtils } from "../core/tnx-skill-utils.mjs";
 import { loadSkillChoices, loadCascadeData, buildSkillCascadeSteps, SKILL_PACKS, STYLE_PACK, ORGANIZATION_PACK, SOCIETY_CLASSES } from "../dictionary/skill-dictionary.mjs";
@@ -9,7 +10,7 @@ export class TokyoNovaStyleSkillSheet extends TokyoNovaItemSheet {
     static DEFAULT_OPTIONS = {
         classes: ["tokyo-nova", "sheet", "item", "skill"],
         position: { width: 600, height: 650 },
-        actions: {
+        actions: { ...TokyoNovaItemSheet.DEFAULT_OPTIONS.actions,
             incrementMaxLevel:    TokyoNovaStyleSkillSheet._onIncrementMaxLevel,
             decrementMaxLevel:    TokyoNovaStyleSkillSheet._onDecrementMaxLevel,
             incrementTargetValue: TokyoNovaStyleSkillSheet._onIncrementTargetValue,
@@ -290,9 +291,9 @@ export class TokyoNovaStyleSkillSheet extends TokyoNovaItemSheet {
         if (this.element.querySelector('[data-context-menu-type="rewrite-ref"]')) {
             const CM = foundry.applications.ux.ContextMenu.implementation;
             new CM(this.element, '[data-context-menu-type="rewrite-ref"]', [{
-                name: "リンク解除",
+                label: "リンク解除",
                 icon: '<i class="fas fa-unlink"></i>',
-                callback: () => this.item.update({ "system.miracleRewrite.refUuid": "" }),
+                onClick: () => this.item.update({ "system.miracleRewrite.refUuid": "" }),
             }], { jQuery: false, fixed: true });
         }
     }
@@ -384,13 +385,13 @@ export class TokyoNovaStyleSkillSheet extends TokyoNovaItemSheet {
     _setupAcquireMenu() {
         const CM = foundry.applications.ux.ContextMenu.implementation;
         new CM(this.element, '[data-context-menu="acquire-ref"]', [
-            { name: "閲覧", icon: '<i class="fas fa-eye"></i>',
-              callback: (el) => this._openAcquireRef(el) },
-            { name: "編集", icon: '<i class="fas fa-edit"></i>',
-              callback: (el) => this._openAcquireRef(el, { edit: true }) },
-            { name: "削除", icon: '<i class="fas fa-trash"></i>',
-              condition: () => this.isEditable,
-              callback: (el) => this._removeAcquireRef(el) },
+            { label: "閲覧", icon: '<i class="fas fa-eye"></i>',
+              onClick: (el) => this._openAcquireRef(el) },
+            { label: "編集", icon: '<i class="fas fa-edit"></i>',
+              onClick: (el) => this._openAcquireRef(el, { edit: true }) },
+            { label: "削除", icon: '<i class="fas fa-trash"></i>',
+              visible: () => this.isEditable,
+              onClick: (el) => this._removeAcquireRef(el) },
         ], { jQuery: false, fixed: true });
     }
 

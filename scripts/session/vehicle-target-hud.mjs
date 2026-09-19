@@ -1,4 +1,4 @@
-import { crewTarget, selectedCrew, vehicleOutfit, requestVehicleOperation } from "./vehicle-state.mjs";
+import { crewTarget, selectedCrew, vehicleOutfit, requestVehicleOperation, dronePilot } from "./vehicle-state.mjs";
 import { isDrone } from "../rules/vehicle.mjs";
 import { SYSTEM_ID } from "../constants.mjs";
 import { promptVehicleBoarding } from "./vehicle-boarding.mjs";
@@ -21,10 +21,11 @@ export function registerVehicleCanvasDrop() {
 function dropCrewOnCanvas(event) {
     if (!departing || event.target.tagName !== "CANVAS") return;
     event.preventDefault(); event.stopImmediatePropagation();
-    const { vehicleUuid, actorUuid } = departing;
+    const { vehicleUuid, actorUuid, operationMode } = departing;
     departing = null;
     suppressDropClickUntil = Date.now() + 300;
-    void requestVehicleOperation("leave", { vehicleUuid, actorUuid })
+    const action = operationMode === "remote" ? "endDrone" : "leave";
+    void requestVehicleOperation(action, { vehicleUuid, actorUuid })
         .then(() => refreshTokens()).catch(error => ui.notifications.warn(error.message));
 }
 
@@ -95,7 +96,12 @@ function refreshTokens() {
     const list = element.querySelector(".tnx-crew-tokens");
     list.replaceChildren();
     const valid = new Set();
-    for (const member of vehicle.system.crew) {
+    const members = [...vehicle.system.crew];
+    const pilot = dronePilot(vehicle);
+    if (pilot) {
+        members.push({ actorUuid: pilot.uuid, role: "driver", operationMode: "remote" });
+    }
+    for (const member of members) {
         const actor = fromUuidSync(member.actorUuid);
         if (!actor || actor.getFlag(SYSTEM_ID, "appearing") !== true) continue;
         const ref = crewTarget(vehicle, member);
@@ -116,7 +122,7 @@ function refreshTokens() {
             button.draggable = true;
             button.title += member.operationMode === "remote" ? "／盤面へドラッグして遠隔操縦終了" : "／盤面へドラッグして降車";
             button.addEventListener("dragstart", event => {
-                departing = { vehicleUuid: vehicle.uuid, actorUuid: actor.uuid };
+                departing = { vehicleUuid: vehicle.uuid, actorUuid: actor.uuid, operationMode: member.operationMode };
                 // Actor型のドラッグデータにしない。コアによる本人コマの複製を防ぐ。
                 event.dataTransfer.setData("text/plain", JSON.stringify({ type: "tnxVehicleCrew", ...departing }));
                 event.dataTransfer.effectAllowed = "move";

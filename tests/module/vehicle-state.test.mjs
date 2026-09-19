@@ -1,5 +1,5 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
-import { requestVehicleOperation, prepareVehicleAppearance, syncVehicleTokens, vehicleDefenceItems, crewTarget, ghostCanInteract } from "../../scripts/session/vehicle-state.mjs";
+import { requestVehicleOperation, prepareVehicleAppearance, syncVehicleTokens, vehicleDefenceItems, crewTarget, droneTarget, ghostCanInteract } from "../../scripts/session/vehicle-state.mjs";
 import { vehicleDamageCategory, validateCrew } from "../../scripts/rules/vehicle.mjs";
 import { aggregateDefence } from "../../scripts/rules/damage.mjs";
 import { syncTokensForActor } from "../../scripts/session/appearance-state.mjs";
@@ -25,7 +25,7 @@ describe("ヴィークル登場と乗員", () => {
         }) });
         owner = actor("owner");
         item = { id: "car", uuid: `${owner.uuid}.Item.car`, name: "車", type: "vehicle", actor: owner,
-            system: { isPrepared: true, isCarrying: true, classifications: [{ major: "vehicle", minor: "groundVehicle" }],
+            system: { isPrepared: true, isCarrying: true, majorCategory: "vehicle", minorCategory: "groundVehicle",
                 passenger: { mode: "value", value: 2 }, defence: { mode: "value", S_total: 3, P_total: 4, I_total: 5 } },
             update: vi.fn(async patch => { for (const [key, value] of Object.entries(patch)) item.system[key.replace("system.", "")] = value; }) };
         owner.items.push(item); documents.set(item.uuid, item);
@@ -102,15 +102,14 @@ describe("ヴィークル登場と乗員", () => {
         expect(Math.abs(own.x - 700)).toBeLessThanOrEqual(100);
         expect(Math.abs(own.y - 300)).toBeLessThanOrEqual(100);
     });
-    it("遠隔操縦の終了後に操縦者の肉体コマを生成しない", async () => {
-        item.system.classifications[0].minor = "drone";
+    it("ゴースト状態の操縦者も肉体コマ（ゴーストコマ）を生成する", async () => {
+        item.system.minorCategory = "drone";
+        owner.getTokenDocument = vi.fn().mockResolvedValue({ width: 1, height: 1, toObject: () => ({ name: "Ghost" }) });
         await prepareVehicleAppearance(owner);
         const scene = sceneWithTokens();
+        scene.createEmbeddedDocuments.mockResolvedValue([{ id: "token1" }]);
         await syncTokensForActor(owner);
-        await requestVehicleOperation("leave", { actorUuid: owner.uuid });
-        await syncTokensForActor(owner);
-        expect(scene.tokens.some(t => t.actorId === owner.id)).toBe(false);
-        expect(owner.getTokenDocument).not.toHaveBeenCalled();
+        expect(owner.getTokenDocument).toHaveBeenCalled();
     });
 
     it("サーバーのActor型が旧定義なら、作成前に再起動を案内する", async () => {
@@ -156,18 +155,19 @@ describe("ヴィークル登場と乗員", () => {
         expect(documents.get(uuid).system.crew).toHaveLength(2);
     });
     it("ドローン登場はゴーストになり、ドローン経由の対象だけ精神適用する", async () => {
-        item.system.classifications[0].minor = "drone";
+        item.system.minorCategory = "drone";
         const uuid = await prepareVehicleAppearance(owner);
         const vehicle = documents.get(uuid);
         expect(owner.system.isGhost).toBe(true);
         expect(ghostCanInteract(owner)).toBe(false);
         canvas.scene.tokens.push({ actorId: vehicle.id, uuid: "Scene.s.Token.drone" });
         expect(ghostCanInteract(owner)).toBe(true);
-        const target = crewTarget(vehicle, vehicle.system.crew[0]);
+        const target = droneTarget(vehicle);
         expect(target.uuid).toBe(owner.uuid);
         expect(vehicleDamageCategory(target, "physical")).toBe("mental");
         expect(vehicleDamageCategory({ uuid: "Actor.other" }, "physical")).toBe("physical");
-        await requestVehicleOperation("leave", { actorUuid: owner.uuid });
+        await requestVehicleOperation("endDrone", { actorUuid: owner.uuid });
+        canvas.scene.tokens.length = 0;
         expect(owner.system.isGhost).toBe(true);
         expect(ghostCanInteract(owner)).toBe(false);
     });

@@ -1,3 +1,4 @@
+import { wrapMenu } from "../ui/menu-wrapper.mjs";
 /**
  * @fileoverview アウトフィットのコンバイン(2026-09-07 アウトフィットシートから移設)。
  *
@@ -232,9 +233,9 @@ export function setupCombineSourceMenu(sheet) {
     const CM = foundry.applications.ux.ContextMenu.implementation;
     new CM(sheet.element, '[data-context-menu="combine-source"]', [
         {
-            name: "閲覧",
+            label: "閲覧",
             icon: '<i class="fas fa-eye"></i>',
-            callback: async (target) => {
+            onClick: async (target) => {
                 const uuid = target.dataset.source === "2"
                     ? sheet.item.system.combine.source2
                     : sheet.item.system.combine.source1;
@@ -243,9 +244,9 @@ export function setupCombineSourceMenu(sheet) {
             },
         },
         {
-            name: "編集",
+            label: "編集",
             icon: '<i class="fas fa-edit"></i>',
-            callback: async (target) => {
+            onClick: async (target) => {
                 const uuid = target.dataset.source === "2"
                     ? sheet.item.system.combine.source2
                     : sheet.item.system.combine.source1;
@@ -254,10 +255,10 @@ export function setupCombineSourceMenu(sheet) {
             },
         },
         {
-            name: "リンク解除",
+            label: "リンク解除",
             icon: '<i class="fas fa-unlink"></i>',
-            condition: () => sheet.isEditable,
-            callback: (target) => {
+            visible: () => sheet.isEditable,
+            onClick: (target) => {
                 const key = target.dataset.source === "2" ? "source2" : "source1";
                 sheet.item.update({ [`system.combine.${key}`]: "" });
             },

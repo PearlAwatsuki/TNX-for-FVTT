@@ -1,3 +1,4 @@
+import { wrapMenu } from "../ui/menu-wrapper.mjs";
 /**
  * @fileoverview アクターシートの右クリックメニュー(2026-09-07 シート基底から移設)。
  *
@@ -55,34 +56,34 @@ export function activateContextMenus(sheet, el) {
     };
 
     const viewOption = {
-        name:     "閲覧",
+        label:     "閲覧",
         icon:     '<i class="fas fa-eye"></i>',
-        callback: header => openItemSheet(header, false)
+        onClick: header => openItemSheet(header, false)
     };
     const editOption = {
-        name:      "編集",
+        label:      "編集",
         icon:      '<i class="fas fa-edit"></i>',
-        condition: () => sheet.isEditable,
-        callback:  header => openItemSheet(header, true)
+        visible: () => sheet.isEditable,
+        onClick:  header => openItemSheet(header, true)
     };
     // 初期習得技能(基本13技能)の削除保護は、技能をシードされる型(能力値を持つシート)のみ。
     // エキストラは技能を持たないのが普通のため、置いた技能は自由に削除できる(2026-07-04)
     const protectInitial = sheet.sheetFeatures.abilities;
     const deleteOption = {
-        name:      "削除",
+        label:      "削除",
         icon:      '<i class="fas fa-trash"></i>',
-        condition: header => sheet.isEditable && !(protectInitial && isInitialSkill(getItemFromHeader(header))),
-        callback:  itemDeleteCallback
+        visible: header => sheet.isEditable && !(protectInitial && isInitialSkill(getItemFromHeader(header))),
+        onClick:  itemDeleteCallback
     };
     const duplicateOption = {
-        name:      "複製",
+        label:      "複製",
         icon:      '<i class="fas fa-copy"></i>',
-        condition: header => {
+        visible: header => {
             if (!sheet.isEditable) return false;
             const item = getItemFromHeader(header);
             return item?.system.generalSkillCategory !== 'initialSkill';
         },
-        callback: async header => {
+        onClick: async header => {
             const item = getItemFromHeader(header);
             if (!item) return;
             const data = item.toObject();
@@ -101,17 +102,17 @@ export function activateContextMenus(sheet, el) {
 
     const CM = foundry.applications.ux.ContextMenu.implementation;
 
-    new CM(el, '.item-button[data-context-menu="item-edit"]', baseItemMenu, { jQuery: false, fixed: true });
-    new CM(el, '[data-context-menu="miracle-view"]', baseItemMenu, { jQuery: false, fixed: true });
-    new CM(el, ".style-skills-list .style-skill-row", skillMenu, { jQuery: false, fixed: true });
-    new CM(el, ".skills-list-view .general-skill-display", skillMenu, { jQuery: false, fixed: true });
+    new CM(el, '.item-button[data-context-menu="item-edit"]', wrapMenu(baseItemMenu), { jQuery: false, fixed: true });
+    new CM(el, '[data-context-menu="miracle-view"]', wrapMenu(baseItemMenu), { jQuery: false, fixed: true });
+    new CM(el, ".style-skills-list .style-skill-row", wrapMenu(skillMenu), { jQuery: false, fixed: true });
+    new CM(el, ".skills-list-view .general-skill-display", wrapMenu(skillMenu), { jQuery: false, fixed: true });
 
     // ライフパスボタン（編集モード）のコンテキストメニュー
     const lifepathItemMenu = [
         {
-            name:     "閲覧",
+            label:     "閲覧",
             icon:     '<i class="fas fa-eye"></i>',
-            callback: async header => {
+            onClick: async header => {
                 const key  = header.dataset.lifepathKey;
                 const uuid = sheet.actor.system.lifePath[key]?.itemUuid;
                 if (!uuid) return;
@@ -122,10 +123,10 @@ export function activateContextMenus(sheet, el) {
             }
         },
         {
-            name:      "編集",
+            label:      "編集",
             icon:      '<i class="fas fa-edit"></i>',
-            condition: () => sheet.isEditable,
-            callback: async header => {
+            visible: () => sheet.isEditable,
+            onClick: async header => {
                 const key  = header.dataset.lifepathKey;
                 const uuid = sheet.actor.system.lifePath[key]?.itemUuid;
                 if (!uuid) return;
@@ -136,10 +137,10 @@ export function activateContextMenus(sheet, el) {
             }
         },
         {
-            name:      "削除",
+            label:      "削除",
             icon:      '<i class="fas fa-trash"></i>',
-            condition: () => sheet.isEditable,
-            callback: async header => {
+            visible: () => sheet.isEditable,
+            onClick: async header => {
                 const key = header.dataset.lifepathKey;
                 if (!key) return;
                 await sheet.actor.update({
@@ -149,7 +150,7 @@ export function activateContextMenus(sheet, el) {
             }
         }
     ];
-    new CM(el, '.lifepath-item-btn[data-context-menu="lifepath-item"]', lifepathItemMenu, { jQuery: false, fixed: true });
+    new CM(el, '.lifepath-item-btn[data-context-menu="lifepath-item"]', wrapMenu(lifepathItemMenu), { jQuery: false, fixed: true });
 
     // バッドステータス/負傷 閲覧モード: 左クリックで「治療」(ダメージ=負傷・戦闘不能のみ)。
     // 削除は編集モードの X ボタン(removeBadStatus)のみ(2026-07-09 ユーザー指示)。
@@ -173,18 +174,18 @@ export function activateContextMenus(sheet, el) {
     };
     const badStatusViewMenu = [
         {
-            name:      "治療",
+            label:      "治療",
             icon:      '<i class="fas fa-briefcase-medical"></i>',
-            condition: header => isTreatableKind(header.dataset.statusId),
-            callback:  async header => {
+            visible: header => isTreatableKind(header.dataset.statusId),
+            onClick:  async header => {
                 await startTreatment(sheet.actor, header.dataset.effectId);
             }
         },
         {
-            name:      "効果を編集",
+            label:      "効果を編集",
             icon:      '<i class="fas fa-sliders"></i>',
-            condition: header => hasEditableFields(kindOf(header)),
-            callback:  async header => {
+            visible: header => hasEditableFields(kindOf(header)),
+            onClick:  async header => {
                 const effect = sheet.actor.effects.get(header.dataset.effectId);
                 if (effect) await openConditionEditDialog(sheet.actor, effect, kindOf(header));
             }
@@ -192,32 +193,32 @@ export function activateContextMenus(sheet, el) {
         // 手動オーバーライド(卓ツール): このインスタンスの効果を止める/戻す。バッヂ(タグ)は残り、
         // 消費側の抑止・取り消し線は ignore.* AE と同じ effectIgnored 経路に合流する(manuallyIgnored フラグ)。
         {
-            name:      "効果を無視する",
+            label:      "効果を無視する",
             icon:      '<i class="fas fa-ban"></i>',
-            condition: header => sheet.actor.effects.get(header.dataset.effectId)?.getFlag(SYSTEM_ID, "manuallyIgnored") !== true,
-            callback:  async header => {
+            visible: header => sheet.actor.effects.get(header.dataset.effectId)?.getFlag(SYSTEM_ID, "manuallyIgnored") !== true,
+            onClick:  async header => {
                 const effect = sheet.actor.effects.get(header.dataset.effectId);
                 if (effect) await effect.setFlag(SYSTEM_ID, "manuallyIgnored", true);
             }
         },
         {
-            name:      "無視を解除する",
+            label:      "無視を解除する",
             icon:      '<i class="fas fa-arrow-rotate-left"></i>',
-            condition: header => sheet.actor.effects.get(header.dataset.effectId)?.getFlag(SYSTEM_ID, "manuallyIgnored") === true,
-            callback:  async header => {
+            visible: header => sheet.actor.effects.get(header.dataset.effectId)?.getFlag(SYSTEM_ID, "manuallyIgnored") === true,
+            onClick:  async header => {
                 const effect = sheet.actor.effects.get(header.dataset.effectId);
                 if (effect) await effect.unsetFlag(SYSTEM_ID, "manuallyIgnored");
             }
         }
     ];
-    new CM(el, ".tnx-bs-btn--view", badStatusViewMenu, { jQuery: false, fixed: true, eventName: "click" });
+    new CM(el, ".tnx-bs-btn--view", wrapMenu(badStatusViewMenu), { jQuery: false, fixed: true, eventName: "click" });
 
     // アウトフィット行のコンテキストメニュー
     const outfitMenu = [
         {
-            name:     "閲覧",
+            label:     "閲覧",
             icon:     '<i class="fas fa-eye"></i>',
-            callback: header => {
+            onClick: header => {
                 const item = getItemFromHeader(header);
                 if (!item) return;
                 item.sheet._isEditMode = false;
@@ -225,10 +226,10 @@ export function activateContextMenus(sheet, el) {
             }
         },
         {
-            name:      "編集",
+            label:      "編集",
             icon:      '<i class="fas fa-edit"></i>',
-            condition: () => sheet.isEditable,
-            callback:  header => {
+            visible: () => sheet.isEditable,
+            onClick:  header => {
                 const item = getItemFromHeader(header);
                 if (!item) return;
                 item.sheet._isEditMode = true;
@@ -236,21 +237,21 @@ export function activateContextMenus(sheet, el) {
             }
         },
         {
-            name:      "改造を解除",
+            label:      "改造を解除",
             icon:      '<i class="fas fa-wrench"></i>',
-            condition: header => sheet.isEditable
+            visible: header => sheet.isEditable
                 && (getItemFromHeader(header)?.system.modifications?.length ?? 0) > 0,
-            callback:  async header => {
+            onClick:  async header => {
                 const item = getItemFromHeader(header);
                 if (!item) return;
                 await item.update({ "system.modifications": [] });
             }
         },
         {
-            name:      "コンバイン解除",
+            label:      "コンバイン解除",
             icon:      '<i class="fas fa-unlink"></i>',
-            condition: header => sheet.isEditable && !!getItemFromHeader(header)?.system.combineGroupId,
-            callback:  async header => {
+            visible: header => sheet.isEditable && !!getItemFromHeader(header)?.system.combineGroupId,
+            onClick:  async header => {
                 const srcItem = getItemFromHeader(header);
                 if (!srcItem) return;
                 const combiner = sheet.actor.items.get(srcItem.system.combineGroupId);
@@ -271,15 +272,15 @@ export function activateContextMenus(sheet, el) {
             }
         },
         {
-            name:      "削除",
+            label:      "削除",
             icon:      '<i class="fas fa-trash"></i>',
-            condition: () => sheet.isEditable,
-            callback:  async header => {
+            visible: () => sheet.isEditable,
+            onClick:  async header => {
                 const item = getItemFromHeader(header);
                 if (!item) return;
                 await sheet.actor.deleteEmbeddedDocuments("Item", [item.id]);
             }
         }
     ];
-    new CM(el, ".outfit-row", outfitMenu, { jQuery: false, fixed: true });
+    new CM(el, ".outfit-row", wrapMenu(outfitMenu), { jQuery: false, fixed: true });
 }

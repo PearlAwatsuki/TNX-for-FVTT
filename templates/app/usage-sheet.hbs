@@ -90,6 +90,11 @@
                                {{#unless editable}}disabled{{/unless}}>
                         <span>戦闘タブに表示しない</span>
                     </label>
+                    <label class="usage-toggle-inline">
+                        <input type="checkbox" name="hideFromUsageSelection" {{checked usage.hideFromUsageSelection}}
+                               {{#unless editable}}disabled{{/unless}}>
+                        <span>この用途を表示しない</span>
+                    </label>
                 </div>
                 </div>
             </fieldset>

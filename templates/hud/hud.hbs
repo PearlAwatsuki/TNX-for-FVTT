@@ -227,7 +227,7 @@
                 <div class="card-slot">
                     <span class="card-slot-label">切り札</span>
                     {{#if trumpCard}}
-                        <div class="card-in-hand" data-action="useTrump" data-card-id="{{trumpCard.id}}" title="{{trumpCard.name}} (クリックで使用)" draggable="true" data-drag-type="trump-card">
+                        <div class="card-in-hand-disabled {{#if checkTrumpMode}}trump-active-glow{{/if}}" data-card-id="{{trumpCard.id}}" title="切り札">
                             <img src="{{trumpCard.img}}" alt="{{trumpCard.name}}">
                         </div>
                     {{else}}

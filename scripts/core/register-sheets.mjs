@@ -31,8 +31,10 @@ export function registerSheets() {
     foundry.applications.apps.DocumentSheetConfig.registerSheet(Scene, SYSTEM_ID, TnxSceneConfig, {
         makeDefault: true, label: "シーン設定",
     });
-    // Actor Sheetの登録
-    foundry.documents.collections.Actors.unregisterSheet("core", foundry.appv1.sheets.ActorSheet);
+    // Actor Sheetの登録（v14 では foundry.appv1 が廃止されているため条件付き）
+    if (foundry.appv1?.sheets?.ActorSheet) {
+        foundry.documents.collections.Actors.unregisterSheet("core", foundry.appv1.sheets.ActorSheet);
+    }
     foundry.documents.collections.Actors.registerSheet("tokyo-nova", TokyoNovaCastSheet, {
         types: ["cast"],
         makeDefault: true,
@@ -54,8 +56,10 @@ export function registerSheets() {
         label: "プロファイルシート（エキストラ）"
     });
 
-    // Item Sheetの登録
-    foundry.documents.collections.Items.unregisterSheet("core", foundry.appv1.sheets.ItemSheet);
+    // Item Sheetの登録（v14 では foundry.appv1 が廃止されているため条件付き）
+    if (foundry.appv1?.sheets?.ItemSheet) {
+        foundry.documents.collections.Items.unregisterSheet("core", foundry.appv1.sheets.ItemSheet);
+    }
     foundry.documents.collections.Items.registerSheet("tokyo-nova", TokyoNovaStyleSheet, {
         types: ["style"],
         makeDefault: true,

@@ -79,7 +79,7 @@
                     <label>解説</label>
                 </div>
                 <div class="tnx-editor-section__content">
-                     {{editor enrichedDescription target="system.description" engine="prosemirror" button=true owner=owner editable=editable}}
+                     <prose-mirror name="system.description" data-document-uuid="{{document.uuid}}" value="{{system.description}}" toggled="true">{{{enrichedDescription}}}</prose-mirror>
                 </div>
             </div>
         </div>
@@ -415,7 +415,7 @@
                                     <label>効果文</label>
                                 </div>
                                 <div class="tnx-editor-section__content">
-                                    {{editor enrichedRewriteDescription target="system.miracleRewrite.description" engine="prosemirror" button=true owner=owner editable=editable}}
+                                    <prose-mirror name="system.miracleRewrite.description" data-document-uuid="{{document.uuid}}" value="{{system.miracleRewrite.description}}" toggled="true">{{{enrichedRewriteDescription}}}</prose-mirror>
                                 </div>
                             </div>
                             {{/if}}
@@ -432,7 +432,7 @@
                                     <label>取得条件</label>
                                 </div>
                                 <div class="tnx-editor-section__content">
-                                    {{editor enrichedRewriteCondition target="system.miracleRewrite.condition" engine="prosemirror" button=true owner=owner editable=editable}}
+                                    <prose-mirror name="system.miracleRewrite.condition" data-document-uuid="{{document.uuid}}" value="{{system.miracleRewrite.condition}}" toggled="true">{{{enrichedRewriteCondition}}}</prose-mirror>
                                 </div>
                             </div>
                             {{/if}}

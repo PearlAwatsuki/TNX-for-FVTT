@@ -1195,6 +1195,12 @@
     flex-wrap: wrap;
 }
 
+.tokyo-nova.sheet.actor .profile-header .identity-view-mode .handle-quoted-block {
+    display: inline-flex;
+    align-items: baseline;
+    white-space: nowrap;
+}
+
 .tokyo-nova.sheet.actor .profile-header .identity-view-mode .quote-mark {
     font-size: 1.6em;
     font-weight: bold;
@@ -1871,6 +1877,10 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
     text-align: left;
     justify-content: flex-start;
     font-weight: bold;
+    min-width: 0;
+}
+.cell-name .squeeze-text {
+    transform-origin: left center;
 }
 
 .item-menu-trigger {
@@ -1910,6 +1920,7 @@ a.item-control.item-delete[disabled] { color: var(--tnx2-text-muted); }
 .general-skill-display--edit .skill-name-plain {
     color: var(--tnx2-text-primary);
     font-weight: bold;
+    transform-origin: left center;
 }
 
 /* 編集モードグリッド: Lvセルにレベル入力＋スートチェックを収める */

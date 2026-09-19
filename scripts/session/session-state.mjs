@@ -819,8 +819,9 @@ async function setBackstage(patch) {
 /** 舞台裏で回す相手の列(非登場キャスト＋RL の手動追加)。表示・巡回で共用する。 */
 export function buildBackstageQueue() {
     const extra = getBackstage().extraActorIds ?? [];
+    const actCastIds = new Set(getRotationOrder().map(uid => game.users.get(uid)?.character?.id).filter(id => id));
     const candidates = game.actors
-        .filter(a => a.type === "cast" || extra.includes(a.id))
+        .filter(a => actCastIds.has(a.id) || extra.includes(a.id))
         // 行動不可(仮死/昏睡の治療後2シーン)は手番が回らない(15-5・Damage_Rules)
         .map(a => ({ id: a.id, name: a.name, appearing: isAppearing(a),
                      incapable: hasIncapable(a.effects?.contents ?? []) }));

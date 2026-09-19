@@ -21,7 +21,7 @@
                     <label>説明</label>
                 </div>
                 <div class="tnx-editor-section__content">
-                    {{editor enrichedDescription target="system.description" engine="prosemirror" button=true owner=owner editable=editable}}
+                    <prose-mirror name="system.description" data-document-uuid="{{document.uuid}}" value="{{system.description}}" toggled="true">{{{enrichedDescription}}}</prose-mirror>
                 </div>
             </div>
         </div>

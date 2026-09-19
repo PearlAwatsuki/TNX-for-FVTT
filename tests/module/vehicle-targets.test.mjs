@@ -14,7 +14,7 @@ describe("乗員の攻撃対象とドローン経路", () => {
         driver = { uuid: "Actor.driver", name: "操縦者", system: {}, getFlag: () => true };
         passenger = { uuid: "Actor.passenger", name: "同乗者", system: {}, getFlag: () => true };
         attacker = { uuid: "Actor.attacker", name: "攻撃者", system: {} };
-        source = { type: "vehicle", system: { isPrepared: true, classifications: [{ minor: "groundVehicle" }] } };
+        source = { type: "vehicle", system: { isPrepared: true, majorCategory: "vehicle", minorCategory: "groundVehicle" } };
         vehicle = { id: "v", uuid: "Actor.v", name: "車両", type: "vehicle", system: { outfitUuid: "Item.source", crew: [
             { actorUuid: driver.uuid, role: "driver", operationMode: "onboard" },
             { actorUuid: passenger.uuid, role: "passenger", operationMode: "onboard" },
@@ -39,7 +39,7 @@ describe("乗員の攻撃対象とドローン経路", () => {
         expect(currentTargetActors({ rawVehicles: true })).toEqual([vehicle]);
     });
     it("ドローンの直接ターゲットは操縦者に解決し、ダメージカードまで経路を保持", async () => {
-        source.system.classifications[0].minor = "drone";
+        source.system.minorCategory = "drone";
         vehicle.system.crew[0].operationMode = "remote";
         driver.system.isGhost = true;
         const refs = await resolveUsageTargetRefs(attacker, usage);
@@ -53,7 +53,7 @@ describe("乗員の攻撃対象とドローン経路", () => {
         expect(await resolveUsageTargetRefs(attacker, usage)).toBeNull();
     });
     it("通常の対象とドローンを同時に攻撃しても、精神適用はドローン側だけ", async () => {
-        source.system.classifications[0].minor = "drone";
+        source.system.minorCategory = "drone";
         vehicle.system.crew = [{ actorUuid: driver.uuid, role: "driver", operationMode: "remote" }];
         driver.system.isGhost = true;
         game.user.targets.add({ actor: passenger, isVisible: true });

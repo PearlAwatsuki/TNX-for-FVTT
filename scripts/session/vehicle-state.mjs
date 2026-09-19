@@ -1,5 +1,5 @@
 import { SYSTEM_ID, SOCKET_CHANNEL } from "../constants.mjs";
-import { isVehicleBody, isDrone, validateCrew } from "../rules/vehicle.mjs";
+import { isVehicleBody, isDrone, isDroneOnly, validateCrew } from "../rules/vehicle.mjs";
 import { isOutfitUnusable } from "../data/item/helpers.mjs";
 
 // ドキュメント更新を直列化し、搭乗交代と登場時の重複生成を防ぐ。
@@ -27,11 +27,22 @@ export function crewVehicle(actor) {
 export function vehicleToken(vehicle) {
     return globalThis.canvas?.scene?.tokens?.find(t => t.actorId === vehicle?.id) ?? null;
 }
+
+
 export function activeVehicle(actor) {
     const relation = crewVehicle(actor);
-    const item = vehicleOutfit(relation?.vehicle);
-    if (!item || !item.system.isPrepared || isOutfitUnusable(item.system)) return null;
-    return { ...relation, item };
+    if (relation) {
+        const item = vehicleOutfit(relation.vehicle);
+        if (!item || !item.system.isPrepared || isOutfitUnusable(item.system)) return null;
+        return { ...relation, item };
+    }
+    // ゴースト＋ドローン遠隔操縦: crewに居なくても所有関係で返す。
+    const drone = droneVehicle(actor);
+    if (drone) {
+        const item = vehicleOutfit(drone);
+        return { vehicle: drone, member: { actorUuid: actor.uuid, role: "driver", operationMode: "remote" }, item };
+    }
+    return null;
 }
 export function preparedVehicle(actor, refId = "") {
     const relation = activeVehicle(actor);
@@ -53,9 +64,67 @@ export function vehicleDefenceItems(actor) {
     return own;
 }
 
+/** ゴースト登場中のアクターが遠隔操縦しているドローンのVehicleアクターを返す。crewを参照しない。 */
+export function droneVehicle(actor) {
+    if (!actor?.system?.isGhost) return null;
+    const droneItem = [...(actor.items ?? [])].find(i =>
+        isDrone(i) && i.system.isPrepared && !isOutfitUnusable(i.system));
+    if (!droneItem) return null;
+    return vehicleForItem(droneItem);
+}
+
+/** Vehicleアクターがドローンであれば、正本Itemの所持者を操縦者として返す。crewを参照しない。 */
+export function dronePilot(vehicle) {
+    const item = vehicleOutfit(vehicle);
+    if (!item || !isDrone(item)) return null;
+    const pilot = item.actor;
+    return pilot?.system?.isGhost ? pilot : null;
+}
+
+/**
+ * 操作対象のアクターを解決する。
+ * アクターがヴィークルの場合、操縦者（同乗者ではなく主操縦者またはドローン操縦者）を返す。
+ * 通常のアクターならそのまま返す。
+ */
+export function getActingActor(actor) {
+    if (actor?.type !== "vehicle") return actor;
+    const driver = actor.system.crew?.find(c => c.role === "driver");
+    if (driver) {
+        const a = fromUuidSync(driver.actorUuid);
+        if (a) return a;
+    }
+    const pilot = dronePilot(actor);
+    if (pilot) return pilot;
+    
+    // どちらもいなければ元のヴィークルアクターを返す
+    return actor;
+}
+
+/** ドローンをターゲットした際の操縦者への解決結果。vehicleRoute付き。 */
+export function droneTarget(vehicle) {
+    const pilot = dronePilot(vehicle);
+    const token = vehicleToken(vehicle);
+    if (!pilot || !appearing(pilot) || !token) return null;
+    const hidden = !game.user.isGM && pilot.getFlag(SYSTEM_ID, "appearingHidden");
+    const name = hidden ? "？？？" : pilot.name;
+    return {
+        uuid: pilot.uuid,
+        name: `${name}（${vehicle.name}）`,
+        vehicleRoute: {
+            vehicleUuid: vehicle.uuid, tokenUuid: token.uuid,
+            outfitUuid: vehicle.system.outfitUuid,
+            mode: "remote", driverUuid: pilot.uuid,
+        },
+    };
+}
+
 export function ghostCanInteract(actor) {
     if (!actor?.system?.isGhost) return true;
-    const r = activeVehicle(actor);
+    // ドローン遠隔操縦（所有ベース）: 盤面にドローントークンがあれば干渉可能。
+    const drone = droneVehicle(actor);
+    if (drone && vehicleToken(drone)) return true;
+    // crew経由の遠隔操縦（従来の互換パス）も維持。
+    const r = crewVehicle(actor);
     return !!(r && r.member.operationMode === "remote" && vehicleToken(r.vehicle));
 }
 
@@ -183,8 +252,38 @@ async function operate(action, data, user) {
         if (!source || (actor.system.isGhost && !isDrone(source))) return null;
         if (isOutfitUnusable(source.system)) throw new Error("準備中のヴィークルは故障または破壊されています。");
         vehicle = await ensureVehicle(source);
-        await board(vehicle, actor, "driver", user);
+        let isGhost = actor.system.isGhost;
+        const capacityZero = source.system.passenger?.mode === "value" && source.system.passenger?.value === 0;
+        const droneCheck = isDrone(source);
+        const droneOnlyCheck = isDroneOnly(source);
+        // ドローン専門（ドローンのみ）または乗員数0の場合は、強制的にゴースト（遠隔操縦）にする
+        if ((droneOnlyCheck || capacityZero) && !isGhost) {
+            isGhost = true;
+            await actor.update({ "system.isGhost": true });
+        }
+        // ゴーストかつ（ドローンまたは乗員数0）: 物理搭乗しない（遠隔操縦）
+        if (isGhost && (droneCheck || capacityZero)) {
+            console.log("[TNX-DEBUG] appear: skipping board() (ghost + drone/capacityZero)");
+        } else {
+            console.log(`[TNX-DEBUG] appear: calling board() isGhost=${isGhost}`);
+            await board(vehicle, actor, "driver", user);
+        }
         return vehicle.uuid;
+    }
+    if (action === "endDrone") {
+        // 準備解除後に呼ばれることもあるため、droneVehicle() が null なら actor のドローンを探す
+        let drone = droneVehicle(actor);
+        if (!drone) {
+            const droneItem = actor.items?.find(i => isDrone(i));
+            if (droneItem) drone = vehicleForItem(droneItem);
+        }
+        if (!drone) return null;
+        const scene = game.scenes?.active;
+        if (scene) {
+            const tokens = scene.tokens.filter(t => t.actorId === drone.id);
+            if (tokens.length) await scene.deleteEmbeddedDocuments("Token", tokens.map(t => t.id), { tnxAppearanceSync: true });
+        }
+        return drone.uuid;
     }
     if (action === "exit") {
         if (appearing(actor)) throw new Error("登場中の乗員は降車操作を使用してください。");
@@ -220,10 +319,10 @@ async function board(vehicle, actor, role, user) {
     if (!["cast", "guest", "troop", "extra"].includes(actor.type)) throw new Error("キャラクターを指定してください。");
     const item = vehicleOutfit(vehicle);
     if (!isVehicleBody(item) || isOutfitUnusable(item.system)) throw new Error("利用できるヴィークル本体がありません。");
-    const remote = isDrone(item);
+    const remote = isDrone(item) && actor.system.isGhost;
     if (remote && role !== "driver") throw new Error("ドローンには遠隔操縦者を指定してください。");
     if (!remote && actor.system.isGhost) throw new Error("ゴーストは通常車両に物理搭乗できません。");
-    if (remote && actor.system.isGhost === undefined) throw new Error("このキャラクターはゴースト登場に対応していません。");
+    if (isDrone(item) && actor.system.isGhost === undefined) throw new Error("このキャラクターはゴースト登場に対応していません。");
     const previous = crewVehicle(actor);
     if (previous && previous.vehicle.uuid !== vehicle.uuid) throw new Error("現在の車両から降車してから搭乗してください。");
     const driver = vehicle.system.crew.find(c => c.role === "driver" && c.actorUuid !== actor.uuid);
@@ -287,21 +386,34 @@ export async function prepareVehicleAppearance(actor) {
 
 /** 登場中の車両を一台だけ配置する。本人の登場記帳はActorで保持する。 */
 export async function syncVehicleTokens(actor, scene) {
+    let vehicle = null;
+    let onboard = false;
     const relation = crewVehicle(actor);
-    if (!relation || !appearing(actor)) return false;
-    const vehicle = relation.vehicle;
+    if (relation) {
+        vehicle = relation.vehicle;
+        onboard = true;
+    } else if (actor.system?.isGhost) {
+        vehicle = droneVehicle(actor);
+    }
+    if (!vehicle || !appearing(actor)) return { handled: false, onboard: false };
+
     const key = `${scene.id}:${vehicle.id}`;
     const previous = tokenQueues.get(key) ?? Promise.resolve();
     const operation = previous.catch(() => {}).then(() => placeVehicleToken(vehicle, actor, scene));
     tokenQueues.set(key, operation);
     try { await operation; } finally { if (tokenQueues.get(key) === operation) tokenQueues.delete(key); }
-    return true;
+    return { handled: true, onboard };
 }
 
 async function placeVehicleToken(vehicle, actor, scene) {
     let token = scene.tokens.find(t => t.actorId === vehicle.id);
     if (!token) {
-        const driverAppearing = () => vehicle.system.crew.some(c => c.role === "driver" && appearing(lookup(c.actorUuid)));
+        const driverAppearing = () => {
+            const driver = vehicle.system.crew.find(c => c.role === "driver");
+            if (driver) return appearing(lookup(driver.actorUuid));
+            const pilot = dronePilot(vehicle);
+            return pilot && appearing(pilot);
+        };
         // 同乗者の同期だけでは、退場した操縦者の車両を再配置しない。
         if (!driverAppearing()) return;
         const own = scene.tokens.find(t => t.actor?.uuid === actor.uuid);
@@ -338,6 +450,16 @@ export function registerVehicleHooks() {
         ui.notifications.warn("ヴィークルには独立した手番がありません。乗員を戦闘に追加してください。");
         return false;
     });
+    Hooks.on("deleteToken", (tokenDoc, options) => {
+        if (options?.tnxAppearanceSync || game.users.activeGM?.id !== game.user.id) return;
+        const actor = game.actors.get(tokenDoc.actorId);
+        if (actor?.type !== "vehicle") return;
+        
+        // ヴィークルコマが手動で削除された場合、乗員を降ろし準備を解除する（再ロードでの復活防止）
+        const item = vehicleOutfit(actor);
+        if (item?.system.isPrepared) item.update({ "system.isPrepared": false });
+        if (actor.system?.crew?.length) actor.update({ "system.crew": [] });
+    });
     const refresh = () => {
         for (const v of vehicles()) v.sheet?.render(false);
         for (const app of foundry.applications.instances.values()) if (app.actor || app.id === "tnx-hud") app.render(false);
@@ -348,8 +470,11 @@ export function registerVehicleHooks() {
         if (game.users.activeGM?.id !== game.user.id || !isVehicleBody(item)) return;
         const vehicle = vehicleForItem(item);
         const driver = vehicle?.system.crew.find(c => c.role === "driver");
-        if (!item.system.isPrepared && driver) {
-            queueOperation("leave", { actorUuid: driver.actorUuid }, game.user).catch(e => ui.notifications.warn(e.message));
+        
+        if (!item.system.isPrepared) {
+            if (driver) queueOperation("leave", { actorUuid: driver.actorUuid }, game.user).catch(e => ui.notifications.warn(e.message));
+            // ドローンの準備解除時、以前に操縦者だったアクター（Item所持者）のトークンを削除
+            if (item.actor?.system?.isGhost) queueOperation("endDrone", { actorUuid: item.actor.uuid }, game.user).catch(e => ui.notifications.warn(e.message));
         } else if (item.system.isPrepared && appearing(item.actor) && !driver && !isOutfitUnusable(item.system)) {
             queueOperation("appear", { actorUuid: item.actor.uuid }, game.user).catch(e => ui.notifications.warn(e.message));
         }

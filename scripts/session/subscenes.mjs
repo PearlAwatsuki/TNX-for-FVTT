@@ -78,7 +78,7 @@ export async function createSubScene({ name = "", background = "" } = {}) {
     const sub = {
         id: foundry.utils.randomID(),
         name: name || `サブシーン ${list.length + 1}`,
-        background: background || (game.scenes.active?.background?.src ?? ""),
+        background: background || (game.scenes.active?.environment?.background?.src || (game.scenes.active?.background?.src ?? "")),
     };
     await setSubScenes([...list, sub]);
     return sub;
@@ -141,7 +141,8 @@ export async function refreshSubSceneBackground() {
     if (!canvas?.ready || !canvas.scene) return;
     const overrideId = canvas.scene.getFlag(SYSTEM_ID, "subSceneOverride") ?? "";
     const sub = overrideId ? getSubScene(overrideId) : null;
-    const src = sub?.background || canvas.scene.background?.src || "";
+    const baseBg = canvas.scene.levels ? canvas.scene.levels[0]?.background?.src : (canvas.scene.environment?.background?.src || canvas.scene.background?.src);
+    const src = sub?.background || baseBg || "";
     const mesh = canvas.primary?.background;
     if (!mesh) {
         // 背景未設定の Scene は背景メッシュ自体が無く差し替え先が無い(運用: 初期背景を設定する)

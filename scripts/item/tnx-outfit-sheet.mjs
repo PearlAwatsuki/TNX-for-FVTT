@@ -68,6 +68,7 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         classes: ["tokyo-nova", "sheet", "item", "outfit"],
         position: { width: 600, height: 650 },
         actions: {
+            ...TokyoNovaItemSheet.DEFAULT_OPTIONS.actions,
             deleteModification: TokyoNovaOutfitSheet._onDeleteModification,
             incrementSlot:     TokyoNovaOutfitSheet._onIncrementSlot,
             decrementSlot:     TokyoNovaOutfitSheet._onDecrementSlot,

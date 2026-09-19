@@ -250,6 +250,9 @@ export function isActorInStartedCombat(actor) {
   try {
     const combat = game?.combat;
     if (!combat?.started || !actor) return false;
+    if (typeof combat.getCombatantsByActor === "function") {
+      return combat.getCombatantsByActor(actor).length > 0;
+    }
     return !!combat.getCombatantByActor?.(actor);
   } catch {
     return false;

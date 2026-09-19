@@ -47,7 +47,7 @@
                         </div>
                         <div class="tnx-editor-section__content">
                             {{#if isEditMode}}
-                                {{editor enrichedDescription target="system.description" engine="prosemirror" button=false owner=owner editable=editable}}
+                                <prose-mirror name="system.description" data-document-uuid="{{document.uuid}}" value="{{system.description}}" toggled="true">{{{enrichedDescription}}}</prose-mirror>
                             {{else}}
                                 <div class="tnx-editor-view-content">{{{enrichedDescription}}}</div>
                             {{/if}}

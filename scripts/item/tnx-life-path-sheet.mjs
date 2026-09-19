@@ -1,3 +1,4 @@
+import { wrapMenu } from "../ui/menu-wrapper.mjs";
 import { TokyoNovaItemSheet } from "./tnx-item-sheet.mjs";
 
 export class TokyoNovaLifePathSheet extends TokyoNovaItemSheet {

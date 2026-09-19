@@ -11,6 +11,8 @@
  * (リンクなしトークン前提・プロトタイプトークンの設定に従う)。
  */
 
+import { strokeRect } from "../util/pixi-compat.mjs";
+
 /**
  * アクターのトークンをプレビュー追従+クリック確定で配置する。
  * @param {Actor} actor 配置するアクター
@@ -63,7 +65,7 @@ async function pickTokenPosition(actor) {
         sprite = new PIXI.Sprite(texture);
     } catch {
         sprite = new PIXI.Graphics();
-        sprite.lineStyle(2, 0x88ccee, 0.8).drawRect(0, 0, w, h);
+        strokeRect(sprite, 2, 0x88ccee, 0.8, 0, 0, w, h);
     }
     sprite.width = w;
     sprite.height = h;
