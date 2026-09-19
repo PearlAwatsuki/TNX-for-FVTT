@@ -93,23 +93,14 @@ export const EffectsSheetMixin = {
     ACTIONS: {
         async createEffect(_event, _target) {
             const doc = this.document;
-            const [effect] = await doc.createEmbeddedDocuments("ActiveEffect", [{
+            return ActiveEffect.implementation.createDialog({
                 name: "新規効果",
                 img: "icons/svg/aura.svg",
                 origin: doc.uuid,
-            }]);
-            effect?.sheet.render({ force: true });
-        },
-
-        async createEnchantment(_event, _target) {
-            const doc = this.document;
-            const [effect] = await doc.createEmbeddedDocuments("ActiveEffect", [{
-                name: "新規エンチャント",
-                img: "icons/svg/aura.svg",
-                origin: doc.uuid,
-                type: "enchantment",
-            }]);
-            effect?.sheet.render({ force: true });
+            }, {
+                parent: doc,
+                pack: doc.pack
+            });
         },
 
         async editEffect(_event, target) {
@@ -142,21 +133,11 @@ export const EffectsSheetMixin = {
 
             switch (action) {
                 case "createEffect": {
-                    const newEffects = await document.createEmbeddedDocuments("ActiveEffect", [{
+                    return ActiveEffect.implementation.createDialog({
                         name: "新規効果",
                         img: "icons/svg/aura.svg",
                         origin: document.uuid,
-                    }]);
-                    return newEffects[0]?.sheet.render(true);
-                }
-                case "createEnchantment": {
-                    const newEffects = await document.createEmbeddedDocuments("ActiveEffect", [{
-                        name: "新規エンチャント",
-                        img: "icons/svg/aura.svg",
-                        origin: document.uuid,
-                        type: "enchantment",
-                    }]);
-                    return newEffects[0]?.sheet.render(true);
+                    }, { parent: document, pack: document.pack });
                 }
                 case "editEffect":
                     return effect?.sheet.render(true);

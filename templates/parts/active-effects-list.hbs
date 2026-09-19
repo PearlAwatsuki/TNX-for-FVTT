@@ -1,13 +1,19 @@
 <div class="tnx-item-list tnx-item-list--effects">
-    {{#if isItem}}
     <div class="tnx-item-list__row tnx-item-list__row--header">
-        <div class="tnx-item-list__column--main">アイテムへのエンチャント</div>
+        <div class="tnx-item-list__column--main">アクティブ効果</div>
         <div class="tnx-item-list__column--duration">効果時間</div>
         <div class="tnx-item-list__column--controls">
-            <a class="tnx-icon-ctrl" data-action="createEnchantment" title="作成">
+            <a class="tnx-icon-ctrl" data-action="createEffect" title="作成">
                 <i class="fa fa-plus"></i>
             </a>
         </div>
+    </div>
+
+    {{#if effects.enchantments.length}}
+    <div class="tnx-item-list__row tnx-item-list__row--header">
+        <div class="tnx-item-list__column--main" style="padding-left: 1em;">アイテムへのエンチャント</div>
+        <div class="tnx-item-list__column--duration"></div>
+        <div class="tnx-item-list__column--controls"></div>
     </div>
     <ol class="item-list-body">
         {{#each effects.enchantments as |effect|}}
@@ -36,13 +42,9 @@
     {{/if}}
 
     <div class="tnx-item-list__row tnx-item-list__row--header">
-        <div class="tnx-item-list__column--main">通常のアクティブ効果</div>
-        <div class="tnx-item-list__column--duration">効果時間</div>
-        <div class="tnx-item-list__column--controls">
-            <a class="tnx-icon-ctrl" data-action="createEffect" title="作成">
-                <i class="fa fa-plus"></i>
-            </a>
-        </div>
+        <div class="tnx-item-list__column--main" style="padding-left: 1em;">通常のアクティブ効果</div>
+        <div class="tnx-item-list__column--duration"></div>
+        <div class="tnx-item-list__column--controls"></div>
     </div>
     <ol class="item-list-body">
         {{#each allEffects as |effect|}}
