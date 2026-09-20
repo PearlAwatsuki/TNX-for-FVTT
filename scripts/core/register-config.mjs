@@ -126,8 +126,8 @@ export async function registerSystemConfig() {
     // カット進行のサイドバートラッカー(13-4)。既定のコンバットトラッカーを上書きする。
     CONFIG.ui.combat = TnxCombatTracker;
 
-    // 型分離の試行中に保存された AE は通常の AE として読み込む。
-    // データの削除・再作成はせず、V14 標準の changes スキーマだけを借りる。
+    // 付与AEもV14標準のchangesスキーマを使い、TNX固有の適用先はflagsで管理する。
+    // 型ごとの適用・保存制御はTokyoNovaActiveEffectとTNXの適用経路が担う。
     if (foundry.data?.ActiveEffectTypeDataModel) {
         CONFIG.ActiveEffect.dataModels.enchantment = foundry.data.ActiveEffectTypeDataModel;
     }

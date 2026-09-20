@@ -18,6 +18,7 @@
 
 import { SYSTEM_ID } from "../../constants.mjs";
 import { toRuntimeEffectKey } from "../../rules/ae-public-keys.mjs";
+import { isEnchantment } from "../../rules/ae-kind.mjs";
 import { OUTFIT_TYPES, hasClassification, getMajorCategoryLabel, getMinorCategoryLabel } from "./outfit-categories.mjs";
 
 /**
@@ -702,8 +703,9 @@ export function buildTransferredEffectData(effect, targetItem, bearer, scope = S
   const srcFlags = effect.flags?.[scope] ?? {};
   const toParent = srcFlags.applyToParent === true;
   if (toParent && (bearer?.documentName !== "Item" || bearer.system?.parentItemId !== targetItem.id)) return null;
+  if (toParent && bearer.system?.isPrepared === false) return null;
   const changes = [];
-  for (const c of (effect.changes ?? [])) {
+  for (const c of (effect.system?.changes ?? effect.changes ?? [])) {
     const parsed = parseEffectTargetKey(c.key);
     if (!parsed) continue;
     if (toParent) {
@@ -716,17 +718,19 @@ export function buildTransferredEffectData(effect, targetItem, bearer, scope = S
   if (!changes.length) return null;
   return {
     name: effect.name,
+    ...(isEnchantment(effect) ? { type: "enchantment", statuses: [] } : {}),
     img: effect.img,
     disabled: effect.disabled === true,
     transfer: false,
     origin: effect.uuid,
-    changes,
+    ...(Array.isArray(effect.system?.changes) ? { system: { changes } } : { changes }),
     flags: { [scope]: {
       transferredFrom: effect.uuid,
+      ...(isEnchantment(effect) ? { applyToSelf: true, applyToParent: false } : {}),
       // 表示用の供給元名(「転送された効果」セクションで名前に添える)。供給元の効果更新時に取り直される
       transferredSourceName: bearer?.name ?? "",
       ...(srcFlags.stackable === true ? { stackable: true } : {}),
-      ...(srcFlags.effectId ? { effectId: srcFlags.effectId } : {}),
+      ...((srcFlags.effectId || effect.id) ? { effectId: srcFlags.effectId || effect.id } : {}),
     } },
   };
 }
@@ -769,18 +773,21 @@ export function planTransferCopySync(copies, wanted) {
  */
 export function transferCopyIsCurrent(copy, data, scope = SYSTEM_ID) {
   if (!copy || !data) return false;
+  if ((copy.type ?? "base") !== (data.type ?? "base")) return false;
   if ((copy.name ?? "") !== (data.name ?? "")) return false;
   if ((copy.img ?? "") !== (data.img ?? "")) return false;
   if ((copy.disabled === true) !== (data.disabled === true)) return false;
   if ((copy.transfer !== false) !== (data.transfer !== false)) return false;
   if ((copy.origin ?? "") !== (data.origin ?? "")) return false;
 
-  const a = copy.changes ?? [], b = data.changes ?? [];
+  const a = copy.system?.changes ?? copy.changes ?? [], b = data.system?.changes ?? data.changes ?? [];
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i++) {
     if ((a[i]?.key ?? "") !== (b[i]?.key ?? "")) return false;
     if (String(a[i]?.value ?? "") !== String(b[i]?.value ?? "")) return false;
     if ((a[i]?.mode ?? null) !== (b[i]?.mode ?? null)) return false;
+    if ((a[i]?.type ?? null) !== (b[i]?.type ?? null)) return false;
+    if ((a[i]?.phase ?? null) !== (b[i]?.phase ?? null)) return false;
     if ((a[i]?.priority ?? null) !== (b[i]?.priority ?? null)) return false;
   }
 
@@ -885,9 +892,10 @@ export function collectActorEffectBuffs(actor, scope = SYSTEM_ID) {
     changes:   e.changes,
     bearer, // 式の @item.self / @item.parent は実際に効果を持つドキュメントを参照する
   });
-  for (const e of (actor?.effects ?? [])) push(e, actor);
+  for (const e of (actor?.effects ?? [])) if (!isEnchantment(e)) push(e, actor);
   for (const item of (actor?.items ?? [])) {
     for (const e of (item.effects ?? [])) {
+      if (isEnchantment(e)) continue;
       // 準備先への付与はアイテム間で完結する。元効果を判定・ダメージ等へ混ぜない。
       if (e.flags?.[scope]?.applyToParent === true) continue;
       if (!effectAutoApplies(e, scope)) continue; // ペイロードは自動収集しない
@@ -925,6 +933,7 @@ export function analyzeGrantLanding(changes, items = null) {
  *   警告する既存の経路に載せるため(黙ってアクターへ乗せて何も起きない、を避ける)。
  */
 function grantTargetsOutfit(parsed, items) {
+  if (parsed.capability) return false;
   if (parsed.scope === "category" && PSEUDO_CATEGORY_TYPES.includes(parsed.selector)) return false;
   if (!items) return true;
   const matches = [...items].filter(i => itemChangeTargets(parsed, i));

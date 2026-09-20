@@ -42,6 +42,14 @@ describe("準備先への効果はアクターへ転送しない", () => {
         expect(parentEffect.transfer).toBe(true);
     });
 
+    it("自身に適用する付与AEもアクターへ転送しない", () => {
+        const { actor, ordinary } = setup();
+        ordinary.type = "enchantment";
+        ordinary.flags = { [SYSTEM_ID]: { applyToSelf: true } };
+        expect([...actor.allApplicableEffects()]).not.toContain(ordinary);
+        expect(collectActorEffectBuffs(actor).some(e => e.identity === ordinary.id)).toBe(false);
+    });
+
     it("判定等の独自収集からも除外し、チェック解除時は通常転送へ戻る", () => {
         const { actor, parentEffect } = setup();
         expect(collectActorEffectBuffs(actor).map(e => e.identity)).toEqual(["own", "ordinary"]);

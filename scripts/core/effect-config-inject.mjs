@@ -16,6 +16,7 @@ import { getPartSlotPreset } from "../app/part-slot-preset-app.mjs";
 import { enhanceComboboxes } from "../ui/combobox.mjs";
 import { OUTFIT_CATEGORIES } from "../data/item/outfit-categories.mjs";
 import { actorEffectKeySuggestions, toPublicEffectKey, toRuntimeEffectKey } from "../rules/ae-public-keys.mjs";
+import { isEnchantment } from "../rules/ae-kind.mjs";
 
 /** AE 設定シートへの注入を登録する(init から呼ぶ)。 */
 export function registerEffectConfigInjection() {
@@ -223,7 +224,18 @@ export function registerEffectConfigInjection() {
                 option.dataset.tnxActorKey = "true";
                 list.appendChild(option);
             }
+            filterKeySuggestions();
         });
+
+        function filterKeySuggestions() {
+            const selected = root.querySelector('[name="type"]')?.value;
+            const enchantment = selected ? selected === "enchantment" : isEnchantment(app.document);
+            for (const option of root.querySelectorAll("#tnx-ae-key-suggestions option")) {
+                const parsed = parseEffectTargetKey(option.value);
+                const itemAttribute = ["self", "partAdd", "itemName"].includes(parsed?.scope);
+                option.disabled = enchantment ? !itemAttribute : itemAttribute;
+            }
+        }
 
         if (root.querySelector(".tnx-stackable-field")) return;
         const current = app.document?.getFlag?.(SYSTEM_ID, "stackable") === true;
@@ -276,9 +288,21 @@ export function registerEffectConfigInjection() {
             if (hint) hint.textContent = "オンなら効果がキーの示す対象へ常時自動で適用されます。";
         }
 
-        // 準備先(親アイテム)に適用(自動適用オンのときのみ意味を持つ): 素のパラメータキーの効果を
-        // このアイテムの準備先ホストに効かせる(準備で転送・解除で除去)。アイテム上の効果でのみ表示
+        // 型の選択と付与先はフォーム送信まで保存しない。
+        let typeInput = root.querySelector('[name="type"]');
+        if (!typeInput && app.document?.parent?.documentName === "Item") {
+            const typeGroup = document.createElement("div");
+            typeGroup.classList.add("form-group", "tnx-effect-kind-field");
+            const enchantment = isEnchantment(app.document) || app.document.getFlag?.(SYSTEM_ID, "applyToParent") === true;
+            typeGroup.innerHTML = `<label>AEの種類</label><div class="form-fields"><select name="type">
+                <option value="base"${enchantment ? "" : " selected"}>通常AE</option>
+                <option value="enchantment"${enchantment ? " selected" : ""}>付与AE（アウトフィット）</option>
+                </select></div>`;
+            (transferGroup ?? anchor)?.before(typeGroup);
+            typeInput = typeGroup.querySelector("select");
+        }
         let parentGroup = null;
+        let selfGroup = null;
         if (app.document?.parent?.documentName === "Item") {
             const cur = app.document.getFlag?.(SYSTEM_ID, "applyToParent") === true;
             parentGroup = document.createElement("div");
@@ -289,6 +313,13 @@ export function registerEffectConfigInjection() {
                     <input type="checkbox" name="flags.${SYSTEM_ID}.applyToParent" ${cur ? "checked" : ""}>
                 </div>`;
             (transferGroup ?? anchor)?.after(parentGroup);
+            selfGroup = document.createElement("div");
+            selfGroup.classList.add("form-group", "tnx-apply-self-field");
+            const own = app.document.getFlag?.(SYSTEM_ID, "applyToSelf");
+            const self = own === true || (own === undefined && isEnchantment(app.document) && !cur && app.document.transfer !== false);
+            selfGroup.innerHTML = `<label>このアイテム自身に適用</label><div class="form-fields">
+                <input type="checkbox" name="flags.${SYSTEM_ID}.applyToSelf" ${self ? "checked" : ""}></div>`;
+            parentGroup.after(selfGroup);
         }
 
         // 効果種別: 使用時付与でこの効果が果たす役割。通常効果(既定・値 "target")=カードの効果
@@ -315,13 +346,39 @@ export function registerEffectConfigInjection() {
             //   攻撃用途の「適用される効果（ダメージ時）」リスト所属で決まる(usage.damageEffects)
         }
 
-        // 出し分け: 準備先=自動適用オンのときだけ表示する(常時自動適用の乗り先修飾のため。
-        // 使用時付与ではコピー作成時に applyToParent を落とす=オフ時に意味を持つ経路が無い)
+        const parentInput = parentGroup?.querySelector("input");
+        const selfInput = selfGroup?.querySelector("input");
         const syncModeFields = () => {
-            if (parentGroup) parentGroup.style.display = (transferInput ? !!transferInput.checked : true) ? "" : "none";
+            filterKeySuggestions();
+            const enchantment = typeInput ? typeInput.value === "enchantment" : isEnchantment(app.document);
+            for (const group of [parentGroup, selfGroup]) {
+                if (!group) continue;
+                group.hidden = !enchantment;
+                group.querySelector("input").disabled = !enchantment;
+            }
+            const needsTarget = enchantment && transferInput?.checked && !parentInput?.checked && !selfInput?.checked;
+            parentInput?.setCustomValidity(needsTarget ? "自動適用する付与先を選択してください。" : "");
+            const status = root.querySelector('[name="statuses"]');
+            if (status) {
+                const group = status.closest(".form-group");
+                if (group) group.hidden = enchantment;
+                status.disabled = enchantment;
+            }
+            for (const group of root.querySelectorAll(".tnx-condition-fieldset, .tnx-grant-target-field")) {
+                group.hidden = enchantment;
+                group.querySelectorAll("input, select, button").forEach(el => { el.disabled = enchantment; });
+            }
         };
+        for (const [input, other] of [[parentInput, selfInput], [selfInput, parentInput]]) {
+            input?.addEventListener("change", () => {
+                if (input.checked) other.checked = false;
+                else if (transferInput?.checked && !other.checked) input.checked = true;
+                syncModeFields();
+            });
+        }
         syncModeFields();
         transferInput?.addEventListener("change", syncModeFields);
+        typeInput?.addEventListener("change", syncModeFields);
 
         // コンディション(BS)の効果値フィールドを詳細タブの**末尾**に注入する(フェーズ9-4)。
         // - BS 種別ごとに <fieldset><legend>BS名</legend> で囲む(箇条書きの羅列を避ける)。
@@ -337,6 +394,7 @@ export function registerEffectConfigInjection() {
         const injectConditionFieldsets = () => {
             if (!detailsTab) return;
             detailsTab.querySelectorAll(".tnx-condition-fieldset").forEach(el => el.remove());
+            if (typeInput?.value === "enchantment" || isEnchantment(app.document)) return;
             const perKind = app.document?.getFlag?.(SYSTEM_ID, "conditions") ?? {};
             for (const kind of getConditionKinds(app.document)) {
                 const def = CONDITION_KINDS[kind];
@@ -396,6 +454,7 @@ export function registerEffectConfigInjection() {
         // ファクトリ createMultiSelectInput で optgroup 構成済みの要素を作って置換する。
         // 失敗時は既定の選択欄にフォールバック(絶対に壊さない)。変更時は statuses を即永続化(再注入で欄即出)。
         const persist = (el) => async () => {
+            if (typeInput?.value === "enchantment" || isEnchantment(app.document)) return;
             const v = el.value;
             const ids = Array.isArray(v) ? v : (v ? [v] : []);
             await app.document?.update({ statuses: ids });
@@ -419,12 +478,14 @@ export function registerEffectConfigInjection() {
             }
             boundCtrl.addEventListener("change", persist(boundCtrl));
         }
+        syncModeFields();
     });
 
     // コンディション(BS)のステータスを外したら、その kind の効果値フラグを後始末する(フェーズ9-4)。
     // statuses から消えた kind の flags.tokyo-nova-axleration.conditions[<kind>] を削除する。
     // (AE 自体の削除時はフラグごと消えるため対象外。複数状態 AE から1つ外した場合などが対象。)
     Hooks.on("preUpdateActiveEffect", (effect, changes) => {
+        if (changes.type === "enchantment" || isEnchantment(effect)) return;
         if (!("statuses" in changes)) return;
         const perKind = effect.flags?.[SYSTEM_ID]?.conditions;
         if (!perKind) return;

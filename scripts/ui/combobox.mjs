@@ -53,6 +53,7 @@ export function enhanceComboboxes(root) {
 function readOptions(datalist) {
     const out = [];
     for (const opt of datalist.querySelectorAll("option")) {
+        if (opt.disabled) continue;
         const value = opt.value ?? opt.getAttribute("value") ?? "";
         if (value === "") continue;
         out.push({ value, label: opt.label || opt.textContent?.trim() || value });

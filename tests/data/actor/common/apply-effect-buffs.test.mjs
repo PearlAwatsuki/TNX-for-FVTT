@@ -22,10 +22,10 @@ foundry.utils.getProperty ??= (obj, path) =>
 const { CharacterBaseDataModel } = await import("../../../../scripts/data/actor/common/character-base.mjs");
 
 /** 効果モック(実 ActiveEffect の読み取り面だけ)。apply は呼び出し記録用。 */
-function effectMock({ id = "e1", changes, disabled = false, transfer = true, flags = {} }) {
+function effectMock({ id = "e1", changes, disabled = false, transfer = true, flags = {}, type = "base" }) {
   return {
     id, name: "テスト効果", img: "",
-    active: !disabled, disabled, transfer,
+    active: !disabled, disabled, transfer, type,
     flags,
     changes,
     apply: vi.fn(),
@@ -61,6 +61,28 @@ function runBuffs(items, actorEffects = []) {
 }
 
 describe("_applyEffectBuffs 実行検証（アイテム AE・2026-07-13）", () => {
+  it("付与AEは自身のアウトフィット属性だけに適用する", () => {
+    const effect = effectMock({ type: "enchantment", flags: { "tokyo-nova-axleration": { applyToSelf: true } }, changes: [
+      { key: "system.attack.damageType", mode: 5, value: "S" },
+      { key: "system.abilities.life.value", mode: 2, value: "99" },
+    ] });
+    const weapon = weaponMock([effect]);
+    runBuffs([weapon]);
+    expect(weapon.system.attack.damageTypeTotal).toBe("S");
+    expect(effect.apply).not.toHaveBeenCalled();
+  });
+
+  it("自動適用オフの付与定義は無効だが、実体化した付与コピーは適用する", () => {
+    const effect = effectMock({ type: "enchantment", transfer: false, flags: { "tokyo-nova-axleration": { applyToSelf: true } }, changes: [
+      { key: "system.attack.damageType", mode: 5, value: "S" },
+    ] });
+    const weapon = weaponMock([effect]);
+    runBuffs([weapon]);
+    expect(weapon.system.attack.damageTypeTotal).toBe("I");
+    effect.flags["tokyo-nova-axleration"].grantedFrom = "Item.source.ActiveEffect.e";
+    runBuffs([weapon]);
+    expect(weapon.system.attack.damageTypeTotal).toBe("S");
+  });
   it("system.attack.damageType（上書き・値 S）→ 実効 damageTypeTotal が S になり素値は不変", () => {
     const weapon = weaponMock([effectMock({ changes: [
       { key: "system.attack.damageType", mode: 5, value: "S" },

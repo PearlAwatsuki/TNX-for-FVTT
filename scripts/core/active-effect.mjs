@@ -14,20 +14,58 @@
  * 除外する。独自適用からの apply は新しい静的 API へ橋渡しする。
  */
 import { parseEffectTargetKey } from "../data/item/helpers.mjs";
+import { SYSTEM_ID } from "../constants.mjs";
+import { isEnchantment, normalizeEffectKindData, ENCHANTMENT_STATUS_FLAGS } from "../rules/ae-kind.mjs";
+import { OUTFIT_TYPES } from "../data/item/outfit-categories.mjs";
 
 export class TokyoNovaActiveEffect extends ActiveEffect {
+  get modifiesActor() {
+    return !isEnchantment(this) && super.modifiesActor;
+  }
+
+  async _preCreate(data, options, user) {
+    if (isEnchantment(this)) {
+      const next = normalizeEffectKindData(this.toObject());
+      this.updateSource({ statuses: [], flags: next.flags });
+      // updateSourceのマージでは削除されない既存キーも除去する。
+      this.updateSource(Object.fromEntries(ENCHANTMENT_STATUS_FLAGS.map(k => [`flags.${SYSTEM_ID}.-=${k}`, null])));
+    }
+    return super._preCreate(data, options, user);
+  }
+
+  async _preUpdate(data, options, user) {
+    const next = foundry.utils.mergeObject(this.toObject(), foundry.utils.expandObject(data), { inplace: false });
+    if (isEnchantment(next)) {
+      const normalized = normalizeEffectKindData(next);
+      data.statuses = [];
+      for (const key of ["applyToParent", "applyToSelf"]) data[`flags.${SYSTEM_ID}.${key}`] = normalized.flags[SYSTEM_ID][key];
+      for (const key of ENCHANTMENT_STATUS_FLAGS) {
+        if (data.flags?.[SYSTEM_ID]) delete data.flags[SYSTEM_ID][key];
+        for (const path of Object.keys(data)) {
+          if (path === `flags.${SYSTEM_ID}.${key}` || path.startsWith(`flags.${SYSTEM_ID}.${key}.`)) delete data[path];
+        }
+        data[`flags.${SYSTEM_ID}.-=${key}`] = null;
+      }
+    } else if (data.type !== undefined) {
+      data[`flags.${SYSTEM_ID}.-=applyToParent`] = null;
+      data[`flags.${SYSTEM_ID}.-=applyToSelf`] = null;
+    }
+    return super._preUpdate(data, options, user);
+  }
   /**
    * v14 の標準適用は apply() を通らない。TNX のキーは派生値の確定後に
    * _applyEffectBuffs / 判定処理が評価するため、標準処理では適用しない。
    * ここで評価すると @item の参照がなく、素値の変更や二重適用も起こる。
    */
   shouldApplyChange(change, options) {
+    if (isEnchantment(this)) return false;
     if (parseEffectTargetKey(change?.key)) return false;
     return super.shouldApplyChange(change, options);
   }
 
   /** @override — Actor ドキュメントへの `name` 変更(名前装飾)はネイティブ適用しない(フェーズ12)。 */
   apply(document, change) {
+    if (isEnchantment(this) && (document?.documentName !== "Item" || !OUTFIT_TYPES.has(document.type))) return {};
     if (document instanceof Actor && change?.key === "name") return {};
     // v14 では instance.apply が廃止され applyChange に統合された。
     if (typeof this.constructor.applyChange === "function") {

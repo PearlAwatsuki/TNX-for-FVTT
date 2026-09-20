@@ -205,6 +205,9 @@
         }
     ],
     "documentTypes": {
+        "ActiveEffect": {
+            "enchantment": {}
+        },
         "Actor": {
             "cast":   { "htmlFields": ["description"] },
             "guest":  { "htmlFields": ["description"] },

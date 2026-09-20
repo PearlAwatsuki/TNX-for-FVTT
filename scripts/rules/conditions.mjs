@@ -127,6 +127,7 @@ export const CONDITION_GROUP_LABELS = Object.freeze({
  * @returns {string[]} CONDITION_KINDS のキー配列
  */
 export function getConditionKinds(effect) {
+  if (effect?.type === "enchantment") return [];
   const out = [];
   const st = effect?.statuses;
   const ids = st instanceof Set ? [...st] : (Array.isArray(st) ? st : []);

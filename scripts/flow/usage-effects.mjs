@@ -29,6 +29,7 @@
  */
 
 import { SYSTEM_ID } from "../constants.mjs";
+import { isEnchantment, normalizeEffectKindData } from "../rules/ae-kind.mjs";
 import { currentTargetActors } from "./target-resolution.mjs";
 import { analyzeGrantLanding, itemGrantCandidates, rewriteGrantChangesForItem } from "../data/item/helpers.mjs";
 import { isWetActor } from "../rules/conditions.mjs";
@@ -79,7 +80,7 @@ export function buildGrantedEffectDataFrom(source, sourceUuid = null) {
     // 無いと出ず、トークン上のアイコンは temporary(statuses あり or 持続時間あり)でないと出ない。
     // statuses が空の効果には付与マーカーの status を注入し、コアの標準演出を全クライアントで
     // 発火させる(CONFIG.statusEffects 未登録の id は HUD パレットには出ない=バッジ表示専用)
-    if (!(data.statuses?.length)) data.statuses = ["tnx-applied"];
+    if (!isEnchantment(data) && !(data.statuses?.length)) data.statuses = ["tnx-applied"];
     // 由来と同一性(2026-07-13 再設計): grantedFrom=付与コピーの印(転送の供給元にならない)。
     // effectId=重複排除・置き換えリフレッシュの同一性(供給元に無ければ供給元 uuid を刻む)
     data.flags = data.flags ?? {};
@@ -89,6 +90,11 @@ export function buildGrantedEffectDataFrom(source, sourceUuid = null) {
         if (!f.effectId) f.effectId = sourceUuid;
     }
     delete f.applyToParent; // 付与コピーに準備先転送は無関係
+    if (isEnchantment(data)) {
+        f.applyToParent = false;
+        f.applyToSelf = true;
+        return normalizeEffectKindData(data);
+    }
     return data;
 }
 
@@ -118,7 +124,7 @@ export function resolveUsageEffectData(actor, parentItem, usage) {
                 data,
                 grantTarget: eff.flags?.[SYSTEM_ID]?.grantTarget === "self" ? "self" : "target",
                 timing,
-                landing: analyzeGrantLanding(data.changes),
+                landing: isEnchantment(data) ? "item" : analyzeGrantLanding(data.system?.changes ?? data.changes),
             });
         }
     }
@@ -226,16 +232,19 @@ async function createOrRefreshGrant(doc, data) {
 async function grantUsageEffect(targetActor, entry) {
     // 着地は**付与先の所持アイテムの種別**で決まる(2026-09-02): 技能・神業だけを狙うペイロードは
     // アクターへ着地し、遠隔適用で実効値に届く(付与先を選ばせない・持続の失効掃引にも乗る)
-    const landing = analyzeGrantLanding(entry.data?.changes, targetActor?.items);
+    const changes = entry.data?.system?.changes ?? entry.data?.changes;
+    const landing = isEnchantment(entry.data) ? "item" : analyzeGrantLanding(changes, targetActor?.items);
     if (landing === "item") {
-        const candidates = itemGrantCandidates(targetActor?.items ?? [], entry.data?.changes);
+        const candidates = itemGrantCandidates(targetActor?.items ?? [], changes);
         if (!candidates.length) {
             ui.notifications.warn(`「${entry.name}」の付与先になれるアイテムが「${targetActor?.name ?? ""}」にありません。`);
             return "skip";
         }
         const item = await pickGrantItem(targetActor, candidates, entry.name);
         if (!item) return "cancel";
-        const data = { ...foundry.utils.deepClone(entry.data), changes: rewriteGrantChangesForItem(entry.data.changes) };
+        const data = foundry.utils.deepClone(entry.data);
+        if (Array.isArray(data.system?.changes)) data.system.changes = rewriteGrantChangesForItem(changes);
+        else data.changes = rewriteGrantChangesForItem(changes);
         await createOrRefreshGrant(item, data);
         // 成功報告の通知は出さない(2026-08-30 ユーザー確定=不成立の警告のみ残す)
         return true;

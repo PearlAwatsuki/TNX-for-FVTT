@@ -10,6 +10,7 @@
  */
 
 import { SYSTEM_ID } from "../../../constants.mjs";
+import { isEnchantment, enchantmentAppliesToSelf } from "../../../rules/ae-kind.mjs";
 import { SystemDataModel } from "../../abstract.mjs";
 import { BiographyTemplate } from "./biography.mjs";
 import { AttributesTemplate } from "./attributes.mjs";
@@ -229,11 +230,13 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
       for (const effect of (effects ?? [])) {
         if (!effect.active) continue;
         if (!effectAutoApplies(effect)) continue;
+        if (!enchantmentAppliesToSelf(effect, bearer)) continue;
         // 準備先(親アイテム)に適用: 供給元の素のキーは準備先ホスト上の転送コピーが適用する
         if (effect.flags?.[SYSTEM_ID]?.applyToParent === true && bearer?.documentName === "Item") continue;
         for (const change of (effect.changes ?? [])) {
           const parsed = parseEffectTargetKey(change.key);
           if (!parsed || CHECK_SCOPES.has(parsed.scope)) continue;
+          if (isEnchantment(effect) && !["self", "partAdd", "itemName"].includes(parsed.scope)) continue;
           entries.push({ effect, change, parsed, bearer });
         }
       }
