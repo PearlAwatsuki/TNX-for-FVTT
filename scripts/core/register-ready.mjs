@@ -21,10 +21,12 @@ import { autoAcquireForStyleSkill, autoImportDerivedData } from "./style-skill-a
 import { syncCastExpToUser, performInitialHistorySync, performUnsyncSeparation } from "./exp-user-sync.mjs";
 import { applyPendingMigrations } from "./migrations.mjs";
 import { planEffectKeyMigration } from "./ae-key-migration.mjs";
+import { buildAEMigrationInventory } from "./ae-migration-inventory.mjs";
 import { vehicleRegistrationError } from "../session/vehicle-state.mjs";
 
 export async function onSystemReady() {
     game.tnx = game.tnx || {};
+    game.tnx.previewAEMigration = options => buildAEMigrationInventory(game, options);
     // 移行計画だけを返す読取専用の診断入口。自動移行・版番号更新は行わない。
     game.tnx.previewAEKeyMigration = () => {
         const plans = [];
@@ -33,7 +35,9 @@ export async function onSystemReady() {
             if (!document || seen.has(document.uuid)) return;
             seen.add(document.uuid);
             for (const effect of (document.effects ?? [])) {
-                plans.push({ uuid: effect.uuid, ...planEffectKeyMigration(effect.toObject(), { items }) });
+                plans.push({ uuid: effect.uuid, ...planEffectKeyMigration(effect.toObject(), {
+                    items, bearer: document.documentName === "Item" ? document : null,
+                }) });
             }
         };
         const inspectActor = actor => {
