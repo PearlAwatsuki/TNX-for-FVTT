@@ -53,6 +53,13 @@ export class TnxSocketHandler {
      */
     static onMessage(data) {
         switch (data?.type) {
+            case "enchantmentGrant":
+                if (game.users.activeGM?.id === game.user.id) {
+                    import("../flow/usage-effects.mjs")
+                        .then(m => m.applyEnchantmentGrant(data.messageId, data.targetUuid, data.userId))
+                        .catch(error => console.error("TNX | 付与AEの適用に失敗", error));
+                }
+                break;
             case "vehicleExitQuestion":
             case "vehicleExitAnswer":
                 import("../session/vehicle-exit.mjs").then(m => m.handleVehicleExitMessage(data)).catch(error => ui.notifications.warn(error.message));

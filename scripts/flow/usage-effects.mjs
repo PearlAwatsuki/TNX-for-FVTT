@@ -28,8 +28,10 @@
  * - 効果 `{itemId, effectId}` の itemId 空＝親アイテム。実データ(toObject)をカードのフラグに載せて運ぶ。
  */
 
-import { SYSTEM_ID } from "../constants.mjs";
+import { SYSTEM_ID, SOCKET_CHANNEL } from "../constants.mjs";
 import { isEnchantment, normalizeEffectKindData } from "../rules/ae-kind.mjs";
+import { OUTFIT_TYPES } from "../data/item/outfit-categories.mjs";
+import { runSerial } from "../core/serial-queue.mjs";
 import { currentTargetActors } from "./target-resolution.mjs";
 import { analyzeGrantLanding, itemGrantCandidates, rewriteGrantChangesForItem } from "../data/item/helpers.mjs";
 import { isWetActor } from "../rules/conditions.mjs";
@@ -125,6 +127,12 @@ export function resolveUsageEffectData(actor, parentItem, usage) {
                 grantTarget: eff.flags?.[SYSTEM_ID]?.grantTarget === "self" ? "self" : "target",
                 timing,
                 landing: isEnchantment(data) ? "item" : analyzeGrantLanding(data.system?.changes ?? data.changes),
+                ...(isEnchantment(data) ? { enchantment: {
+                    mode: eff.flags?.[SYSTEM_ID]?.applyToParent === true ? "parent"
+                        : (eff.flags?.[SYSTEM_ID]?.applyToSelf === true
+                            || (eff.flags?.[SYSTEM_ID]?.applyToSelf === undefined && eff.transfer !== false)) ? "self" : "drop",
+                    sourceItemUuid: host.uuid,
+                } } : {}),
             });
         }
     }
@@ -323,6 +331,7 @@ export async function prepareUsageEffectPayload(actor, parentItem, usage, { targ
         // timing を必ず載せる(2026-07-18 是正: 落とすと splitEffectsByTiming が全てダメージ時と
         // 見なし、命中時効果がダメージ適用時に付与される)。self=代償効果の印
         effects: entries.map(e => ({ name: e.name, data: e.data, timing: e.timing,
+            ...(e.enchantment ? { enchantment: e.enchantment } : {}),
             ...(e.grantTarget === "self" ? { self: true } : {}) })),
         targets,
         sourceActorUuid: actor?.uuid ?? null, // 代償効果の適用先=使用者
@@ -422,10 +431,23 @@ export async function renderUsageEffectButton(message, html) {
     block.innerHTML = await foundry.applications.handlebars.renderTemplate(
         "systems/tokyo-nova-axleration/templates/parts/usage-effect-tray.hbs",
         {
-            targets: ctx.refs,
+            targets: ctx.entries.some(e => !isEnchantment(e.data)) ? ctx.refs : [],
             effects: ctx.entries.filter(e => e?.data)
-                .map(e => ({ name: e.name, self: e.self === true })),
+                .map(e => ({ name: e.name, self: !isEnchantment(e.data) && e.self === true })),
+            hasEnchantmentDrop: ctx.entries.some(e => e.enchantment?.mode === "drop"),
+            enchantmentTargetName: message.getFlag(SYSTEM_ID, "enchantmentTarget")?.name ?? "",
+            hasApplyButton: ctx.entries.some(e => !isEnchantment(e.data) || e.enchantment?.mode !== "drop"),
         });
+    const drop = block.querySelector('[data-drop-area="enchantment"]');
+    drop?.addEventListener("dragover", event => event.preventDefault());
+    drop?.addEventListener("drop", async event => {
+        event.preventDefault();
+        event.stopPropagation();
+        let data;
+        try { data = JSON.parse(event.dataTransfer.getData("text/plain")); } catch { return; }
+        if (data?.type !== "Item" || !data.uuid) return;
+        await requestEnchantmentGrant(message, data.uuid);
+    });
     block.querySelector('[data-action="trayToggle"]')
         ?.addEventListener("click", async () => {
             // 打ち消し待ち(17-2)なら見出しクリックは「効果の適用をキャンセル」の発動点(畳まない)
@@ -454,8 +476,8 @@ export async function renderUsageEffectButton(message, html) {
 async function applyUsageEffectsFromTray(message, block) {
     const ctx = usageEffectTrayContext(message);
     if (!ctx) return;
-    const targetEntries = ctx.entries.filter(e => e?.data && e.self !== true);
-    const selfEntries = ctx.entries.filter(e => e?.data && e.self === true);
+    const targetEntries = ctx.entries.filter(e => e?.data && !isEnchantment(e.data) && e.self !== true);
+    const selfEntries = ctx.entries.filter(e => e?.data && !isEnchantment(e.data) && e.self === true);
     // ウェット無効(noEffectVsWet)の対象行はチェック不能だが、押下時点の状態でも除外する(二重ガード)
     const blocked = new Set(ctx.refs.filter(r => r.wetBlocked).map(r => r.uuid));
     const checked = [...block.querySelectorAll(".tnx-effect-target-row input:checked")]
@@ -463,6 +485,9 @@ async function applyUsageEffectsFromTray(message, block) {
         .filter(r => !blocked.has(r.uuid));
 
     let cancelled = false;
+    if (ctx.entries.some(e => isEnchantment(e.data) && e.enchantment?.mode !== "drop")) {
+        cancelled = !(await requestEnchantmentGrant(message, null));
+    }
     if (targetEntries.length && checked.length) {
         cancelled = (await grantEffectsToRefs(checked, targetEntries)).cancelled || cancelled;
     }
@@ -474,4 +499,73 @@ async function applyUsageEffectsFromTray(message, block) {
         }
     }
     if (!cancelled) block.classList.add("collapsed");
+}
+
+/** 付与操作を同一GMへ集約し、複数クライアントからの二重付与を防ぐ。 */
+async function requestEnchantmentGrant(message, targetUuid) {
+    const gm = game.users.activeGM;
+    if (gm && gm.id !== game.user.id) {
+        game.socket.emit(SOCKET_CHANNEL, { type: "enchantmentGrant", messageId: message.id, targetUuid, userId: game.user.id });
+        return true;
+    }
+    return applyEnchantmentGrant(message.id, targetUuid, game.user.id);
+}
+
+/** クライアントが渡した効果データを使わず、保存済みの用途カードから付与内容を解決する。 */
+export async function applyEnchantmentGrant(messageId, targetUuid, userId) {
+    if (game.users.activeGM && game.users.activeGM.id !== game.user.id) return false;
+    return runSerial(`enchantment:${messageId}`, async () => {
+        const message = game.messages.get(messageId);
+        const requester = game.users.get(userId);
+        const ctx = message && usageEffectTrayContext(message);
+        if (!ctx || !requester) return false;
+        if (!ctx.sourceActorUuid) return false;
+        const source = await fromUuid(ctx.sourceActorUuid).catch(() => null);
+        const sourceActor = source?.actor ?? source;
+        if (!requester.isGM && !sourceActor?.testUserPermission?.(requester, "OWNER")) return false;
+        const entries = ctx.entries.filter(e => isEnchantment(e.data)
+            && (targetUuid ? e.enchantment?.mode === "drop" : ["self", "parent"].includes(e.enchantment?.mode)));
+        if (!entries.length) return false;
+        const targets = [];
+        const fixedTargets = { ...(message.getFlag(SYSTEM_ID, "enchantmentFixedTargets") ?? {}) };
+        for (const entry of entries) {
+            let item;
+            if (targetUuid) item = await fromUuid(targetUuid).catch(() => null);
+            else {
+                const bearer = await fromUuid(entry.enchantment.sourceItemUuid).catch(() => null);
+                if (entry.enchantment.mode === "parent" && bearer?.system?.isPrepared === false) return false;
+                item = entry.enchantment.mode === "self" ? bearer : bearer?.actor?.items?.get(bearer.system?.parentItemId);
+            }
+            if (item?.documentName !== "Item" || !OUTFIT_TYPES.has(item.type) || item.parent?.documentName !== "Actor") {
+                ui.notifications.warn("キャラクターが所持するアウトフィットを指定してください。");
+                return false;
+            }
+            if (!game.user.isGM && (!item.isOwner || !message.isOwner)) return false;
+            if (message.getFlag(SYSTEM_ID, "usageEffects")?.noEffectVsWet && isWetActor(item.parent)) return false;
+            if (!targetUuid) {
+                const identity = entry.data.flags?.[SYSTEM_ID]?.effectId ?? entry.enchantment.sourceItemUuid;
+                if (fixedTargets[identity] && fixedTargets[identity] !== item.uuid) return false;
+                fixedTargets[identity] = item.uuid;
+            }
+            targets.push({ entry, item });
+        }
+        if (targetUuid) {
+            const previous = message.getFlag(SYSTEM_ID, "enchantmentTarget");
+            if (previous?.uuid && previous.uuid !== targetUuid) {
+                ui.notifications.warn("この用途の付与先は既に決まっています。");
+                return false;
+            }
+            // 付与より先に宛先を確定。途中失敗時も同じ宛先へ安全に再試行できる。
+            if (!previous?.uuid) await message.setFlag(SYSTEM_ID, "enchantmentTarget", { uuid: targetUuid, name: targets[0].item.name });
+        } else await message.setFlag(SYSTEM_ID, "enchantmentFixedTargets", fixedTargets);
+        for (const { entry, item } of targets) {
+            const data = foundry.utils.deepClone(entry.data);
+            const identity = data.flags?.[SYSTEM_ID]?.effectId ?? entry.enchantment.sourceItemUuid;
+            const grantKey = `${message.uuid}:${identity}`;
+            if (item.effects.some(e => e.flags?.[SYSTEM_ID]?.usageGrantKey === grantKey)) continue;
+            data.flags[SYSTEM_ID].usageGrantKey = grantKey;
+            await createOrRefreshGrant(item, data);
+        }
+        return true;
+    });
 }

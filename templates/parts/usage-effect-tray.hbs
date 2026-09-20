@@ -26,5 +26,14 @@
         {{#if this.self}}<span class="tnx-effect-self-tag">→ 自分</span>{{/if}}
     </div>
     {{/each}}
+    {{#if hasEnchantmentDrop}}
+    <div class="tnx-import-box tnx-import-box--dropzone" data-drop-area="enchantment">
+        <i class="fas fa-hand-sparkles"></i>
+        {{#if enchantmentTargetName}}<span>付与先：{{enchantmentTargetName}}</span>
+        {{else}}<span>付与するアウトフィットをここへドロップ</span>{{/if}}
+    </div>
+    {{/if}}
+    {{#if hasApplyButton}}
     <button type="button" class="tnx-chat-btn" data-action="trayApply">効果を適用</button>
+    {{/if}}
 </div>
