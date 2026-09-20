@@ -1,4 +1,5 @@
 import { bindListDragDrop } from "../ui/list-drag-drop.mjs";
+import { restoreEnchantmentEditValues } from "../rules/enchantment-attributes.mjs";
 import { captureScrollTop, restoreScrollTop } from "../ui/scroll-preserve.mjs";
 import { EffectsSheetMixin } from "../ui/effects-sheet-mixin.mjs";
 import { TnxUsageSheet, USAGE_TYPES } from "../app/tnx-usage-sheet.mjs";
@@ -69,6 +70,7 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
             displayName: usageDisplayName(a, this.item.name),
         }));
         context.isEditMode = this._isEditMode && context.editable;
+        if (context.isEditMode) restoreEnchantmentEditValues(this.item, system);
 
         context.enrichedDescription = await foundry.applications.ux.TextEditor.enrichHTML(system.description, {
             relativeTo: this.item,

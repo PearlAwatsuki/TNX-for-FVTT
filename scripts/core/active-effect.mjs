@@ -17,6 +17,7 @@ import { parseEffectTargetKey } from "../data/item/helpers.mjs";
 import { SYSTEM_ID } from "../constants.mjs";
 import { isEnchantment, normalizeEffectKindData, ENCHANTMENT_STATUS_FLAGS } from "../rules/ae-kind.mjs";
 import { OUTFIT_TYPES } from "../data/item/outfit-categories.mjs";
+import { normalizeEnchantmentChanges } from "../rules/enchantment-attributes.mjs";
 
 export class TokyoNovaActiveEffect extends ActiveEffect {
   get modifiesActor() {
@@ -27,6 +28,8 @@ export class TokyoNovaActiveEffect extends ActiveEffect {
     if (isEnchantment(this)) {
       const next = normalizeEffectKindData(this.toObject());
       this.updateSource({ statuses: [], flags: next.flags });
+      const path = next.system?.changes ? "system.changes" : "changes";
+      this.updateSource({ [path]: normalizeEnchantmentChanges(next.system?.changes ?? next.changes ?? []) });
       // updateSourceのマージでは削除されない既存キーも除去する。
       this.updateSource(Object.fromEntries(ENCHANTMENT_STATUS_FLAGS.map(k => [`flags.${SYSTEM_ID}.-=${k}`, null])));
     }
@@ -37,6 +40,12 @@ export class TokyoNovaActiveEffect extends ActiveEffect {
     const next = foundry.utils.mergeObject(this.toObject(), foundry.utils.expandObject(data), { inplace: false });
     if (isEnchantment(next)) {
       const normalized = normalizeEffectKindData(next);
+      const path = next.system?.changes ? "system.changes" : "changes";
+      const changes = normalizeEnchantmentChanges(next.system?.changes ?? next.changes ?? []);
+      if (data.system?.changes) delete data.system.changes;
+      // ネスト・フラットが混在する更新でも、正規化後の配列を一つだけ渡す。
+      for (const key of Object.keys(data)) if (key.startsWith(`${path}.`)) delete data[key];
+      data[path] = changes;
       data.statuses = [];
       for (const key of ["applyToParent", "applyToSelf"]) data[`flags.${SYSTEM_ID}.${key}`] = normalized.flags[SYSTEM_ID][key];
       for (const key of ENCHANTMENT_STATUS_FLAGS) {

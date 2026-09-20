@@ -40,6 +40,7 @@
  */
 
 import { SystemDataModel } from "../../abstract.mjs";
+import { applyEnchantmentAttributes } from "../../../rules/enchantment-attributes.mjs";
 import { getMajorCategoryChoices, getMinorCategoryChoices, LEGACY_CATEGORY_MAP, hasClassification, outfitClassifications } from "../outfit-categories.mjs";
 import { modeValueField, migrateUsesValueToSpent, computeItemEffectiveValues } from "../helpers.mjs";
 import { applyModificationsToTotals } from "../modification-params.mjs";
@@ -285,6 +286,7 @@ export class OutfitBaseTemplate extends SystemDataModel {
    */
   prepareDerivedData() {
     super.prepareDerivedData?.();
+    applyEnchantmentAttributes(this.parent);
     computeItemEffectiveValues(this);
     // 改造記録の実効値合流(16-4): base→total 化の直後・アクター段 AE の前。
     // AE は改造込みの total の上に重なる(素値+改造が土台・ヴィークル制の上限0はここでクランプ)

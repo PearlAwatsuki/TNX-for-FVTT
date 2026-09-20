@@ -17,6 +17,7 @@ import { enhanceComboboxes } from "../ui/combobox.mjs";
 import { OUTFIT_CATEGORIES } from "../data/item/outfit-categories.mjs";
 import { actorEffectKeySuggestions, toPublicEffectKey, toRuntimeEffectKey } from "../rules/ae-public-keys.mjs";
 import { isEnchantment } from "../rules/ae-kind.mjs";
+import { ENCHANTMENT_ATTRIBUTES, enchantmentAttributeKey, parseEnchantmentAttribute } from "../rules/enchantment-attributes.mjs";
 
 /** AE 設定シートへの注入を登録する(init から呼ぶ)。 */
 export function registerEffectConfigInjection() {
@@ -49,15 +50,20 @@ export function registerEffectConfigInjection() {
                 const valueName = keyInput.name.replace(/\.key$/, ".value");
                 const valueEl = root.querySelector(`[name="${CSS.escape(valueName)}"]`);
                 if (!valueEl) continue;
-                const rule = VALUE_CHOICE_RULES.find(r => r.match(toRuntimeEffectKey((keyInput.value ?? "").trim())));
+                const key = enchantmentAttributeKey(keyInput.value);
+                const attribute = ENCHANTMENT_ATTRIBUTES[key];
+                const rule = attribute?.choices
+                    ? { options: Object.entries(attribute.choices).map(([value, label]) => opt(value, label)) }
+                    : VALUE_CHOICE_RULES.find(r => r.match(toRuntimeEffectKey(key)));
+                const modes = attribute?.modes ?? (rule ? ["override"] : null);
                 const modeName = keyInput.name.replace(/\.key$/, keyInput.name.startsWith("system.") ? ".type" : ".mode");
                 const modeEl = root.querySelector(`[name="${CSS.escape(modeName)}"]`);
                 if (modeEl) {
                     for (const option of modeEl.options ?? []) option.disabled = false;
-                    if (rule) {
-                        const override = keyInput.name.startsWith("system.") ? "override" : "5";
-                        modeEl.value = override;
-                        for (const option of modeEl.options ?? []) option.disabled = option.value !== override;
+                    if (modes) {
+                        const allowed = modes.map(mode => keyInput.name.startsWith("system.") ? mode : ({ add: "2", override: "5" })[mode]);
+                        if (!allowed.includes(modeEl.value)) modeEl.value = allowed[0];
+                        for (const option of modeEl.options ?? []) option.disabled = !allowed.includes(option.value);
                     }
                 }
                 if (rule) {
@@ -67,9 +73,10 @@ export function registerEffectConfigInjection() {
                     const sel = document.createElement("select");
                     sel.name = valueEl.name;
                     sel.dataset.tnxChoices = sig;
-                    sel.innerHTML = ['<option value="">──</option>',
-                        ...rule.options.map(o => `<option value="${o.value}"${cur === o.value ? " selected" : ""}>${o.label}</option>`),
-                    ].join("");
+                    // 既存の未解決値も残す。キーを入力しただけで値を黙って消さない。
+                    if (!rule.options.some(o => o.value === cur)) sel.add(new Option(cur ? `未対応: ${cur}` : "──", cur));
+                    for (const option of rule.options) sel.add(new Option(option.label, option.value));
+                    sel.value = cur;
                     valueEl.replaceWith(sel);
                 } else if (valueEl.tagName === "SELECT" && valueEl.dataset.tnxChoices) {
                     const inp = document.createElement("input");
@@ -166,6 +173,7 @@ export function registerEffectConfigInjection() {
                 ...checkKeys,
                 ...charValueKeys,
                 ...selfKeys,
+                ...Object.keys(ENCHANTMENT_ATTRIBUTES),
                 ...partKeys.map(k => `system.partSlot.${k}`),
                 ...partKeys.map(k => `system.part.${k}`),
                 ...itemKeys,
@@ -183,6 +191,10 @@ export function registerEffectConfigInjection() {
                 option.label = label;
                 option.dataset.tnxActorKey = "true";
                 keyList.appendChild(option);
+            }
+            for (const option of keyList.options) {
+                const def = ENCHANTMENT_ATTRIBUTES[option.value];
+                if (def) option.label = def.label;
             }
             for (const kind of ["", "surface.", "deep.", "unconscious.", "software.", "hardware."]) {
                 const option = document.createElement("option");
@@ -211,6 +223,21 @@ export function registerEffectConfigInjection() {
         };
         root.addEventListener("change", syncKeyInput);
         root.addEventListener("input", syncKeyInput);
+        // 選択値・構造行を保存前に検証する。エラーは該当入力欄で表示する。
+        const validateAttributeValues = () => {
+            for (const keyInput of root.querySelectorAll('[name$=".key"]')) {
+                const valueEl = root.querySelector(`[name="${CSS.escape(keyInput.name.replace(/\.key$/, ".value"))}"]`);
+                if (!valueEl?.setCustomValidity) continue;
+                let error = "";
+                if (ENCHANTMENT_ATTRIBUTES[enchantmentAttributeKey(keyInput.value)]) {
+                    try { parseEnchantmentAttribute(keyInput.value, valueEl.value); } catch (e) { error = e.message; }
+                }
+                valueEl.setCustomValidity(error);
+            }
+        };
+        root.addEventListener("input", validateAttributeValues);
+        root.addEventListener("change", validateAttributeValues);
+        validateAttributeValues();
         root.addEventListener("tnx:combobox-open", () => {
             const list = root.querySelector("#tnx-ae-key-suggestions");
             if (!list) return;

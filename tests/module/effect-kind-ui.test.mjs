@@ -25,6 +25,25 @@ function sheet(type, transfer, flags = {}) {
 }
 
 describe("付与先チェックのフォーム制御", () => {
+    it("手入力した小分類キーもプルダウンと上書きになり、副分類では加算を選べる", () => {
+        const s = sheet("enchantment", true, { applyToSelf: true });
+        const row = document.createElement("div");
+        row.innerHTML = '<input name="system.changes.0.key"><input name="system.changes.0.value" value="melee"><select name="system.changes.0.type"><option value="add">加算</option><option value="override">上書き</option></select>';
+        s.root.appendChild(row);
+        const key = row.querySelector("input");
+        key.value = "system.minorCategory";
+        key.dispatchEvent(new Event("input", { bubbles: true }));
+        const value = row.querySelector('[name$=".value"]');
+        const mode = row.querySelector('[name$=".type"]');
+        expect(value.tagName).toBe("SELECT");
+        expect(value.value).toBe("melee");
+        expect(mode.value).toBe("override");
+        expect(mode.options[0].disabled).toBe(true);
+        key.value = "system.additionalCategories";
+        key.dispatchEvent(new Event("input", { bubbles: true }));
+        expect(mode.options[0].disabled).toBe(false);
+        expect([...value.options].some(o => o.value === "weapon")).toBe(false);
+    });
     it("自動適用オフでも二つのチェックを表示し、両方オフを許可", () => {
         const s = sheet("enchantment", false, { applyToParent: false, applyToSelf: false });
         expect(s.parent.closest(".form-group").hidden).toBe(false);
