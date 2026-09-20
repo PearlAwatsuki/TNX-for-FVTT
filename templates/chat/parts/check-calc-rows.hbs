@@ -43,7 +43,7 @@
     </summary>
     <ul class="tnx-card__fold-list">
         {{#each checkSources}}
-        <li><span class="tnx-card__fold-name">{{this.name}}</span><span class="tnx-card__fold-num">{{signed this.value}}</span></li>
+        <li><span class="tnx-card__fold-name">{{this.name}}{{#if this.note}}（{{this.note}}）{{/if}}</span><span class="tnx-card__fold-num">{{signed this.value}}</span></li>
         {{/each}}
     </ul>
 </details>

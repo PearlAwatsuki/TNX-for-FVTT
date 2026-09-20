@@ -577,8 +577,8 @@ export async function prepareUsageContext(sheet, context) {
             label: g.label,
             options: g.options.map(o => ({ value: o.value, label: o.label, selected: o.value === source })),
         }));
-        context.checkBonusRows  = (usage.checkBonuses  ?? []).map((r, idx) => ({ idx, formula: r.formula, source: r.source, sourceGroups: rowGroups(r.source) }));
-        context.damageBonusRows = (usage.damageBonuses ?? []).map((r, idx) => ({ idx, formula: r.formula, source: r.source, sourceGroups: rowGroups(r.source) }));
+        context.checkBonusRows  = (usage.checkBonuses  ?? []).map((r, idx) => ({ idx, formula: r.formula, source: r.source, stackable: r.stackable === true, sourceGroups: rowGroups(r.source) }));
+        context.damageBonusRows = (usage.damageBonuses ?? []).map((r, idx) => ({ idx, formula: r.formula, source: r.source, stackable: r.stackable === true, sourceGroups: rowGroups(r.source) }));
         // 用途自身の修正値(専用欄・供給元つきの追加行とは別枠。式で @item.self=親アイテムを参照可)
         context.checkBonusSelf  = usage.checkBonusSelf ?? "";
         context.damageBonusSelf = usage.damageBonusSelf ?? "";

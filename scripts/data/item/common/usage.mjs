@@ -215,6 +215,7 @@ export class UsageTemplate extends SystemDataModel {
                         new fields.SchemaField({
                             formula: new fields.StringField({ initial: "" }),
                             source:  new fields.StringField({ initial: "" }),
+                            stackable: new fields.BooleanField({ initial: false }),
                         })
                     ),
 
@@ -222,6 +223,7 @@ export class UsageTemplate extends SystemDataModel {
                     // その用途の親アイテムが持つ修正値を入れる欄。式では @item.self=用途の親アイテムを
                     // 参照でき(識別キー不要)、台帳では親アイテム名で帰属する。
                     checkBonusSelf: new fields.StringField({ initial: "" }),
+                    checkBonusSelfStackable: new fields.BooleanField({ initial: false }),
 
                     // check: 再判定可能(2026-07-11 ユーザー確定)。ON の用途からの判定は、結果カードに
                     // 「再判定(カードを出し直す)」ボタンが出る(判定値の再決定)。再判定を可能にする
@@ -386,6 +388,7 @@ export class UsageTemplate extends SystemDataModel {
                         new fields.SchemaField({
                             formula: new fields.StringField({ initial: "" }),
                             source:  new fields.StringField({ initial: "" }),
+                            stackable: new fields.BooleanField({ initial: false }),
                             targetCondition: new fields.SchemaField({
                                 kind: new fields.StringField({ initial: "none" }),
                                 mode: new fields.StringField({ initial: "exclude" }),
@@ -398,6 +401,7 @@ export class UsageTemplate extends SystemDataModel {
                     // 2026-07-10)。親アイテムが持つダメージ修正を入れる欄。式で @item.self を参照可・
                     // 台帳は親名で帰属。modifyDamage ではダメージ修正値(増加=正/軽減=負)としてこの欄を使う。
                     damageBonusSelf: new fields.StringField({ initial: "" }),
+                    damageBonusSelfStackable: new fields.BooleanField({ initial: false }),
 
                     // attack: 自身の修正値の対象条件(damageBonuses 行の targetCondition と同形・
                     // 2026-09-01 承認)。

@@ -20,6 +20,7 @@ import { ghostCanInteract } from "../session/vehicle-state.mjs";
 import { getCardCheckValue, calcSkillCheck, calcControlCheck, normalizeSuit, ALL_SUITS, SUIT_TO_ABILITY } from '../rules/tnx-check-engine.mjs';
 import { gatherCheckBonusSources, collectActorEffectBuffs, actorHasSuitChangeBuff, actorCardValueOverride, readFlag } from '../data/item/helpers.mjs';
 import { evaluateBonusRows, evaluateSelfBonus, createEffectBonusEvaluator } from '../rules/tnx-formula.mjs';
+import { canonicalFormulaReference, selectFormulaContributions, appendFormulaContribution } from '../rules/formula-duplicates.mjs';
 import { getEffectiveConditions, gatherConditionCheckSources, getCheckBlock, gatherSkillUseWarnings, computeJammingPenalty, hasBountyBlock } from '../rules/conditions.mjs';
 import { TnxActionHandler } from '../cards/tnx-action-handler.mjs';
 import { TnxSocketHandler } from '../core/tnx-socket-handler.mjs';
@@ -531,7 +532,7 @@ export class TnxCheckFlow {
      * @param {string} abilityKey  スートから決まる能力値キー
      * @returns {{total:number, sources:Array<{name:string, value:number}>}}
      */
-    static _computeCheckBonus(actor, ctx, abilityKey) {
+    static _computeCheckBonus(actor, ctx, abilityKey, formulaOptions = {}) {
         if (!actor) return { total: 0, sources: [] };
         const effects = collectActorEffectBuffs(actor);
 
@@ -556,7 +557,7 @@ export class TnxCheckFlow {
                 }));
             criteria = { type: "skill", skills };
         }
-        const sources = gatherCheckBonusSources(effects, criteria, createEffectBonusEvaluator(actor));
+        const sources = gatherCheckBonusSources(effects, criteria, createEffectBonusEvaluator(actor, formulaOptions));
 
         // コンディション(BS)由来の達成値修正を合流する(酩酊=上方判定 -n、萎縮/憎悪=攻撃判定。
         // 萎縮/憎悪の発火に必要な isAttack/targetMatched は攻撃判定モデル＝フェーズ12 が供給する)。
@@ -732,7 +733,9 @@ export class TnxCheckFlow {
         // 能力値コンテキストを先に構築（報酬点プレビュー計算と本計算で共用）
         const abilitiesCtx = suitMismatch ? null : TnxCheckFlow._buildAbilitiesCtx(actor);
         // 判定バフ(check 時・同一効果の重複適用不可)を算出。内訳(sources)はチャットの内訳表示に使う
-        const checkInfo  = suitMismatch ? { total: 0, sources: [] } : TnxCheckFlow._computeCheckBonus(actor, ctx, SUIT_TO_ABILITY[suit]);
+        const cardNumeric = cardCheckValue === "FIXED_21" ? 11 : (Number.isFinite(cardCheckValue) ? cardCheckValue : 0);
+        const partial = { cardValue: cardNumeric };
+        const checkInfo  = suitMismatch ? { total: 0, sources: [] } : TnxCheckFlow._computeCheckBonus(actor, ctx, SUIT_TO_ABILITY[suit], { result: partial, withReferences: true });
         let checkBonus = checkInfo.total;
         // 用途の判定ボーナス(達成値へ加算する式・2026-07-10)。①用途自身の修正値(専用欄・親アイテム名で
         // 帰属)②供給元つきの追加行、の順に評価。式は @item.self=用途の親アイテム・@item.<識別キー>・
@@ -740,19 +743,24 @@ export class TnxCheckFlow {
         // 参照可。内訳に「判定ボーナス（供給元名）」として載せる。判定確定前のため @diff/@achievement は 0
         if (!suitMismatch) {
             const parentItem = ctx.sourceItemId ? actor.items.get(ctx.sourceItemId) : null;
-            const cardNumeric = cardCheckValue === "FIXED_21" ? 11
-                : (Number.isFinite(cardCheckValue) ? cardCheckValue : 0);
-            const partial = { cardValue: cardNumeric };
-            const self = await evaluateSelfBonus(ctx.checkBonusSelf, actor, partial, null, parentItem);
+            const self = await evaluateSelfBonus(ctx.checkBonusSelf, actor, partial, null, parentItem, null,
+                { withReferences: true, stackable: ctx.checkBonusSelfStackable === true });
             if (self) {
                 checkBonus += self.value;
-                checkInfo.sources.push({ name: `判定ボーナス（${self.name}）`, value: self.value });
+                checkInfo.sources.push({ ...self, name: `判定ボーナス（${self.name}）` });
             }
             if (ctx.checkBonuses?.length) {
-                const { total, sources } = await evaluateBonusRows(ctx.checkBonuses, actor, partial, null, null, parentItem);
+                const { total, sources } = await evaluateBonusRows(ctx.checkBonuses, actor, partial, null, null, parentItem, { withReferences: true });
                 checkBonus += total;
-                for (const s of sources) checkInfo.sources.push({ name: `判定ボーナス（${s.name}）`, value: s.value });
+                for (const s of sources) checkInfo.sources.push({ ...s, name: `判定ボーナス（${s.name}）` });
             }
+            const baseline = [canonicalFormulaReference("check.card", { actor }),
+                canonicalFormulaReference(`abilities.${SUIT_TO_ABILITY[suit]}.${ctx.type === "controlCheck" ? "control" : "value"}`, { actor })];
+            const selected = selectFormulaContributions(checkInfo.sources, { baseline });
+            checkBonus = selected.total;
+            checkInfo.total = selected.total;
+            checkInfo.sources = selected.sources;
+            checkInfo.baseline = baseline;
         }
 
         // 報酬点の使用を決定（スート不一致・制御判定・ファンブル確定はスキップ）
@@ -798,6 +806,8 @@ export class TnxCheckFlow {
                 result = calcSkillCheck({ cardCheckValue, suit, abilitiesCtx, bountyUsed, targetValue: ctx.targetValue, checkBonus, manualMod: ctx.manualMod ?? 0 });
             }
         }
+
+        result.formulaContributions = { baseline: checkInfo.baseline ?? [], sources: checkInfo.sources };
 
         // 代用判定(2026-07-09): 指定と別の技能で判定した事実を結果に載せ、
         // 結果カードと要求カードの両方に明示する(可否・修正の裁定は卓)
@@ -1084,6 +1094,7 @@ export class TnxCheckFlow {
             bountyAllowed:   (ctx.bountyAvailable ?? 0) > 0,
             checkBonuses:    ctx.checkBonuses ?? [],
             checkBonusSelf:  ctx.checkBonusSelf ?? "",
+            checkBonusSelfStackable: ctx.checkBonusSelfStackable === true,
             sourceItemId:    ctx.sourceItemId ?? "",
             substitution:    ctx.substitution ?? null,
             manualMod:       ctx.manualMod ?? 0,
@@ -1190,6 +1201,7 @@ export class TnxCheckFlow {
             requestMessageId: rc.requestMessageId,
             checkBonuses:    rc.checkBonuses,
             checkBonusSelf:  rc.checkBonusSelf,
+            checkBonusSelfStackable: rc.checkBonusSelfStackable === true,
             sourceItemId:    rc.sourceItemId,
             substitution:    rc.substitution,
             manualMod:       rc.manualMod,
@@ -1370,7 +1382,7 @@ export class TnxCheckFlow {
         }
 
         const prevAch = Number(attackF?.achievement ?? checkF?.result?.achievement) || 0;
-        let mod, label, overrideTo;
+        let mod, label, overrideTo, formulaSnapshot;
         if (manual) {
             // 手動修正(GMメニュー「達成値を修正」): 差分/上書きは呼び出し側で確定済み
             ({ mod, label, overrideTo } = manual);
@@ -1380,8 +1392,14 @@ export class TnxCheckFlow {
             const usage = (skill.system.actions ?? []).find(a => a._id === usageId) ?? null;
             mod = null;
             label = skill.name;
-            const self = await evaluateSelfBonus(usage?.checkBonusSelf ?? "", actor, null, null, skill);
-            if (self) mod = self.value;
+            const self = await evaluateSelfBonus(usage?.checkBonusSelf ?? "", actor, checkF?.result ?? null, null, skill, null,
+                { withReferences: true, stackable: usage?.checkBonusSelfStackable === true });
+            if (self) {
+                const applied = appendFormulaContribution(checkF?.result?.formulaContributions, self);
+                mod = applied.delta;
+                formulaSnapshot = applied.snapshot;
+                if (applied.contribution.note) label += `・${applied.contribution.note}`;
+            }
             if (mod === null) {
                 const input = await AmountInputDialog.prompt({
                     title: `判定の修正: ${skill.name}`,
@@ -1407,6 +1425,7 @@ export class TnxCheckFlow {
         mods.achievement = newAch;
 
         const patch = {};
+        if (formulaSnapshot && checkF) patch[`flags.${SYSTEM_ID}.checkResult.result.formulaContributions`] = formulaSnapshot;
         patch[`flags.${SYSTEM_ID}.checkMods`] = mods;
         let newSuccess = checkF?.result?.success === true; // 継続再実行の遷移判定用(目標値つきは下で更新)
         if (checkF) {

@@ -390,12 +390,13 @@
                 {{/if}}
                 <label class="usage-field-label">この用途の判定修正値</label>
                 <input type="text" name="checkBonusSelf" value="{{checkBonusSelf}}"
-                       placeholder="式（例: @item.self.system.levelTotal、2）"
+                       placeholder="式（例: @skill.技能識別キー.level、2）"
                        {{#unless editable}}disabled{{/unless}}>
+                <label class="usage-toggle-inline"><input type="checkbox" name="checkBonusSelfStackable" {{checked usage.checkBonusSelfStackable}} {{#unless editable}}disabled{{/unless}}>重複可</label>
                 <label class="usage-field-label">判定ボーナス（供給元つき・追加）</label>
                 {{> "systems/tokyo-nova-axleration/templates/app/usage-sheet-bonus-rows.hbs"
                     rows=checkBonusRows prefix="checkBonus" addAction="checkBonusAdd" deleteAction="checkBonusDelete"
-                    addLabel="判定ボーナスを追加" placeholder="式（例: 2、@item.<識別キー>.system.level）"
+                    addLabel="判定ボーナスを追加" placeholder="式（例: 2、@skill.技能識別キー.level）"
                     emptyHint="（追加の判定ボーナスなし）" editable=editable}}
                 <p class="usage-formula-line">達成値 ＝ カード ＋ 能力値 ＋ 報酬点 ＋ 判定バフ ＋ 判定修正値 ＋ 判定ボーナス</p>
             </fieldset>
@@ -455,8 +456,9 @@
                 <div class="usage-form-section">
                     <label class="usage-field-label">ダメージ修正（式）</label>
                     <input type="text" name="damageBonusSelf" value="{{damageBonusSelf}}"
-                           placeholder="式（例: -@item.self.system.levelTotal、@card、-5）"
+                           placeholder="式（例: -@skill.技能識別キー.level、@check.card、-5）"
                            {{#unless editable}}disabled{{/unless}}>
+                    <label class="usage-toggle-inline"><input type="checkbox" name="damageBonusSelfStackable" {{checked usage.damageBonusSelfStackable}} {{#unless editable}}disabled{{/unless}}>重複可</label>
                 </div>
                 {{/if}}
             </fieldset>
@@ -528,8 +530,9 @@
                     {{/if}}
                     <label class="usage-field-label">この用途のダメージ修正値</label>
                     <input type="text" name="damageBonusSelf" value="{{damageBonusSelf}}"
-                           placeholder="式（例: @item.self.system.attack.total）"
+                           placeholder="式（例: @outfit.識別キー.attack.value）"
                            {{#unless editable}}disabled{{/unless}}>
+                    <label class="usage-toggle-inline"><input type="checkbox" name="damageBonusSelfStackable" {{checked usage.damageBonusSelfStackable}} {{#unless editable}}disabled{{/unless}}>重複可</label>
                     {{#if withDamageCondition}}
                     {{!-- 自身の修正値の対象条件(2026-09-01・行の対象条件と同形) --}}
                     <div class="usage-bonus-cond-row">
@@ -588,8 +591,9 @@
                 {{#if usage.modifyCheck}}
                 <label class="usage-field-label">判定修正（式）</label>
                 <input type="text" name="checkBonusSelf" value="{{checkBonusSelf}}"
-                       placeholder="式（例: @item.self.system.levelTotal、2、-3）"
+                       placeholder="式（例: @skill.技能識別キー.level、2、-3）"
                        {{#unless editable}}disabled{{/unless}}>
+                <label class="usage-toggle-inline"><input type="checkbox" name="checkBonusSelfStackable" {{checked usage.checkBonusSelfStackable}} {{#unless editable}}disabled{{/unless}}>重複可</label>
                 {{/if}}
                 <div class="usage-form-row usage-toggle-row">
                     <label class="usage-toggle-inline">
@@ -631,8 +635,9 @@
                 {{#if usage.modifyDamage}}
                 <label class="usage-field-label">ダメージ修正（式）</label>
                 <input type="text" name="damageBonusSelf" value="{{damageBonusSelf}}"
-                       placeholder="式（例: -@item.self.system.levelTotal、@card、-5）"
+                       placeholder="式（例: -@skill.技能識別キー.level、@check.card、-5）"
                        {{#unless editable}}disabled{{/unless}}>
+                <label class="usage-toggle-inline"><input type="checkbox" name="damageBonusSelfStackable" {{checked usage.damageBonusSelfStackable}} {{#unless editable}}disabled{{/unless}}>重複可</label>
                 {{/if}}
             </fieldset>
             {{/if}}

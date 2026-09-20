@@ -5,6 +5,7 @@ import {
 } from "../../scripts/data/item/helpers.mjs";
 import { createEffectBonusEvaluator } from "../../scripts/rules/tnx-formula.mjs";
 import { calcSkillCheck } from "../../scripts/rules/tnx-check-engine.mjs";
+import { selectFormulaContributions, formulaReferenceKeys } from "../../scripts/rules/formula-duplicates.mjs";
 
 // Foundry 境界だけを代替。収集→式データ構築→集計→達成値計算は実コードを使う。
 beforeEach(() => vi.stubGlobal("Roll", class {
@@ -40,6 +41,21 @@ function checkSources(actor) {
 }
 
 describe("AE の効果値の式を実行時ボーナスへ反映する", () => {
+  it("実収集したAEと用途の式を横断し、基礎能力値・カードとの重複を除く", () => {
+    const { actor } = fixture("system.check.all", "@abilities.reason.value + 3");
+    actor.effects.push(effect("system.check.all", "@check.card + 2", { id: "card" }));
+    const ae = gatherCheckBonusSources(collectActorEffectBuffs(actor), { type: "ability", ability: "reason" },
+      createEffectBonusEvaluator(actor, { result: { cardValue: 7 }, withReferences: true }));
+    const usage = { name: "用途", value: 6, referenceKeys: formulaReferenceKeys("@abilities.reason.value + 2", { actor }) };
+    const selected = selectFormulaContributions([...ae, usage], { baseline: formulaReferenceKeys("@system.reason.total + @card", { actor }) });
+    expect(selected.total).toBe(0);
+    expect(selected.sources).toHaveLength(3);
+    expect(selected.sources.every(s => s.note)).toBe(true);
+    actor.effects[0].flags = { "tokyo-nova-axleration": { stackable: true } };
+    const allowed = gatherCheckBonusSources(collectActorEffectBuffs(actor), { type: "ability", ability: "reason" },
+      createEffectBonusEvaluator(actor, { result: { cardValue: 7 }, withReferences: true }));
+    expect(selectFormulaContributions(allowed, { baseline: formulaReferenceKeys("@system.reason.total + @card", { actor }) }).total).toBe(7);
+  });
   it("eika の実効レベル5をボーナス・内訳・達成値に加える", () => {
     const { actor } = fixture();
     const sources = checkSources(actor);

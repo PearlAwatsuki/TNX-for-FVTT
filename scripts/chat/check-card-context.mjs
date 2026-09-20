@@ -51,7 +51,7 @@ export function buildCheckCardContext({
         abilityLabel: ABILITY_LABEL[result?.abilityKey] ?? "",
         result,
         checkSources,
-        hasCheckBonus: (result?.checkBonus ?? 0) !== 0,
+        hasCheckBonus: (result?.checkBonus ?? 0) !== 0 || checkSources.some(row => row.note),
         // 代用判定(2026-07-09): 指定技能と手動修正を内訳に明示
         substitution: result?.substitution ?? null,
         manualModDisplay: result?.manualMod

@@ -27,6 +27,7 @@ import { aggregateDefence, defenceForType, computeDamage, splitSharedBonusRows }
 import { vehicleDefenceItems } from "../session/vehicle-state.mjs";
 import { vehicleDamageCategory } from "../rules/vehicle.mjs";
 import { evaluateBonusRows, evaluateSelfBonus, createEffectBonusEvaluator } from "../rules/tnx-formula.mjs";
+import { selectFormulaContributions } from "../rules/formula-duplicates.mjs";
 import { applyConsumptionPlan } from "./usage-consumption.mjs";
 import { getDamageChartKind } from "../data/damage-chart.mjs";
 import { CONDITION_KINDS, conditionDisplayName, getEffectiveConditions, hasBountyBlock, isWetActor } from "../rules/conditions.mjs";
@@ -206,13 +207,14 @@ export async function openDamageRollDialog(attackMessage) {
  */
 async function evaluateDamageBonusesPerTarget(damageTargets, { f, attacker, parentItem, result, category }) {
     // 対象非依存の AE(与えるダメージ +値)は 1 回だけ集計する
-    const dealtRows = gatherDamageDealtSources(collectActorEffectBuffs(attacker), category, createEffectBonusEvaluator(attacker));
     const evaluateFor = async (targetActor) => {
+        const dealtRows = gatherDamageDealtSources(collectActorEffectBuffs(attacker), category,
+            createEffectBonusEvaluator(attacker, { result, target: targetActor, withReferences: true }));
         const self = await evaluateSelfBonus(f.damageBonusSelf, attacker, result, targetActor, parentItem,
-            f.damageBonusSelfCondition ?? null);
-        const { sources } = await evaluateBonusRows(f.damageBonuses, attacker, result, null, targetActor, parentItem);
-        const vsRows = targetActor ? collectDamageVsBonuses(attacker, targetActor, category) : [];
-        return [...(self ? [self] : []), ...sources, ...dealtRows, ...vsRows];
+            f.damageBonusSelfCondition ?? null, { withReferences: true, stackable: f.damageBonusSelfStackable === true });
+        const { sources } = await evaluateBonusRows(f.damageBonuses, attacker, result, null, targetActor, parentItem, { withReferences: true });
+        const vsRows = targetActor ? collectDamageVsBonuses(attacker, targetActor, category, result) : [];
+        return selectFormulaContributions([...(self ? [self] : []), ...sources, ...dealtRows, ...vsRows]).sources;
     };
     if (!damageTargets.length) return { noTargetRows: await evaluateFor(null) };
     for (const t of damageTargets) {
@@ -1041,13 +1043,13 @@ async function resolveTargetActor(targetUuid) {
  * @param {"physical"|"mental"|"social"} [category] 攻撃の系統(wet 系の系統セレクタ用)
  * @returns {Array<{name:string, value:number}>}
  */
-function collectDamageVsBonuses(attacker, target, category) {
+function collectDamageVsBonuses(attacker, target, category, result = null) {
     if (!attacker || !target?.items) return [];
     const { styles, works } = targetStyleWorksKeys(target);
     // wet 系(vsWet/vsNotWet・2026-09-01)は対象がウェットか否か+攻撃の系統で照合する
     return gatherDamageVsSources(collectActorEffectBuffs(attacker), {
         styles, works, isWet: isWetActor(target), category: category || "physical",
-    }, createEffectBonusEvaluator(attacker));
+    }, createEffectBonusEvaluator(attacker, { result, target, withReferences: true }));
 }
 
 /**
@@ -1064,12 +1066,13 @@ function collectDamageTakenRows(defender, f) {
     if (!defender) return [];
     const attacker = resolveSync(f.attackerUuid);
     const { styles, works } = attacker ? targetStyleWorksKeys(attacker) : { styles: [], works: [] };
-    return gatherDamageTakenSources(collectActorEffectBuffs(defender), {
+    const rows = gatherDamageTakenSources(collectActorEffectBuffs(defender), {
         category: f.category || "physical",
         damageType: f.damageType || "",
         attackerStyles: styles,
         attackerWorks: works,
-    }, createEffectBonusEvaluator(defender));
+    }, createEffectBonusEvaluator(defender, { target: attacker, withReferences: true }));
+    return selectFormulaContributions(rows, { pick: "min" }).sources;
 }
 
 /**

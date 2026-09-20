@@ -75,6 +75,7 @@ export async function submitUsageForm(sheet, event, form, formData) {
     if (executionFormOf(usage) === "check" && !Number.isFinite(usage.fixedResult)) {
         update.checkBonuses = collectBonusRows(raw, "checkBonus");
         update.checkBonusSelf = raw["checkBonusSelf"] ?? usage.checkBonusSelf ?? "";
+        update.checkBonusSelfStackable = [true, "true", "on"].includes(raw.checkBonusSelfStackable);
         // 判定モード(ラジオ・2026-07-11/12): normal/grant/modify/suitChange。排他はラジオが保証。
         // 再判定可能(allowRecheck)・スート変更可能(allowSuitChange)は「判定を行う用途」の性質の
         // ため通常モードでのみ保持
@@ -97,6 +98,7 @@ export async function submitUsageForm(sheet, event, form, formData) {
         update.damageBonuses  = isAtk ? collectBonusRows(raw, "damageBonus", { withCondition: true }) : [];
         // damageBonusSelf は攻撃の「ダメージ修正値」/ダメージを修正の「修正値」を兼ねる(2026-07-11)
         update.damageBonusSelf = (isAtk || isModD) ? (raw["damageBonusSelf"] ?? usage.damageBonusSelf ?? "") : "";
+        update.damageBonusSelfStackable = [true, "true", "on"].includes(raw.damageBonusSelfStackable);
         // 自身の修正値の対象条件(2026-09-01 承認・UI は攻撃のみ。非攻撃は残骸をリセット)
         update.damageBonusSelfCondition = isAtk
             ? normalizeTargetCondition({
@@ -129,6 +131,8 @@ export async function submitUsageForm(sheet, event, form, formData) {
         update.modifyDamage = raw["modifyDamage"] ?? prevMD;
         update.checkBonusSelf  = update.modifyCheck  ? (raw["checkBonusSelf"]  ?? usage.checkBonusSelf  ?? "") : "";
         update.damageBonusSelf = update.modifyDamage ? (raw["damageBonusSelf"] ?? usage.damageBonusSelf ?? "") : "";
+        update.checkBonusSelfStackable = update.modifyCheck && [true, "true", "on"].includes(raw.checkBonusSelfStackable);
+        update.damageBonusSelfStackable = update.modifyDamage && [true, "true", "on"].includes(raw.damageBonusSelfStackable);
         // 再判定を付与(2026-07-13): 宣言は組み合わせなしの素の再判定権を事後付与する。
         // 式欄を持たないため再描画は不要
         update.grantRecheck = raw["grantRecheck"] ?? (usage.grantRecheck === true);
@@ -368,6 +372,7 @@ export function collectBonusRows(raw, prefix, { withCondition = false } = {}) {
     return idxs
         .map(i => {
             const row = { formula: (raw[`${prefix}Formula-${i}`] ?? "").trim(), source: raw[`${prefix}Source-${i}`] ?? "" };
+            if ([true, "true", "on"].includes(raw[`${prefix}Stackable-${i}`])) row.stackable = true;
             if (withCondition) {
                 row.targetCondition = normalizeTargetCondition({
                     kind: raw[`${prefix}CondKind-${i}`],

@@ -8,6 +8,7 @@
         <input type="text" class="usage-bonus-formula" name="{{../prefix}}Formula-{{this.idx}}"
                value="{{this.formula}}" placeholder="{{../placeholder}}"
                {{#unless ../editable}}disabled{{/unless}}>
+        <label class="usage-toggle-inline"><input type="checkbox" name="{{../prefix}}Stackable-{{this.idx}}" {{checked this.stackable}} {{#unless ../editable}}disabled{{/unless}}>重複可</label>
         <select class="usage-bonus-source" name="{{../prefix}}Source-{{this.idx}}"
                 {{#unless ../editable}}disabled{{/unless}}>
             <option value="" {{#unless this.source}}selected{{/unless}}>― 用途（供給元なし） ―</option>

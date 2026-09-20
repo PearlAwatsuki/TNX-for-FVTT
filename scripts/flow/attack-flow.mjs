@@ -159,6 +159,7 @@ export async function useAttack(item, usage) {
             category, damageType, weaponAttack, attackSourceName,
             damageBonuses: usage.damageBonuses ?? [],
             damageBonusSelf: usage.damageBonusSelf ?? "",
+            damageBonusSelfStackable: usage.damageBonusSelfStackable === true,
             // 対象条件(2026-09-01 承認): 自身の修正値の条件と「ウェットの対象には効果がない」
             // (行の条件は damageBonuses の各行が運ぶ)
             damageBonusSelfCondition: usage.damageBonusSelfCondition ?? null,

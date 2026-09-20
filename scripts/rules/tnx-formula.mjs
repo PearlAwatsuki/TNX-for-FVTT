@@ -13,6 +13,7 @@
 
 import { resolveItemNameByKey } from "../core/identification.mjs";
 import { publicAbilityData } from "./ae-public-keys.mjs";
+import { formulaReferenceKeys } from "./formula-duplicates.mjs";
 import { OUTFIT_TYPES } from "../data/item/outfit-categories.mjs";
 import { targetStyleWorksKeys } from "../data/item/helpers.mjs";
 import { isWetActor } from "./conditions.mjs";
@@ -91,6 +92,13 @@ export function buildFormulaData(actor, result = null, bearer = null, target = n
         }
     }
     data.item = items;
+    if (bearer && OUTFIT_TYPES.has(bearer.type)) {
+        for (const [key, value] of Object.entries(outfitFormulaData(bearer.system))) {
+            data.item[key] = value && typeof value === "object" && !Array.isArray(value)
+                ? { ...data.item[key], ...value } : value;
+        }
+    }
+    if (items.parent) data.parent = outfitFormulaData(items.parent.system);
     data.abilities = publicAbilityData(data.system ?? actor?.system);
     data.check = { achievement: data.achievement ?? 0, margin: data.diff ?? 0, card: data.card ?? 0 };
     data.skill = {};
@@ -100,21 +108,26 @@ export function buildFormulaData(actor, result = null, bearer = null, target = n
         if (!key) continue;
         const system = it.getRollData?.()?.system ?? it.system ?? {};
         if (["generalSkill", "styleSkill"].includes(it.type)) {
-            data.skill[key] = { ...system, level: system.levelTotal ?? system.level };
+            data.skill[key] = { ...system, level: system.levelTotal ?? system.level, base: system.level };
         } else if (OUTFIT_TYPES.has(it.type)) {
-            data.outfit[key] = {
-                ...system,
-                attack: { ...system.attack, value: system.attack?.total ?? system.attack?.value },
-                guard: { value: system.guardValue?.total ?? system.guardValue?.value },
-                defence: Object.fromEntries(["S", "P", "I"].map(k => [k, system.defence?.[`${k}_total`] ?? system.defence?.[`${k}_defence`]])),
-                slot: Object.fromEntries((system.slots ?? []).map(s => [s.kind === "normal" ? "capacity" : s.kind,
-                    s.kind === "normal" ? s.count?.total ?? s.count?.value : { capacity: s.count?.total ?? s.count?.value }])),
-            };
+            data.outfit[key] = outfitFormulaData(system);
         }
     }
     if (target) data.target = buildTargetData(target);
     if (target) data.target.abilities = publicAbilityData(target.system);
     return data;
+}
+
+/** アウトフィット参照の正準値。自身・準備先・識別キー参照で共用する。 */
+function outfitFormulaData(system = {}) {
+    return {
+        ...system,
+        attack: { ...system.attack, value: system.attack?.total ?? system.attack?.value, base: system.attack?.value },
+        guard: { value: system.guardValue?.total ?? system.guardValue?.value, base: system.guardValue?.value },
+        defence: Object.fromEntries(["S", "P", "I"].map(k => [k, system.defence?.[`${k}_total`] ?? system.defence?.[`${k}_defence`]])),
+        slot: Object.fromEntries((system.slots ?? []).map(s => [s.kind === "normal" ? "capacity" : s.kind,
+            s.kind === "normal" ? s.count?.total ?? s.count?.value : { capacity: s.count?.total ?? s.count?.value }])),
+    };
 }
 
 /**
@@ -210,12 +223,17 @@ export function evaluateFormulaSync(formula, data = {}) {
  * @param {Actor|null} actor
  * @returns {(value: string, effect: object) => number|null}
  */
-export function createEffectBonusEvaluator(actor) {
-    return (value, effect) => {
+export function createEffectBonusEvaluator(actor, { result = null, target = null, withReferences = false } = {}) {
+    const evaluate = (value, effect) => {
         const plain = parsePlainNumber(value);
         if (plain !== null) return plain;
-        return evaluateFormulaSync(value, buildFormulaData(actor, null, effect?.bearer));
+        return evaluateFormulaSync(value, buildFormulaData(actor, result, effect?.bearer, target));
     };
+    if (withReferences) evaluate.describe = (formula, effect) => ({
+        referenceKeys: formulaReferenceKeys(formula, { actor, bearer: effect?.bearer, target }),
+        stackable: effect?.stackable === true,
+    });
+    return evaluate;
 }
 
 /**
@@ -235,7 +253,7 @@ export function createEffectBonusEvaluator(actor) {
  * @returns {Promise<{total:number, sources:Array<{name:string, value:number, note?:string}>}>}
  *   note=対象条件で無効化された理由(あれば。表示側が名前と併せて出す)
  */
-export async function evaluateBonusRows(rows, actor, result = null, dictNames = null, target = null, bearer = null) {
+export async function evaluateBonusRows(rows, actor, result = null, dictNames = null, target = null, bearer = null, { withReferences = false } = {}) {
     let total = 0;
     const sources = [];
     const data = buildFormulaData(actor, result, bearer, target); // @item/@target は全行で共通
@@ -254,7 +272,9 @@ export async function evaluateBonusRows(rows, actor, result = null, dictNames = 
         }
         if (val === 0) continue;
         total += val;
-        sources.push({ name, value: val });
+        sources.push({ name, value: val, ...(withReferences ? {
+            referenceKeys: formulaReferenceKeys(row.formula, { actor, bearer, target }), stackable: row.stackable === true,
+        } : {}) });
     }
     return { total, sources };
 }
@@ -274,7 +294,7 @@ export async function evaluateBonusRows(rows, actor, result = null, dictNames = 
  * @returns {Promise<{name:string, value:number, note?:string}|null>} 評価不能・0 は null。
  *   対象条件で無効化された場合は value=0 と note(無効化理由)を返す
  */
-export async function evaluateSelfBonus(formula, actor, result = null, target = null, bearer = null, condition = null) {
+export async function evaluateSelfBonus(formula, actor, result = null, target = null, bearer = null, condition = null, { withReferences = false, stackable = false } = {}) {
     const data = buildFormulaData(actor, result, bearer, target);
     const val = await evaluateFormula(formula, data);
     if (!Number.isFinite(val) || val === 0) return null;
@@ -282,7 +302,9 @@ export async function evaluateSelfBonus(formula, actor, result = null, target = 
         const keyLabel = await conditionKeyLabel(condition, target, actor, null);
         return { name: bearer?.name || "用途", value: 0, note: targetConditionNote(condition, keyLabel) };
     }
-    return { name: bearer?.name || "用途", value: val };
+    return { name: bearer?.name || "用途", value: val, ...(withReferences ? {
+        referenceKeys: formulaReferenceKeys(formula, { actor, bearer, target }), stackable,
+    } : {}) };
 }
 
 /**

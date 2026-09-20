@@ -427,7 +427,7 @@ export function checkChangeMatches(key, criteria) {
  * @returns {Array<{name:string, value:number}>}
  */
 function _gatherBonusSources(effects, predicate, { pick = "max", evaluateValue = Number } = {}) {
-  // 禁止されるのは「同名効果の二重適用」(2026-07-17 ユーザー裁定で是正)——
+  // 同じ元AE IDの二重適用を禁止する。表示名では照合しない。
   // 1つの効果が持つ該当行は**すべてその効果の内容として合算**する(行の畳み込みはしない。
   // 旧実装の「効果内で最有利1行」は Code の過大一般化で誤り)。同一 identity(同名効果)の
   // インスタンスが複数あるときだけ「最も効果の大きい」1つを採る——pick はその方向
@@ -439,14 +439,21 @@ function _gatherBonusSources(effects, predicate, { pick = "max", evaluateValue =
   for (const eff of (effects ?? [])) {
     if (eff.active === false) continue;
     let total = null;
+    const formulaRows = [];
     for (const change of (eff.changes ?? [])) {
       if (!predicate(change.key)) continue;
       // 式はアクター文脈を持つ呼び出し側で評価する。重複排除は評価後の合計で行う。
       const value = evaluateValue(change.value, eff);
       total = (total ?? 0) + (Number.isFinite(value) ? value : 0);
+      if (Number.isFinite(value) && evaluateValue.describe) formulaRows.push({
+        name: eff.name || "(無名効果)", value, ...evaluateValue.describe(change.value, eff),
+        effectIdentity: eff.identity, effectInstance: eff.instance ?? eff.identity,
+      });
     }
     if (total === null) continue;
-    const entry = { name: eff.name || "(無名効果)", value: total };
+    const entry = { name: eff.name || "(無名効果)", value: total, ...(evaluateValue.describe ? { formulaRows } : {}) };
+    // 式の重複判定をする経路では、基礎値との競合を除いてから同一AEを選ぶ。
+    if (evaluateValue.describe) { stackables.push(entry); continue; }
     if (eff.stackable) {
       stackables.push(entry);
     } else {
@@ -886,6 +893,7 @@ export function collectActorEffectBuffs(actor, scope = SYSTEM_ID) {
   const out = [];
   const push = (e, bearer) => out.push({
     identity:  e.flags?.[scope]?.effectId || e.id,
+    instance: e.uuid ?? `${bearer?.uuid ?? bearer?.id ?? "actor"}:${e.id}`,
     name:      e.name,
     stackable: e.flags?.[scope]?.stackable === true,
     active:    e.active,

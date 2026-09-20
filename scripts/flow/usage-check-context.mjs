@@ -233,6 +233,7 @@ export async function buildUsageCheckContext(actor, item, usage, {
         requestMessageId: null,
         checkBonuses:    usage.checkBonuses ?? [],
         checkBonusSelf:  usage.checkBonusSelf ?? "",
+        checkBonusSelfStackable: usage.checkBonusSelfStackable === true,
         sourceItemId:    item.id,   // 用途の親アイテム(@item.self の解決に使う)
         // メジャーアクション記帳の判定に使う(2026-07-26 一般則)。ドラッグ改造の
         // マイナーアクション化(16-4)は実効タイミングとしてここで解決される
