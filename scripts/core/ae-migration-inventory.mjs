@@ -1,7 +1,7 @@
 /** 保存場所を横断した読取専用のAE／式移行診断。 */
 import { SYSTEM_ID } from "../constants.mjs";
 import { planEffectKeyMigration } from "./ae-key-migration.mjs";
-import { planItemFormulaMigration } from "./formula-key-migration.mjs";
+import { planItemFormulaMigration, planChatFormulaMigration } from "./formula-key-migration.mjs";
 
 export async function buildAEMigrationInventory(world, { includePacks = false } = {}) {
     const plans = [];
@@ -39,16 +39,37 @@ export async function buildAEMigrationInventory(world, { includePacks = false } 
     };
     for (const journal of world.journal ?? []) inspectPresets(journal);
     for (const message of world.messages ?? []) {
-        const payload = message.flags?.[SYSTEM_ID]?.usageEffects;
-        if (!payload) continue;
-        const actor = actors.get(payload.sourceActorUuid);
-        for (const [index, entry] of (payload.effects ?? []).entries()) {
-            if (!entry.data) continue;
-            const bearer = Array.from(actor?.items ?? []).find(item => item.uuid === entry.enchantment?.sourceItemUuid);
-            const plan = planEffectKeyMigration(entry.data, { items: actor?.items ?? [], bearer });
-            plans.push({ kind: "chat-payload", uuid: message.uuid, path: `flags.${SYSTEM_ID}.usageEffects.effects.${index}.data`,
-                readOnly: true, ...plan }); // 過去カードは直接書換えず、再利用の互換読込対象として報告する。
+        const flags = message.flags?.[SYSTEM_ID] ?? {};
+        const resolveActor = snapshot => {
+            const uuid = snapshot.sourceActorUuid ?? snapshot.attackerUuid;
+            if (uuid) return actors.get(uuid);
+            // 同じIDを持つ非リンクTokenを、別のActorへ推測で結び付けない。
+            const matches = [...actors.values()].filter(actor => snapshot.actorId && (actor.id ?? actor._id) === snapshot.actorId);
+            return matches.length === 1 ? matches[0] : undefined;
+        };
+        const inspectPayload = (payload, path) => {
+            if (!payload) return;
+            const actor = resolveActor(payload);
+            for (const [index, entry] of (payload.effects ?? []).entries()) {
+                if (!entry.data) continue;
+                const bearer = Array.from(actor?.items ?? []).find(item => item.uuid === entry.enchantment?.sourceItemUuid);
+                const plan = planEffectKeyMigration(entry.data, { items: actor?.items ?? [], bearer });
+                plans.push({ kind: "chat-payload", uuid: message.uuid, path: `${path}.effects.${index}.data`,
+                    readOnly: true, ...plan });
+            }
+        };
+        inspectPayload(flags.usageEffects, `flags.${SYSTEM_ID}.usageEffects`);
+        for (const [key, snapshot] of [["checkRecheck", flags.checkRecheck], ["attackCheck", flags.attackCheck],
+            ["checkRecheck.attack", flags.checkRecheck?.attack]]) {
+            if (!snapshot) continue;
+            const path = `flags.${SYSTEM_ID}.${key}`;
+            const actor = resolveActor(snapshot);
+            const bearer = Array.from(actor?.items ?? []).find(item => (item.id ?? item._id) === snapshot.sourceItemId);
+            plans.push({ kind: "chat-formulas", uuid: message.uuid, path, readOnly: true,
+                ...planChatFormulaMigration(snapshot, { items: actor?.items ?? [], bearer }) });
+            inspectPayload(snapshot.usageEffects, `${path}.usageEffects`);
         }
+        // 過去カードは直接書換えず、再利用の互換読込対象として報告する。
     }
     if (includePacks) {
         for (const pack of world.packs ?? []) {

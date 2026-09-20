@@ -89,3 +89,11 @@ export function planItemFormulaMigration(source, context = {}) {
     }
     return { original, data, changed: changes.length > 0, changes, issues };
 }
+
+/** 過去カードの再実行用の式だけを診断し、算出済み結果や本文は保持する。 */
+export function planChatFormulaMigration(source, context = {}) {
+    const plan = planItemFormulaMigration({ system: { actions: [source] } }, context);
+    const localPath = entry => ({ ...entry, path: entry.path.replace(/^system\.actions\.0\./, "") });
+    return { original: structuredClone(source), data: plan.data.system.actions[0], changed: plan.changed,
+        changes: plan.changes.map(localPath), issues: plan.issues.map(localPath) };
+}

@@ -6,6 +6,37 @@ function item(uuid) {
     return { ...source, uuid, documentName: "Item", effects: [], toObject: () => structuredClone(source), update: vi.fn() };
 }
 describe("移行対象の読取専用棚卸し", () => {
+    it("付与データのない過去カードも再判定・攻撃の式を診断し、算出済み結果を保持する", async () => {
+        const held = item("Actor.a.Item.s");
+        const actor = { id: "a", uuid: "Actor.a", documentName: "Actor", effects: [], items: [held] };
+        const attack = { attackerUuid: actor.uuid, sourceItemId: "s", damageBonusSelf: "@diff + @life.total",
+            damageBonuses: [{ formula: "@item.self.system.levelTotal", stackable: true }], achievement: 15 };
+        const recheck = { actorId: "a", sourceItemId: "s", checkBonusSelf: "@item.self.system.levelTotal",
+            checkBonuses: [{ formula: "@life.total" }], attack };
+        const flags = { checkRecheck: recheck, attackCheck: attack, checkResult: { result: { achievement: 15 } } };
+        const before = structuredClone(flags);
+        const report = await buildAEMigrationInventory({ actors: [actor], messages: [{ uuid: "ChatMessage.m", flags: { [SYSTEM_ID]: flags } }] });
+        const snapshots = report.plans.filter(p => p.kind === "chat-formulas");
+        expect(snapshots).toHaveLength(3);
+        expect(snapshots.every(p => p.readOnly && p.changed && !p.issues.length)).toBe(true);
+        expect(snapshots[0].data.checkBonusSelf).toBe("@skill.melee.level");
+        expect(snapshots[0].changes[0].path).toBe("checkBonusSelf");
+        expect(snapshots[1].data.damageBonusSelf).toBe("@check.margin + @abilities.life.value");
+        expect(snapshots[1].data.damageBonuses[0]).toEqual({ formula: "@skill.melee.level", stackable: true });
+        expect(snapshots[1].data.achievement).toBe(15);
+        expect(flags).toEqual(before);
+    });
+    it("再判定内の付与コピーも診断し、不明な保持元の式は原文を保持する", async () => {
+        const effect = { changes: [{ key: "check.all", value: "@card" }] };
+        const snapshot = { actorId: "missing", sourceItemId: "s", checkBonusSelf: "@life.total + @item.self.system.levelTotal",
+            usageEffects: { effects: [{ data: effect }] } };
+        const report = await buildAEMigrationInventory({ messages: [{ uuid: "ChatMessage.m", flags: { [SYSTEM_ID]: { checkRecheck: snapshot } } }] });
+        expect(report.plans.map(p => p.kind)).toEqual(["chat-formulas", "chat-payload"]);
+        expect(report.plans[0].data.checkBonusSelf).toBe(snapshot.checkBonusSelf);
+        expect(report.plans[0].issues).toHaveLength(1);
+        expect(report.plans[1].path).toContain("checkRecheck.usageEffects.effects.0.data");
+        expect(report.plans[1].data.changes[0]).toEqual({ key: "system.check.all", value: "@check.card" });
+    });
     it("ワールド・非リンクToken・プリセット・過去カードを調査し、重複走査も更新もしない", async () => {
         const held = item("Actor.a.Item.s");
         const actor = { uuid: "Actor.a", documentName: "Actor", effects: [], items: [held] };
