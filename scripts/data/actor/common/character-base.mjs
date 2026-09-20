@@ -273,6 +273,7 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
         continue;
       }
       for (const { doc, totalPath } of this._resolveBuffApplications(parsed, bearer)) {
+        if (!totalPath) continue;
         if (!evalEffectConditions(doc.system, parsed.conditions)) continue;
         apps.push({ effect, change, doc, totalPath, identity, stackable, bearer,
             isString: isStringScope(parsed) });
@@ -405,7 +406,7 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
     const actor = this.parent;
     const items = actor?.items;
     if (!items) return [];
-    const itemApp = (item) => ({ doc: item, totalPath: resolveItemTotalPath(parsed.path) });
+    const itemApp = (item) => ({ doc: item, totalPath: resolveItemTotalPath(parsed.path, item.system) });
     switch (parsed.scope) {
       case "ability": return [{ doc: actor, totalPath: `${parsed.path}.total` }];
       case "control": return [{ doc: actor, totalPath: `${parsed.path}.totalControl` }];

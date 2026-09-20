@@ -17,6 +17,7 @@
  */
 
 import { SYSTEM_ID } from "../../constants.mjs";
+import { toRuntimeEffectKey } from "../../rules/ae-public-keys.mjs";
 import { OUTFIT_TYPES, hasClassification, getMajorCategoryLabel, getMinorCategoryLabel } from "./outfit-categories.mjs";
 
 /**
@@ -668,6 +669,7 @@ export function itemKindLabel(item) {
 export function itemChangeTargets(parsed, item) {
   if (!parsed?.path) return false;
   if (parsed.scope === "skill") {
+    if (parsed.capability && !["generalSkill", "styleSkill"].includes(item.type)) return false;
     return parsed.prefix
       ? !!item.system?.identificationKey?.startsWith?.(parsed.selector)
       : item.system?.identificationKey === parsed.selector;
@@ -978,6 +980,7 @@ export function rewriteGrantChangesForItem(changes) {
 
 export function parseEffectTargetKey(key) {
   if (typeof key !== "string" || !key) return null;
+  key = toRuntimeEffectKey(key);
   // [conditions] を切り出す
   let conditions = [];
   let work = key;
@@ -1174,8 +1177,13 @@ export function parseEffectTargetKey(key) {
     // 素のキーと紛れて誤解釈しないよう明示的に死にキーにする
     case "self":
     case "parent":
-    case "skill":
       return null;
+    case "skill": {
+      if (after.length < 2) return null;
+      const prefix = after[0].endsWith("*");
+      return { scope: "skill", selector: prefix ? after[0].slice(0, -1) : after[0], prefix,
+        path: after.slice(1).join("."), conditions, capability: true };
+    }
     default: {
       // 素のパラメータキー(2026-07-13 再設計・ユーザー確定): 予約名前空間以外の system.<パス>は
       // 「この効果(またはその転送/付与コピー)が乗っているアイテム自身」のパラメータを指す。
@@ -1229,7 +1237,13 @@ export function evalEffectConditions(system, conditions) {
  * @param {string} param
  * @returns {string}
  */
-export function resolveItemTotalPath(param) {
+export function resolveItemTotalPath(param, system = {}) {
+  if (param === "guard.value") return "guardValue.total";
+  const slot = param.match(/^slot\.(?:(normal|surface|deep|unconscious|software|hardware)\.)?capacity$/);
+  if (slot) {
+    const index = system.slots?.findIndex(s => s.kind === (slot[1] ?? "normal")) ?? -1;
+    return index < 0 ? null : `slots.${index}.count.total`;
+  }
   // ダメージ種別の上書き(2026-07-13 訂正): 実効フィールド damageTypeTotal へ着地する。
   // **設定欄(素値 attack.damageType)には絶対に書かない**(base 不変の大原則)
   if (param === "attack.damageType" || param === "attack.damageTypeTotal") return "attack.damageTypeTotal";

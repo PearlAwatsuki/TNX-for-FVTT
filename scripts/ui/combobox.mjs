@@ -45,7 +45,7 @@ export function enhanceComboboxes(root) {
         const list = input.list; // list 属性が指す <datalist>
         if (!list) continue;
         const options = readOptions(list);
-        new Combobox(input, list.id, options);
+        new Combobox(input, list.id, options, list);
     }
 }
 
@@ -76,8 +76,9 @@ class Combobox {
      * @param {string} sourceId 出所 datalist の id(冪等マーカ兼、由来の記録)
      * @param {Array<{value:string,label:string}>} options 候補
      */
-    constructor(input, sourceId, options) {
+    constructor(input, sourceId, options, sourceList) {
         this.input = input;
+        this.sourceList = sourceList;
         this.options = options;
         this.list = null;        // 開いている間だけ body 直下に存在するドロップダウン
         this.activeIndex = -1;   // ハイライト中の候補(-1=なし: 自由入力を守る)
@@ -142,6 +143,9 @@ class Combobox {
 
     /** ドロップダウンを開く(または内容を更新する)。 @param {boolean} showAll ▼由来=全件表示 */
     open(showAll) {
+        // 候補だけ更新し、入力中の値やフォームの未保存内容は保持する。
+        this.input.dispatchEvent(new CustomEvent("tnx:combobox-open", { bubbles: true }));
+        if (this.sourceList?.isConnected) this.options = readOptions(this.sourceList);
         clearTimeout(this._blurTimer);
         if (active && active !== this) active.close();
         active = this;

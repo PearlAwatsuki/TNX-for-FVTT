@@ -15,6 +15,7 @@ import { parseEffectTargetKey, AE_FLAG_PARAMS } from "../data/item/helpers.mjs";
 import { getPartSlotPreset } from "../app/part-slot-preset-app.mjs";
 import { enhanceComboboxes } from "../ui/combobox.mjs";
 import { OUTFIT_CATEGORIES } from "../data/item/outfit-categories.mjs";
+import { actorEffectKeySuggestions, toPublicEffectKey, toRuntimeEffectKey } from "../rules/ae-public-keys.mjs";
 
 /** AE 設定シートへの注入を登録する(init から呼ぶ)。 */
 export function registerEffectConfigInjection() {
@@ -47,7 +48,17 @@ export function registerEffectConfigInjection() {
                 const valueName = keyInput.name.replace(/\.key$/, ".value");
                 const valueEl = root.querySelector(`[name="${CSS.escape(valueName)}"]`);
                 if (!valueEl) continue;
-                const rule = VALUE_CHOICE_RULES.find(r => r.match((keyInput.value ?? "").trim()));
+                const rule = VALUE_CHOICE_RULES.find(r => r.match(toRuntimeEffectKey((keyInput.value ?? "").trim())));
+                const modeName = keyInput.name.replace(/\.key$/, keyInput.name.startsWith("system.") ? ".type" : ".mode");
+                const modeEl = root.querySelector(`[name="${CSS.escape(modeName)}"]`);
+                if (modeEl) {
+                    for (const option of modeEl.options ?? []) option.disabled = false;
+                    if (rule) {
+                        const override = keyInput.name.startsWith("system.") ? "override" : "5";
+                        modeEl.value = override;
+                        for (const option of modeEl.options ?? []) option.disabled = option.value !== override;
+                    }
+                }
                 if (rule) {
                     const sig = rule.options.map(o => o.value).join(",");
                     if (valueEl.tagName === "SELECT" && valueEl.dataset.tnxChoices === sig) continue;
@@ -126,7 +137,7 @@ export function registerEffectConfigInjection() {
             // 値バフ②乗り先別(§2.2)。素のキー=乗っているアイテム自身 / item.<識別キー>=識別キー狙い(`<key>`) /
             // system.category.<分類>=分類狙い(実キーで全列挙)。属性軸(attrs)は全モード共通。
             const selfKeys = ["name", ...attrs.map(a => `system.${a}`)];
-            const itemKeys = ["item.<key>.name", ...attrs.map(a => `item.<key>.system.${a}`)];
+            const itemKeys = [];
             const categoryKeys = catKeys.flatMap(c => attrs.map(a => `system.category.${c}.${a}`));
             // ダメージバフ(§2.8): 与える/受ける固定キー全数＋タグ改変(元タグ全数)＋識別キー狙いは `<key>` 雛形
             const damageKeys = [
@@ -160,7 +171,23 @@ export function registerEffectConfigInjection() {
                 ...damageKeys,
                 ...ignoreKeys,
                 ...categoryKeys,
-            ].map(v => `<option value="${escAttr(v)}"></option>`).join("");
+            ].filter(v => !v.includes("<key>"))
+                .map(toPublicEffectKey)
+                .map(v => `<option value="${escAttr(v)}"></option>`).join("");
+            const owner = app.document?.parent;
+            const actor = owner?.documentName === "Actor" ? owner : owner?.actor ?? owner?.parent;
+            for (const { key, label } of actorEffectKeySuggestions(actor)) {
+                const option = document.createElement("option");
+                option.value = key;
+                option.label = label;
+                option.dataset.tnxActorKey = "true";
+                keyList.appendChild(option);
+            }
+            for (const kind of ["", "surface.", "deep.", "unconscious.", "software.", "hardware."]) {
+                const option = document.createElement("option");
+                option.value = `system.slot.${kind}capacity`;
+                keyList.appendChild(option);
+            }
             root.appendChild(keyList);
             const relList = document.createElement("datalist");
             relList.id = "tnx-ae-part-relation";
@@ -175,10 +202,26 @@ export function registerEffectConfigInjection() {
         // ネイティブ datalist を独自コンボボックスへ昇格(スクロール可・▼位置固定・テーマ追従)。
         // キー入力＋ partAdd 値入力(tnx-ae-part-relation)をまとめて拾う。
         enhanceComboboxes(root);
-        root.addEventListener("change", (ev) => {
+        const syncKeyInput = (ev) => {
             if (typeof ev.target?.name === "string" && ev.target.name.endsWith(".key")) {
                 syncChangeValueInputs();
-                enhanceComboboxes(root); // キー変更で値入力に list が付いた分を昇格
+                if (ev.type === "change") enhanceComboboxes(root);
+            }
+        };
+        root.addEventListener("change", syncKeyInput);
+        root.addEventListener("input", syncKeyInput);
+        root.addEventListener("tnx:combobox-open", () => {
+            const list = root.querySelector("#tnx-ae-key-suggestions");
+            if (!list) return;
+            list.querySelectorAll("[data-tnx-actor-key]").forEach(option => option.remove());
+            const owner = app.document?.parent;
+            const actor = owner?.documentName === "Actor" ? owner : owner?.actor ?? owner?.parent;
+            for (const { key, label } of actorEffectKeySuggestions(actor)) {
+                const option = document.createElement("option");
+                option.value = key;
+                option.label = label;
+                option.dataset.tnxActorKey = "true";
+                list.appendChild(option);
             }
         });
 

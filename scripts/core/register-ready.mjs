@@ -20,10 +20,35 @@ import { buildCastHistorySyncUpdate } from "../rules/exp-sync.mjs";
 import { autoAcquireForStyleSkill, autoImportDerivedData } from "./style-skill-acquisition.mjs";
 import { syncCastExpToUser, performInitialHistorySync, performUnsyncSeparation } from "./exp-user-sync.mjs";
 import { applyPendingMigrations } from "./migrations.mjs";
+import { planEffectKeyMigration } from "./ae-key-migration.mjs";
 import { vehicleRegistrationError } from "../session/vehicle-state.mjs";
 
 export async function onSystemReady() {
     game.tnx = game.tnx || {};
+    // 移行計画だけを返す読取専用の診断入口。自動移行・版番号更新は行わない。
+    game.tnx.previewAEKeyMigration = () => {
+        const plans = [];
+        const seen = new Set();
+        const inspect = (document, items = []) => {
+            if (!document || seen.has(document.uuid)) return;
+            seen.add(document.uuid);
+            for (const effect of (document.effects ?? [])) {
+                plans.push({ uuid: effect.uuid, ...planEffectKeyMigration(effect.toObject(), { items }) });
+            }
+        };
+        const inspectActor = actor => {
+            inspect(actor, actor.items);
+            for (const item of actor.items ?? []) inspect(item, actor.items);
+        };
+        for (const actor of game.actors ?? []) inspectActor(actor);
+        for (const item of game.items ?? []) inspect(item);
+        for (const scene of game.scenes ?? []) {
+            for (const token of scene.tokens ?? []) {
+                if (!token.actorLink && token.actor) inspectActor(token.actor);
+            }
+        }
+        return plans;
+    };
     const vehicleError = vehicleRegistrationError();
     if (vehicleError) ui.notifications.error(vehicleError, { permanent: true });
 

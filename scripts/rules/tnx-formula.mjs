@@ -12,6 +12,8 @@
  */
 
 import { resolveItemNameByKey } from "../core/identification.mjs";
+import { publicAbilityData } from "./ae-public-keys.mjs";
+import { OUTFIT_TYPES } from "../data/item/outfit-categories.mjs";
 import { targetStyleWorksKeys } from "../data/item/helpers.mjs";
 import { isWetActor } from "./conditions.mjs";
 import { targetConditionApplies, targetConditionNote } from "./target-condition.mjs";
@@ -89,7 +91,29 @@ export function buildFormulaData(actor, result = null, bearer = null, target = n
         }
     }
     data.item = items;
+    data.abilities = publicAbilityData(data.system ?? actor?.system);
+    data.check = { achievement: data.achievement ?? 0, margin: data.diff ?? 0, card: data.card ?? 0 };
+    data.skill = {};
+    data.outfit = {};
+    for (const it of (actor?.items ?? [])) {
+        const key = it?.system?.identificationKey;
+        if (!key) continue;
+        const system = it.getRollData?.()?.system ?? it.system ?? {};
+        if (["generalSkill", "styleSkill"].includes(it.type)) {
+            data.skill[key] = { ...system, level: system.levelTotal ?? system.level };
+        } else if (OUTFIT_TYPES.has(it.type)) {
+            data.outfit[key] = {
+                ...system,
+                attack: { ...system.attack, value: system.attack?.total ?? system.attack?.value },
+                guard: { value: system.guardValue?.total ?? system.guardValue?.value },
+                defence: Object.fromEntries(["S", "P", "I"].map(k => [k, system.defence?.[`${k}_total`] ?? system.defence?.[`${k}_defence`]])),
+                slot: Object.fromEntries((system.slots ?? []).map(s => [s.kind === "normal" ? "capacity" : s.kind,
+                    s.kind === "normal" ? s.count?.total ?? s.count?.value : { capacity: s.count?.total ?? s.count?.value }])),
+            };
+        }
+    }
     if (target) data.target = buildTargetData(target);
+    if (target) data.target.abilities = publicAbilityData(target.system);
     return data;
 }
 

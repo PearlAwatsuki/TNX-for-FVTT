@@ -658,8 +658,8 @@ describe("parseEffectTargetKey()（フェーズ12: 名前装飾・部位)", () =
     expect(parseEffectTargetKey("item.longsword.name")).toMatchObject({ scope: "skill", selector: "longsword", path: "name" });
   });
 
-  it("system.name は誤記として無効(死にキー)", () => {
-    expect(parseEffectTargetKey("system.name")).toBeNull();
+  it("system.name は名前装飾の正準キー", () => {
+    expect(parseEffectTargetKey("system.name")).toEqual({ scope: "itemName", conditions: [] });
   });
 
   it("アクター部位スロット増減: system.partSlot.<部位キー>", () => {
@@ -717,11 +717,11 @@ describe("parseEffectTargetKey()（v2 system.<名前空間> 文法）", () => {
     expect(parseEffectTargetKey("system.level")).toMatchObject({ scope: "self", path: "level" });
   });
 
-  it("廃止済みの旧綴り（self/parent/skill 名前空間）は死にキー（null）", () => {
+  it("self/parent は廃止を維持し、skill は技能専用の公開キー", () => {
     expect(parseEffectTargetKey("system.self.attack")).toBeNull();
     expect(parseEffectTargetKey("system.parent.attack")).toBeNull();
-    expect(parseEffectTargetKey("system.skill.melee.level")).toBeNull();
-    expect(parseEffectTargetKey("system.skill.society_*.level")).toBeNull();
+    expect(parseEffectTargetKey("system.skill.melee.level")).toMatchObject({ scope: "skill", selector: "melee", path: "level", capability: true });
+    expect(parseEffectTargetKey("system.skill.society_*.level")).toMatchObject({ scope: "skill", selector: "society_", prefix: true, capability: true });
   });
 
   it("値: category(小分類・大分類とも)", () => {

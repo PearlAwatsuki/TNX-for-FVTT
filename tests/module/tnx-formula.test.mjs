@@ -32,7 +32,7 @@ describe("buildFormulaData()（AE と同じ system.* / @item.<識別キー> を�
   };
 
   it("アクターの @system.* ＋ 所持アイテムの @item.<識別キー>.system.* を供給する", () => {
-    expect(buildFormulaData(actor)).toEqual({
+    expect(buildFormulaData(actor)).toMatchObject({
       system: { life: { total: 8 } },
       item: { operate_car: { system: { identificationKey: "operate_car", attack: { value: 4 } } } },
     });
@@ -54,8 +54,9 @@ describe("buildFormulaData()（AE と同じ system.* / @item.<識別キー> を�
   });
 
   it("アクターが無ければ system 無し・item は空", () => {
-    expect(buildFormulaData(null)).toEqual({ item: {} });
-    expect(buildFormulaData(null, { diff: 3, achievement: 10 })).toEqual({ diff: 3, achievement: 10, card: 0, item: {} });
+    expect(buildFormulaData(null)).toMatchObject({ item: {}, skill: {}, outfit: {} });
+    expect(buildFormulaData(null)).not.toHaveProperty("system");
+    expect(buildFormulaData(null, { diff: 3, achievement: 10 })).toMatchObject({ diff: 3, achievement: 10, card: 0, item: {}, check: { margin: 3, achievement: 10, card: 0 } });
   });
 
   it("bearer 指定で相対参照 @item.self / @item.parent（装備先ホスト）を供給する", () => {
