@@ -41,6 +41,8 @@
 
 import { SystemDataModel } from "../../abstract.mjs";
 import { applyEnchantmentAttributes } from "../../../rules/enchantment-attributes.mjs";
+import { PART_KINDS, PART_REFERENCE_SUB_KINDS, PART_RELATIONS } from "../part-helpers.mjs";
+export { PART_KINDS, PART_REFERENCE_SUB_KINDS, PART_RELATIONS } from "../part-helpers.mjs";
 import { getMajorCategoryChoices, getMinorCategoryChoices, LEGACY_CATEGORY_MAP, hasClassification, outfitClassifications } from "../outfit-categories.mjs";
 import { modeValueField, migrateUsesValueToSpent, computeItemEffectiveValues } from "../helpers.mjs";
 import { applyModificationsToTotals } from "../modification-params.mjs";
@@ -55,27 +57,10 @@ import { migrateUsesMaxToString, computeUsesMaxTotal } from "../uses.mjs";
  * - other     : その他(自由記入)。value に自由記入文字列。占有計算対象外
  * 正本: llm-wiki/01_Wiki/Game_Rules/Outfits.md「部位管理(フェーズ10)」
  */
-export const PART_KINDS = Object.freeze({
-  none:      "-",
-  bodyPart:  "身体部位",
-  option:    "オプション",
-  reference: "解説参照",
-  other:     "その他",
-});
 
 /** 解説参照(reference)の入れ子で選べる実部位種別(解説参照の入れ子は不可) */
-export const PART_REFERENCE_SUB_KINDS = Object.freeze({
-  none:     "-",
-  bodyPart: "身体部位",
-  option:   "オプション",
-  other:    "その他",
-});
 
 /** part 全体の結合(2行以上のとき)。and=全部占有 / or=択一 */
-export const PART_RELATIONS = Object.freeze({
-  and: "かつ",
-  or:  "または",
-});
 
 /** 式神装備(isShiki)のタイプ(フェーズ10-2)。式神＝しきそうび。 */
 export const SHIKI_TYPES = Object.freeze({

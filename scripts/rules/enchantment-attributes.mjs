@@ -3,6 +3,7 @@ import { SYSTEM_ID } from "../constants.mjs";
 import { getMajorCategoryChoices, getMinorCategoryChoices, majorOfMinor, OUTFIT_TYPES } from "../data/item/outfit-categories.mjs";
 import { isEnchantment, enchantmentAppliesToSelf } from "./ae-kind.mjs";
 import { parseEffectTargetKey, evalEffectConditions } from "../data/item/helpers.mjs";
+import { PART_KINDS, PART_REFERENCE_SUB_KINDS } from "../data/item/part-helpers.mjs";
 
 const choice = (path, label, choices) => ({ path, label, kind: "choice", choices, modes: ["override"] });
 const bool = (path, label) => ({ ...choice(path, label, { true: "オン", false: "オフ" }), kind: "boolean" });
@@ -77,9 +78,9 @@ export function parseEnchantmentAttribute(key, raw) {
         if (def.path === "exclusive") {
             if (!["style", "organization"].includes(row.type) || typeof row.key !== "string" || !row.key.trim()) throw new Error("専用条件の種別と識別キーが必要です。");
         } else if (def.path === "part") {
-            if (!["none", "bodyPart", "option", "reference", "other"].includes(row.kind)) throw new Error("部位の種別が不正です。");
+            if (!Object.hasOwn(PART_KINDS, row.kind)) throw new Error("部位の種別が不正です。");
             if (row.slots !== undefined && (!Number.isInteger(row.slots) || row.slots < 0)) throw new Error("部位の消費数は0以上の整数です。");
-            if (row.refSubKind !== undefined && !["none", "bodyPart", "option", "other"].includes(row.refSubKind)) throw new Error("解説参照の部位が不正です。");
+            if (row.refSubKind !== undefined && !Object.hasOwn(PART_REFERENCE_SUB_KINDS, row.refSubKind)) throw new Error("解説参照の部位が不正です。");
             for (const field of ["value", "partKey", "hostMajor", "hostMinor", "hostFeature", "hostKey"]) {
                 if (row[field] !== undefined && typeof row[field] !== "string") throw new Error("部位の参照値が不正です。");
             }
@@ -102,8 +103,10 @@ export function applyEnchantmentAttributes(item) {
     for (const effect of item.effects ?? []) {
         if (!isEnchantment(effect) || effect.disabled || effect.isSuppressed || effect.active === false || !enchantmentAppliesToSelf(effect, item)) continue;
         const identity = effect.flags?.[SYSTEM_ID]?.effectId || effect.id;
-        if (effect.flags?.[SYSTEM_ID]?.stackable !== true && seen.has(identity)) continue;
-        seen.add(identity);
+        if (effect.flags?.[SYSTEM_ID]?.stackable !== true) {
+            if (seen.has(identity)) continue;
+            seen.add(identity);
+        }
         for (const change of effect.system?.changes ?? effect.changes ?? []) {
             const key = enchantmentAttributeKey(change.key);
             if (ENCHANTMENT_ATTRIBUTES[key] && evalEffectConditions(item.system, parseEffectTargetKey(change.key)?.conditions)) changes.push({ ...change, key });

@@ -18,6 +18,7 @@ import { OUTFIT_CATEGORIES } from "../data/item/outfit-categories.mjs";
 import { actorEffectKeySuggestions, toPublicEffectKey, toRuntimeEffectKey } from "../rules/ae-public-keys.mjs";
 import { isEnchantment } from "../rules/ae-kind.mjs";
 import { ENCHANTMENT_ATTRIBUTES, enchantmentAttributeKey, parseEnchantmentAttribute } from "../rules/enchantment-attributes.mjs";
+import { syncEnchantmentRowEditor } from "../ui/enchantment-rows.mjs";
 
 /** AE 設定シートへの注入を登録する(init から呼ぶ)。 */
 export function registerEffectConfigInjection() {
@@ -51,6 +52,7 @@ export function registerEffectConfigInjection() {
                 const valueEl = root.querySelector(`[name="${CSS.escape(valueName)}"]`);
                 if (!valueEl) continue;
                 const key = enchantmentAttributeKey(keyInput.value);
+                if (valueEl.dataset.tnxRows && valueEl.dataset.tnxRows !== key) syncEnchantmentRowEditor(valueEl, key);
                 const attribute = ENCHANTMENT_ATTRIBUTES[key];
                 const rule = attribute?.choices
                     ? { options: Object.entries(attribute.choices).map(([value, label]) => opt(value, label)) }
@@ -93,6 +95,11 @@ export function registerEffectConfigInjection() {
                 } else if (valueEl.tagName === "INPUT" && valueEl.getAttribute("list") === "tnx-ae-part-relation") {
                     valueEl.removeAttribute("list");
                 }
+                const owner = app.document?.parent;
+                const actor = owner?.documentName === "Actor" ? owner : owner?.actor;
+                syncEnchantmentRowEditor(root.querySelector(`[name="${CSS.escape(valueName)}"]`), key, {
+                    actor, partSlots: actor?.system?.partSlotsEffective ?? actor?.system?.partSlots ?? getPartSlotPreset(),
+                });
             }
         };
         // キー入力の補助 datalist(変更キーの全キー一覧。正本は wiki Active_Effects §2 と parseEffectTargetKey)。
@@ -232,7 +239,12 @@ export function registerEffectConfigInjection() {
                 if (ENCHANTMENT_ATTRIBUTES[enchantmentAttributeKey(keyInput.value)]) {
                     try { parseEnchantmentAttribute(keyInput.value, valueEl.value); } catch (e) { error = e.message; }
                 }
-                valueEl.setCustomValidity(error);
+                valueEl.setCustomValidity(valueEl.type === "hidden" ? "" : error);
+                if (valueEl.dataset.tnxRows) {
+                    const controls = valueEl.nextElementSibling?.querySelectorAll("input, select") ?? [];
+                    for (const control of controls) control.setCustomValidity("");
+                    controls[0]?.setCustomValidity(error);
+                }
             }
         };
         root.addEventListener("input", validateAttributeValues);

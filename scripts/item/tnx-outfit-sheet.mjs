@@ -941,7 +941,7 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
     }
     /** 専用配列を全体更新で保存する(配列フィールドのため。空でも1要素から始める)。 */
     _updateExclusive(mutator) {
-        const stored = this.item.system.exclusive ?? [];
+        const stored = this.item._source.system.exclusive ?? [];
         const arr = foundry.utils.deepClone(stored.length ? stored : [{ type: "", key: "" }]);
         mutator(arr);
         return this.item.update({ "system.exclusive": arr });
@@ -949,7 +949,7 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
 
     /** 副分類(additionalCategories)の全体更新(フェーズ16-1)。配列フィールドのため丸ごと保存する。 */
     _updateAdditionalCategories(mutator) {
-        const arr = foundry.utils.deepClone(this.item.system.additionalCategories ?? []);
+        const arr = foundry.utils.deepClone(this.item._source.system.additionalCategories ?? []);
         mutator(arr);
         return this.item.update({ "system.additionalCategories": arr });
     }
@@ -1192,7 +1192,7 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
 
     /** 保存済み part を配列に正規化して返す(最低 1 行) */
     _normalizedPart() {
-        const raw = foundry.utils.deepClone(this.item.system.part);
+        const raw = foundry.utils.deepClone(this.item._source.system.part);
         const list = Array.isArray(raw) ? raw
             : (typeof raw === "object" && raw !== null) ? Object.values(raw)
             : [];

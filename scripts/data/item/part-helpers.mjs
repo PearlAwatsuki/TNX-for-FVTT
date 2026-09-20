@@ -26,6 +26,11 @@ import {
  */
 export const OUTFIT_NAME_SLOT_KIND = "outfitName";
 
+/** 部位編集と付与AEで共有する選択肢。 */
+export const PART_KINDS = Object.freeze({ none: "-", bodyPart: "身体部位", option: "オプション", reference: "解説参照", other: "その他" });
+export const PART_REFERENCE_SUB_KINDS = Object.freeze({ none: "-", bodyPart: "身体部位", option: "オプション", other: "その他" });
+export const PART_RELATIONS = Object.freeze({ and: "かつ", or: "または" });
+
 /**
  * オプションの「その他特徴」キー → 表示ラベル。ホスト側の特徴で絞り込む(「武器(サイバーウェア)」等)。
  * isCyber は旧フラグ廃止(フェーズ16-1)後も**保存済み記述子の互換キー**として残し、照合は
