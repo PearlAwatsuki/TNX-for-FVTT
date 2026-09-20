@@ -12,6 +12,7 @@ import { defaultWeaponKindForCategory } from "../data/item/common/outfit-base.mj
 import { CONDITION_KINDS, getConditionKinds, buildInflictedEffectsData, applyDamageTagMods, readConditions, blocksMainProcess, actorCannotMainProcess } from "../rules/conditions.mjs";
 import { gatherDamageTagMods, parseEffectTargetKey, buildTransferredEffectData, planTransferCopySync, transferCopyIsCurrent, isOutfitItem, planCapabilityTransferCleanup } from "../data/item/helpers.mjs";
 import { runSerial } from "./serial-queue.mjs";
+import { registerOutfitPreparationHooks } from "./outfit-preparation.mjs";
 import { conditionNeedsDraw, postDrawPrompt, postControlNegatePrompt, promptWoundSkillSelection } from "../flow/condition-resolution.mjs";
 import { applyAsOtherEffectCopy } from "../flow/miracle-flow.mjs";
 
@@ -114,6 +115,7 @@ async function removeItemTransferCopies(actor, sourceUuids) {
 
 /** 転送の実体化に関わるフックを登録する(init から呼ぶ)。 */
 export function registerItemTransferHooks() {
+    registerOutfitPreparationHooks();
     Hooks.on("createActiveEffect", async (effect, options, userId) => {
         if (game.user.id !== userId) return;
         const actor = effect.parent;
@@ -210,7 +212,7 @@ export function registerItemTransferHooks() {
     Hooks.on("updateActiveEffect", async (effect, changed, _options, userId) => {
         if (game.user.id !== userId) return;
         // transfer(自動適用ゲート)・flags(準備先チェック等)の切替でも転送を再評価する(2026-07-13 再設計)
-        if (!["changes", "disabled", "name", "img", "transfer", "flags"].some(k => k in (changed ?? {}))) return;
+        if (!["changes", "system", "type", "disabled", "name", "img", "transfer", "flags"].some(k => k in (changed ?? {}))) return;
         const parent = effect.parent;
         const actor = parent?.documentName === "Actor" ? parent : parent?.actor;
         if (actor) await materializeItemTransfers(actor, effect, parent);
@@ -297,7 +299,7 @@ export function registerItemTransferHooks() {
         const actor = item.actor;
         if (!actor) return;
         const sys = changed?.system ?? {};
-        if (!["parentItemId", "identificationKey", "majorCategory", "minorCategory", "additionalCategories"].some(k => k in sys)) return;
+        if (!["parentItemId", "isPrepared", "identificationKey", "majorCategory", "minorCategory", "additionalCategories"].some(k => k in sys)) return;
         for (const e of actor.effects) await materializeItemTransfers(actor, e, actor);
         for (const it of actor.items) {
             for (const e of it.effects) await materializeItemTransfers(actor, e, it);
