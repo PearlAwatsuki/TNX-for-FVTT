@@ -4,6 +4,7 @@ import { getMajorCategoryChoices, getMinorCategoryChoices, majorOfMinor, OUTFIT_
 import { isEnchantment, enchantmentAppliesToSelf } from "./ae-kind.mjs";
 import { parseEffectTargetKey, evalEffectConditions } from "../data/item/helpers.mjs";
 import { PART_KINDS, PART_REFERENCE_SUB_KINDS } from "../data/item/part-helpers.mjs";
+import { toPublicEffectKey } from "./ae-public-keys.mjs";
 
 const choice = (path, label, choices) => ({ path, label, kind: "choice", choices, modes: ["override"] });
 const bool = (path, label) => ({ ...choice(path, label, { true: "オン", false: "オフ" }), kind: "boolean" });
@@ -28,7 +29,9 @@ export const ENCHANTMENT_ATTRIBUTES = Object.freeze({
     "system.combatSpeedModGhostIgnore": bool("combatSpeedModGhostIgnore", "ゴースト時のCS修正無視"),
     "system.buy.mode": mode("buy.mode", "購入値の方式", ["none", "value", "reference"]),
     "system.hide.mode": mode("hide.mode", "隠匿値の方式", ["none", "value", "reference", "control"]),
-    ...Object.fromEntries(["preserveExp", "appearancePenalty", "hack", "guardValue", "defence", "controlMod", "speedFactor", "passenger", "cycle", "combatSpeedMod"].map(p => [`system.${p}.mode`, mode(`${p}.mode`, `${p}の方式`, ["none", "value"])])),
+    "system.guard.mode": mode("guardValue.mode", "受け値の方式", ["none", "value"]),
+    ...Object.fromEntries(Object.entries({ preserveExp: "常備化経験点", appearancePenalty: "危険値", hack: "電脳制御値", defence: "防御力", controlMod: "制御値修正", speedFactor: "移動力", passenger: "乗員数", cycle: "サイクル", combatSpeedMod: "CS修正" })
+        .map(([p, label]) => [`system.${p}.mode`, mode(`${p}.mode`, `${label}の方式`, ["none", "value"])])),
     "system.uses.isLimit": bool("uses.isLimit", "使用回数を制限"),
     "system.uses.type": choice("uses.type", "使用回数の回復区分", { "": "なし", act: "アクト", scene: "シーン", cut: "カット" }),
     "system.ammo.isLimit": bool("ammo.isLimit", "弾数を制限"),
@@ -51,7 +54,7 @@ const changeType = c => c.type ?? ({ 2: "add", 5: "override" })[c.mode] ?? "over
 
 /** 条件付きキーも同じ属性定義へ解決する。 */
 export function enchantmentAttributeKey(key) {
-    return typeof key === "string" ? key.replace(/\[[^\]]*\]/, "").trim() : "";
+    return typeof key === "string" ? toPublicEffectKey(key.replace(/\[[^\]]*\]/, "").trim()) : "";
 }
 
 /** 構造属性の値を検証・変換。不正値は例外にし、評価時は当該変更を無視する。 */

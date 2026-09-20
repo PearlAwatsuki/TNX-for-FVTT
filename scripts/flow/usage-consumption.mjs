@@ -35,6 +35,7 @@
  */
 
 import { usesMaxTotalOf } from "../data/item/uses.mjs";
+import { ammoMaxTotalOf } from "../data/item/helpers.mjs";
 import { ListSelectionDialog } from "../ui/tnx-dialog.mjs";
 
 /**
@@ -60,10 +61,11 @@ const ITEM_RESOURCES = {
     ammo: {
         label:     "残弾",
         enabled:   (sys) => sys?.ammo?.isLimit === true,
-        remaining: (sys) => Math.max(0, (sys?.ammo?.max ?? 0) - (sys?.ammo?.spent ?? 0)),
-        max:       (sys) => sys?.ammo?.max ?? 0,
+        remaining: (sys) => Math.max(0, ammoMaxTotalOf(sys) - (sys?.ammo?.spent ?? 0)),
+        max:       (sys) => ammoMaxTotalOf(sys),
         update:    (sys, amount) => ({
-            "system.ammo.spent": clampCounter((sys?.ammo?.spent ?? 0) + amount, sys?.ammo?.max ?? 0),
+            "system.ammo.spent": Math.max(amount >= 0 ? (sys?.ammo?.spent ?? 0) : 0,
+                amount < 0 ? (sys?.ammo?.spent ?? 0) + amount : clampCounter((sys?.ammo?.spent ?? 0) + amount, ammoMaxTotalOf(sys))),
         }),
     },
     // 個数(消費アイテム・2026-07-19 ユーザー指示で消費先に追加)。使用回数/残弾と違い

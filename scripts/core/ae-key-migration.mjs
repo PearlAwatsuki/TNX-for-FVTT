@@ -65,6 +65,16 @@ export function planEffectKeyMigration(source, { items = [], bearer = null } = {
         const formula = planFormulaKeyMigration(change.value, { items, bearer, relocating: remoteCount > 0 });
         change.value = formula.value;
         issues.push(...formula.issues);
+        const condition = change.key?.match(/\[[^\]]*\]/)?.[0] ?? "";
+        const part = change.key?.replace(condition, "").match(/^system\.part\.(.+)$/);
+        if (part) {
+            const value = String(change.value ?? "").trim().match(/^(and|or)(?::(\d+))?$/i);
+            if (!value) issues.push({ key: change.key, reason: "旧部位追加の消費数を解釈できない" });
+            else {
+                change.key = `system.equip.${value[1].toLowerCase() === "and" ? "required" : "alternative"}.${part[1]}${condition}`;
+                change.value = value[2] ?? "1";
+            }
+        }
     }
     if (flags.applyToParent === true || remoteCount || selfCount) {
         const wasEnchantment = next.type === "enchantment";

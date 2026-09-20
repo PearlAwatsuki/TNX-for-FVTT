@@ -10,6 +10,17 @@ function outfit(changes, flags = {}) {
 const change = (key, value, type = "override") => ({ key, value, type });
 
 describe("付与AEの構造属性", () => {
+    it.each(["system.guard.mode", "system.guardValue.mode"])("受け値の方式は新旧キーを同じ属性として扱う: %s", key => {
+        const item = outfit([change(key, "none", "add")]);
+        item._source.system.guardValue = { mode: "value", value: 3 };
+        item.system.guardValue = { mode: "value", value: 3 };
+        applyEnchantmentAttributes(item);
+        expect(item.system.guardValue.mode).toBe("none");
+        expect(item._source.system.guardValue.mode).toBe("value");
+        item.effects = [];
+        applyEnchantmentAttributes(item);
+        expect(item.system.guardValue.mode).toBe("value");
+    });
     it("小分類から大分類も変え、保存元を保持して解除時に復元する", () => {
         const item = outfit([change("system.minorCategory", "bodyArmor")]);
         applyEnchantmentAttributes(item);

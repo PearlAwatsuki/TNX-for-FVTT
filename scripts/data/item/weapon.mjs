@@ -127,6 +127,7 @@ export class WeaponDataModel extends SystemDataModel.mixin(
       ammo: new fields.SchemaField({
         isLimit: new fields.BooleanField({ initial: false }),
         max:     new fields.NumberField({ initial: 0, min: 0, integer: true }),
+        maxTotal: new fields.NumberField({ required: false, nullable: true }),
         spent:   new fields.NumberField({ initial: 0, min: 0, integer: true }),
       }),
       // 生身変更装備(フェーズ10-6・2026-07-02 裁定): 生身(武器)のデータ——攻撃力と受け値——を

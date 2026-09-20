@@ -5,6 +5,10 @@ import { SYSTEM_ID } from "../../scripts/constants.mjs";
 const skill = { _id: "s", type: "generalSkill", system: { identificationKey: "melee" } };
 const outfit = { _id: "w", type: "weapon", system: { identificationKey: "sword" } };
 describe("式キーの移行", () => {
+    it("旧部位指定の関係と消費数を新キーへ分ける", () => {
+        const plan = planEffectKeyMigration({ changes: [{ key: "system.part.hand[hack>=3]", value: "or:2" }] }, { bearer: outfit });
+        expect(plan.data.changes[0]).toMatchObject({ key: "system.equip.alternative.hand[hack>=3]", value: "2" });
+    });
     it("素値と実効値を区別し、算術・空白を維持する", () => {
         const formula = "floor(@system.life.total / 2) + @diff + @item.self.system.levelTotal";
         const plan = planFormulaKeyMigration(formula, { bearer: skill });

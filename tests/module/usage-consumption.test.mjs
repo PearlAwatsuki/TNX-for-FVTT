@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import "../setup.mjs";
 
 const { resolveConsumeRows, buildConsumptionPlan, matchSharedItem, deriveConsumeTargets, isConsumptionDepleted } =
@@ -56,6 +56,35 @@ const weapon = (id, {
   ammo = { isLimit: true, max: 6, spent: 0 },
   name = "武器",
 } = {}) => ({ id, type: "weapon", name, system: { uses, ammo } });
+
+describe("付与AEによる実効装弾数", () => {
+  it("消費可否と残量表示は実効容量を参照する", () => {
+    const item = weapon("w1", { ammo: { isLimit: true, max: 6, maxTotal: 9, spent: 6 } });
+    const rows = resolveConsumeRows(
+      [{ type: "item", itemId: "", resource: "ammo", amount: 1 }],
+      { parentItem: item, getItem: () => null },
+    );
+    expect(rows[0].maxDisplay).toBe(9);
+    expect(rows[0].remaining).toBe(3);
+    expect(isConsumptionDepleted(rows)).toBe(false);
+  });
+
+  it.each([[0, 8], [1, 8], [-1, 7], [-20, 0]])("容量低下後も消費台帳を保持する（増減 %s → %s）", async (amount, expected) => {
+    const { applyConsumptionPlan } = await import("../../scripts/flow/usage-consumption.mjs");
+    const item = weapon("w1", { ammo: { isLimit: true, max: 6, maxTotal: 4, spent: 8 } });
+    const actor = { items: new Map([[item.id, item]]), updateEmbeddedDocuments: vi.fn() };
+    const original = globalThis.game;
+    globalThis.game = { actors: new Map([["a1", actor]]) };
+    try {
+      await applyConsumptionPlan([{ actorId: "a1", itemId: "w1", kind: "ammo", amount }]);
+      expect(actor.updateEmbeddedDocuments).toHaveBeenCalledWith("Item", [{ _id: "w1", "system.ammo.spent": expected }]);
+      expect(item.system.ammo.spent).toBe(8);
+      expect(item.system.ammo.max).toBe(6);
+    } finally {
+      globalThis.game = original;
+    }
+  });
+});
 
 describe("resolveConsumeRows()（消費先設定の解決・2026-07-18 再編）", () => {
   it("item/self/uses(制限あり): kind uses・残量 = max - spent・itemId は親", () => {

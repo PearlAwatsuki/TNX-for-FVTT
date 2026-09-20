@@ -274,7 +274,7 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
       if (parsed.scope === "partAdd") {
         if (bearer?.documentName !== "Item" || !Array.isArray(bearer.system?.partAdded)) continue;
         if (!evalEffectConditions(bearer.system, parsed.conditions)) continue;
-        partAddApps.push({ effect, change, doc: bearer, selector: parsed.selector, identity, stackable });
+        partAddApps.push({ effect, change, doc: bearer, selector: parsed.selector, relation: parsed.relation, identity, stackable });
         continue;
       }
       for (const { doc, totalPath } of this._resolveBuffApplications(parsed, bearer)) {
@@ -378,9 +378,12 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
     const seenPartAdd = new Set();
     for (const app of partAddApps.sort(byPriority)) {
       const m = String(app.change.value ?? "").trim().match(/^(and|or)(?::(\d+))?$/i);
-      if (!m) continue;
-      const relation = m[1].toLowerCase();
-      const slots = m[2] !== undefined ? Math.max(0, Number(m[2])) : 1;
+      if (!m && !app.relation) continue;
+      const relation = app.relation ?? m[1].toLowerCase();
+      const slots = app.relation
+        ? evaluateFormulaSync(app.change.value, buildFormulaData(actor, null, app.doc))
+        : m[2] !== undefined ? Math.max(0, Number(m[2])) : 1;
+      if (!Number.isInteger(slots) || slots < 0) continue;
       if (!slots) continue;
       if (!app.stackable) {
         const k = `${app.doc.id}|${app.selector}|${relation}|${app.identity}`;

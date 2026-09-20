@@ -90,7 +90,7 @@ export function registerEffectConfigInjection() {
                 // 部位行の追加(system.part.<部位キー> 等)の値は and/or[:消費数]。自由入力を保ったまま
                 // datalist で補助する(消費数付き and:2 も打てるよう select にはしない・フェーズ12)
                 const parsed = parseEffectTargetKey((keyInput.value ?? "").trim());
-                if (parsed?.scope === "partAdd" && valueEl.tagName === "INPUT") {
+                if (parsed?.scope === "partAdd" && !parsed.relation && valueEl.tagName === "INPUT") {
                     valueEl.setAttribute("list", "tnx-ae-part-relation");
                 } else if (valueEl.tagName === "INPUT" && valueEl.getAttribute("list") === "tnx-ae-part-relation") {
                     valueEl.removeAttribute("list");
@@ -127,7 +127,7 @@ export function registerEffectConfigInjection() {
                 "speedFactor", "passenger",                                            // ヴィークル
                 "cycle", "combatSpeedMod",                                             // タップ
                 "appearanceTarget", "cyberSecurity", "analogSecurity",                 // 住宅施設
-                "level",                                                               // 技能
+                "level", "ammo.max", "uses.max",                                      // 技能・実効容量
                 ...AE_FLAG_PARAMS,                                                     // 特性フラグ(§2.3c)
             ];
 
@@ -182,7 +182,7 @@ export function registerEffectConfigInjection() {
                 ...selfKeys,
                 ...Object.keys(ENCHANTMENT_ATTRIBUTES),
                 ...partKeys.map(k => `system.partSlot.${k}`),
-                ...partKeys.map(k => `system.part.${k}`),
+                ...partKeys.flatMap(k => [`system.equip.required.${k}`, `system.equip.alternative.${k}`]),
                 ...itemKeys,
                 ...damageKeys,
                 ...ignoreKeys,

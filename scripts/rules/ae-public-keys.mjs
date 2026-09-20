@@ -21,6 +21,7 @@ export function toPublicEffectKey(key) {
         const body = k.match(/^system\.partSlot\.(.+)$/);
         if (body) return `system.bodySlot.${body[1]}.capacity`;
         if (/^system\.guardValue(?:\.(?:value|total))?$/.test(k)) return "system.guard.value";
+        if (k === "system.guardValue.mode") return "system.guard.mode";
         if (/^system\.attack(?:\.total)?$/.test(k)) return "system.attack.value";
         return k;
     });
@@ -36,6 +37,7 @@ export function toRuntimeEffectKey(key) {
         const body = k.match(/^system\.bodySlot\.(.+)\.capacity$/);
         if (body) return `system.partSlot.${body[1]}`;
         if (k === "system.guard.value") return "system.guardValue";
+        if (k === "system.guard.mode") return "system.guardValue.mode";
         return k;
     });
 }

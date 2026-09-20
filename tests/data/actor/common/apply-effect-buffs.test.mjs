@@ -61,6 +61,28 @@ function runBuffs(items, actorEffects = []) {
 }
 
 describe("_applyEffectBuffs 実行検証（アイテム AE・2026-07-13）", () => {
+  it("新しい必須・代替部位キーは数値を消費数として追加する", () => {
+    const effect = effectMock({ type: "enchantment", changes: [
+      { key: "system.equip.required.hand", value: "2", type: "add" },
+      { key: "system.equip.alternative.head", value: "1", type: "add" },
+    ] });
+    const weapon = weaponMock([effect]);
+    weapon.system.partAdded = [];
+    runBuffs([weapon]);
+    expect(weapon.system.partAdded).toEqual([
+      { key: "hand", relation: "and", slots: 2, source: effect.name },
+      { key: "head", relation: "or", slots: 1, source: effect.name },
+    ]);
+  });
+  it("装弾数の補正は保存元maxではなくmaxTotalへ適用する", () => {
+    const effect = effectMock({ type: "enchantment", changes: [{ key: "system.ammo.max", value: "2", type: "add" }] });
+    const weapon = weaponMock([effect]);
+    weapon.system.ammo = { max: 6, maxTotal: 6, spent: 2 };
+    runBuffs([weapon]);
+    expect(effect.apply.mock.calls[0][1].key).toBe("system.ammo.maxTotal");
+    expect(weapon.system.ammo.max).toBe(6);
+    expect(weapon.system.ammo.spent).toBe(2);
+  });
   it("付与AEは自身のアウトフィット属性だけに適用する", () => {
     const effect = effectMock({ type: "enchantment", flags: { "tokyo-nova-axleration": { applyToSelf: true } }, changes: [
       { key: "system.attack.damageType", mode: 5, value: "S" },

@@ -156,7 +156,14 @@ export function computeItemEffectiveValues(system) {
     if (typeof system[base] === "number") system[`${base}Total`] = system[base];
   }
   // 特性フラグの実効値(フェーズ12。AE のオン/オフ上書きはここへ着地する)
+  if (system.ammo && typeof system.ammo.max === "number") system.ammo.maxTotal = system.ammo.max;
   computeFlagEffectiveValues(system);
+}
+
+/** 装弾数の実効上限。消費台帳(spent)を変更せず、残弾の読取だけに使う。 */
+export function ammoMaxTotalOf(system) {
+  const value = Number(system?.ammo?.maxTotal ?? system?.ammo?.max ?? 0);
+  return Number.isFinite(value) ? Math.max(0, Math.floor(value)) : 0;
 }
 
 /**
@@ -1208,6 +1215,8 @@ export function parseEffectTargetKey(key) {
       // handMaxSizeMod はネイティブ着地の特例(KI-020)のためここでは扱わない
       const path = segs.slice(1).join(".");
       if (path === "handMaxSizeMod") return null;
+      const equipPart = path.match(/^equip\.(required|alternative)\.(.+)$/);
+      if (equipPart) return { scope: "partAdd", selector: equipPart[2], relation: equipPart[1] === "required" ? "and" : "or", conditions };
       // 名前は素のキー `name`(system 外)が正——system.name は誤記として無効化する
       if (path === "name") return null;
       // アイテム部位行の追加(フェーズ12): system.part.<部位キー>。値=and/or(:消費数)。
@@ -1274,6 +1283,7 @@ export function resolveItemTotalPath(param, system = {}) {
     cyberSecurityTotal: "cyberSecurity", analogSecurityTotal: "analogSecurity",
     // 使用回数の最大値(KI-038・2026-08-09): 素値は式を受ける StringField のため、AE は実効値へ着地する
     "uses.maxTotal": "uses.max",
+    "ammo.maxTotal": "ammo.max",
   };
   if (bareTotals[p]) p = bareTotals[p];
   // 特性フラグ(フェーズ12): 素の綴り(isFullAuto/suits.spade 等)も実効綴り(…Total)も
@@ -1289,6 +1299,7 @@ export function resolveItemTotalPath(param, system = {}) {
     appearanceTarget: "appearanceTargetTotal",
     cyberSecurity: "cyberSecurityTotal", analogSecurity: "analogSecurityTotal",
     "uses.max": "uses.maxTotal",
+    "ammo.max": "ammo.maxTotal",
   };
   return bare[p] ?? `${p}.total`;
 }
