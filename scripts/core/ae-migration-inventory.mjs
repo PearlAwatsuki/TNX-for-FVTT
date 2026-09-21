@@ -2,14 +2,17 @@
 import { SYSTEM_ID } from "../constants.mjs";
 import { planEffectKeyMigration } from "./ae-key-migration.mjs";
 import { planItemFormulaMigration, planChatFormulaMigration } from "./formula-key-migration.mjs";
+import { inspectAEMigrationReferences } from "./ae-migration-references.mjs";
 
 export async function buildAEMigrationInventory(world, { includePacks = false } = {}) {
     const plans = [];
     const seen = new Set();
     const actors = new Map();
+    const documents = [];
     const inspect = (document, items = [], readOnly = false) => {
         if (!document || seen.has(document.uuid ?? document)) return;
         seen.add(document.uuid ?? document);
+        documents.push({ document, items, readOnly });
         const bearer = document.documentName === "Item" ? document : null;
         for (const effect of document.effects ?? []) {
             plans.push({ kind: "effect", uuid: effect.uuid, ownerUuid: document.uuid, readOnly,
@@ -90,10 +93,15 @@ export async function buildAEMigrationInventory(world, { includePacks = false } 
             }
         }
     }
+    const references = inspectAEMigrationReferences(plans, documents);
     return {
         version: 1,
         includesPacks: includePacks,
         plans,
+        references,
+        referenceSummary: { inspected: references.length,
+            unresolvedRequired: references.filter(r => r.required && r.resolution === "unresolved").length,
+            relocatedTargets: references.filter(r => r.relocation).length },
         summary: { inspected: plans.length, changed: plans.filter(p => p.changed).length,
             unresolved: plans.filter(p => p.issues.length).length, readOnly: plans.filter(p => p.readOnly).length },
     };
