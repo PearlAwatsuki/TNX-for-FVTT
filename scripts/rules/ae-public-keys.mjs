@@ -16,6 +16,7 @@ export function toPublicEffectKey(key) {
     return mapKey(key, k => {
         if (/^(check|controlCheck|damage|ignore)\./.test(k)) return `system.${k}`;
         if (k === "name") return "system.name";
+        if (k === "system.slot.normal.capacity") return "system.slot.capacity";
         const ability = k.match(/^system\.(ability|control)\.(reason|passion|life|mundane)$/);
         if (ability) return `system.abilities.${ability[2]}.${ability[1] === "ability" ? "value" : "control"}`;
         const body = k.match(/^system\.partSlot\.(.+)$/);

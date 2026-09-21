@@ -3,6 +3,20 @@ import { planEffectKeyMigration } from "../../scripts/core/ae-key-migration.mjs"
 import { SYSTEM_ID } from "../../scripts/constants.mjs";
 
 describe("AEキー移行の事前計画", () => {
+    it("技能の自己実効レベルも正準キーへ変換する", () => {
+        const bearer = { type: "generalSkill", system: { identificationKey: "melee" } };
+        const plan = planEffectKeyMigration({ _id: "e", changes: [{ key: "system.levelTotal[hack>=3]", value: "2" }] }, { bearer });
+        expect(plan.issues).toEqual([]);
+        expect(plan.data.changes[0].key).toBe("system.skill.melee.level[hack>=3]");
+        expect(planEffectKeyMigration(plan.data, { bearer }).changed).toBe(false);
+    });
+    it("通常スロットの旧normal表記を条件を保って除く", () => {
+        const plan = planEffectKeyMigration({ _id: "e", changes: [{ key: "system.slot.normal.capacity[hack>=3]", value: "2" }] },
+            { bearer: { type: "weapon", system: {} } });
+        expect(plan.data.changes[0].key).toBe("system.slot.capacity[hack>=3]");
+        expect(plan.data.type).toBe("enchantment");
+        expect(planEffectKeyMigration(plan.data, { bearer: { type: "weapon", system: {} } }).changed).toBe(false);
+    });
     it("V14のchangesとID・優先度・持続を保持し、準備先指定を付与AEへ変換", () => {
         const source = { _id: "e", transfer: false, system: { changes: [{ key: "system.guardValue", type: "add", value: "3", priority: 7 }] }, flags: { [SYSTEM_ID]: { applyToParent: true, stackable: true, tnxDuration: "act" } } };
         const before = structuredClone(source);

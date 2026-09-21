@@ -36,7 +36,7 @@ export function planEffectKeyMigration(source, { items = [], bearer = null } = {
             const parsed = parseEffectTargetKey(change.key);
             if (parsed?.scope === "self" && SKILLS.has(bearer?.type)) {
                 if (!bearer.system?.identificationKey) issues.push({ key: change.key, reason: "保持元技能の識別キーが未設定" });
-                else change.key = `system.skill.${bearer.system.identificationKey}.${parsed.path}${condition}`;
+                else change.key = `system.skill.${bearer.system.identificationKey}.${parsed.path === "levelTotal" ? "level" : parsed.path}${condition}`;
             } else if (["self", "partAdd", "itemName"].includes(parsed?.scope) && OUTFIT_TYPES.has(bearer?.type)) selfCount++;
             continue;
         }
