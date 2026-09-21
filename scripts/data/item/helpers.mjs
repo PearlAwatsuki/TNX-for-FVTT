@@ -892,7 +892,7 @@ export function actorHasSuitChangeBuff(actor) {
 export function effectAutoApplies(effect, scope = SYSTEM_ID) {
   if (effect?.parent?.documentName !== "Item") return true;
   const f = effect.flags?.[scope] ?? {};
-  if (f.transferredFrom !== undefined || f.grantedFrom !== undefined) return true;
+  if (f.transferredFrom !== undefined || f.grantedFrom !== undefined || f.grantInstanceId) return true;
   return effect.transfer !== false;
 }
 

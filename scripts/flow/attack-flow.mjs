@@ -317,7 +317,7 @@ export async function postAttackCard({ payload, result, suit, cardCheckValue = n
     // リアクションカードの事前一括投稿は廃止(2026-07-18 大改修): 入口は対象リストの名前クリック
     // (本人/代理ダイアログ)・オープンは「リアクション」ボタン。カードはリアクションすると決めた
     // キャラクターの分だけ、シークレット(GM＋本人)で都度作成される(createReactionCard)。
-    await ChatMessage.create({
+    return ChatMessage.create({
         content,
         speaker: attacker ? ChatMessage.getSpeaker({ actor: attacker }) : undefined,
         flags: {

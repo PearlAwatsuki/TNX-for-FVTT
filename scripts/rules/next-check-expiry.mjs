@@ -1,0 +1,63 @@
+/** 判定1回持続の対象を開始時に固定し、確定時に条件を照合する。 */
+import { SYSTEM_ID } from "../constants.mjs";
+import { checkChangeMatches, parseEffectTargetKey, evalEffectConditions } from "../data/item/helpers.mjs";
+
+const flagsOf = effect => effect.flags?.[SYSTEM_ID] ?? {};
+const sourceOf = effect => effect.toObject ? effect.toObject() : structuredClone(effect);
+const fingerprint = effect => JSON.stringify(sourceOf(effect));
+
+/** 自動適用のパッシブ・供給元・転送コピーは消費対象にしない。 */
+export function isNextCheckInstance(effect, item = null) {
+    const flags = flagsOf(effect);
+    return flags.tnxDuration === "nextCheck" && effect.transfer !== true
+        && !flags.transferredFrom && !effect.disabled && effect.active !== false
+        && (!item || flags.grantedFrom !== undefined || !!flags.grantInstanceId);
+}
+
+export function captureNextCheckEffects(actor) {
+    const entries = [];
+    const collect = (owner, item = null) => {
+        for (const effect of owner?.effects ?? []) {
+            if (!isNextCheckInstance(effect, item)) continue;
+            entries.push({ itemId: item?.id ?? null, effectId: effect.id,
+                fingerprint: fingerprint(effect) });
+        }
+    };
+    collect(actor);
+    for (const item of actor?.items ?? []) collect(item, item);
+    return entries;
+}
+
+export function checkCriteria(actor, ctx, ability) {
+    if (ctx.type === "controlCheck") return { type: "control", ability };
+    if (ctx.type === "abilityCheck" || !ctx.skillIds?.length) return { type: "ability", ability };
+    return { type: "skill", skills: ctx.skillIds.map(id => actor.items.get(id)).filter(item => item?.system?.identificationKey)
+        .map(({ system }) => ({ key: system.identificationKey, style: system.style ?? "",
+            organization: system.special?.works?.organization ?? "",
+            societyClass: system.societyClass || ctx.societyClassByKey?.[system.identificationKey] || "" })) };
+}
+
+export function resolveNextCheckEntry(actor, entry) {
+    const owner = entry.itemId ? actor?.items?.get(entry.itemId) : actor;
+    const effect = owner?.effects?.get(entry.effectId);
+    if (!effect || !isNextCheckInstance(effect, entry.itemId ? owner : null)
+        || fingerprint(effect) !== entry.fingerprint) return null;
+    return { owner, effect };
+}
+
+/** 途中で新規付与・再付与・変更された効果は、この判定では消費しない。 */
+export function matchNextCheckEffects(actor, entries, criteria) {
+    return (entries ?? []).filter(entry => {
+        const current = resolveNextCheckEntry(actor, entry);
+        if (!current) return false;
+        const changes = current.effect.system?.changes ?? current.effect.changes ?? [];
+        const parsed = changes.map(change => ({ change, parsed: parseEffectTargetKey(change.key) }));
+        const checkRows = parsed.filter(row => ["anyCheck", "abilityCheck", "controlCheck", "skillCheck", "cardValue", "suitChange"].includes(row.parsed?.scope));
+        const rows = checkRows.length ? checkRows : parsed;
+        if (!rows.length) return true;
+        return rows.some(({ change, parsed: target }) => target
+            && evalEffectConditions(current.owner.system, target.conditions)
+            && (!checkRows.length || (["cardValue", "suitChange"].includes(target.scope)
+                ? criteria.type !== "control" : checkChangeMatches(change.key, criteria))));
+    });
+}

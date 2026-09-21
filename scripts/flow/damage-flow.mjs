@@ -48,6 +48,7 @@ import { formatSkillName } from "../core/identification.mjs";
 import { getUserFlagData } from "../core/user-flag-schema.mjs";
 import { handleNegateMiracleDamageClick, postMiracleCard } from "./miracle-flow.mjs";
 import { AmountInputDialog } from "../ui/tnx-dialog.mjs";
+import { expireNextCheckEffects } from "../core/next-check-expiry.mjs";
 
 const CATEGORY_LABELS = { physical: "肉体", mental: "精神", social: "社会", troop: "壊滅" };
 const SUIT_SYMBOL = { spade: "♠", club: "♣", heart: "♥", diamond: "♦" };
@@ -231,7 +232,7 @@ async function evaluateDamageBonusesPerTarget(damageTargets, { f, attacker, pare
  * @param {{manualMod:number}} form ロールダイアログの入力
  * @param {{name:string, suit:string, value:number}} played 出したダメージカード
  */
-async function finalizeDamageRoll(ctx, form, played) {
+export async function finalizeDamageRoll(ctx, form, played) {
     const { attackMessage, f, attacker, category, attackPower, damageBonusRows, damageTargets, hitTargets } = ctx;
 
     // 用途の適用効果(2026-07-18 確定): 一般(命中時)効果は攻撃カードの効果セクションが担う。
@@ -292,6 +293,8 @@ async function finalizeDamageRoll(ctx, form, played) {
     });
 
     await applyAttackPatch(attackMessage, { damageRolled: true });
+    // 攻撃の判定はダメージ算出までを含む。算出結果の保存後に初めて失効させる。
+    await expireNextCheckEffects(attacker, f.nextCheckExpiry);
 }
 
 /**

@@ -9,9 +9,9 @@ const SCOPE = "tokyo-nova-axleration";
 const withDuration = (id, duration) => ({ id, flags: { [SCOPE]: { tnxDuration: duration } } });
 
 describe("TNX_DURATIONS（TNX の持続時間の選択肢・15-1）", () => {
-    it("Time_Management の時間単位＋無期限だけを持つ", () => {
+    it("時間単位・無期限と、判定イベントによる持続を持つ", () => {
         expect(Object.keys(TNX_DURATIONS)).toEqual([
-            "", "mainProcess", "cut", "scene", "act",
+            "", "mainProcess", "cut", "scene", "act", "nextCheck",
         ]);
     });
 
@@ -169,4 +169,3 @@ describe("planActorBoundaryUpdates()（境界でアクター側に起こす更�
         expect(planActorBoundaryUpdates({ host: { uuid: "Actor.h", name: "" } }, TNX_BOUNDARIES.exit)).toEqual({});
     });
 });
-

@@ -44,7 +44,7 @@ export const TNX_BOUNDARIES = Object.freeze({
 /**
  * 効果に指定できる持続。キーは保存値、値は表示ラベル。空文字＝無期限(境界では失効しない)。
  *
- * **Time_Management の時間単位だけを置く。**「治療まで」は選択肢に置かない
+ * 時間単位と、判定イベントで終了するnextCheckを扱う。「治療まで」は選択肢に置かない
  * (2026-08-29 ユーザー指摘): ①境界の判定では「アクト中」と挙動が完全に同一で名前が違うだけ
  * ②RL が手で組んだ効果に「治療する」操作は存在しない(治療の対象は負傷)。本来の
  * 「治療するまで回復しない」BS は**元の負傷 AE が生きているかで導出**するため、この欄を使わない。
@@ -55,6 +55,7 @@ export const TNX_DURATIONS = Object.freeze({
     cut:            "カット中",
     scene:          "シーン中",
     act:            "アクト中",
+    nextCheck:      "次の1回の判定まで",
 });
 
 
@@ -86,7 +87,7 @@ const BOUNDARY_RANK = Object.freeze({
  */
 export function readEffectDuration(effect) {
     const raw = effect?.flags?.[SYSTEM_ID]?.tnxDuration;
-    return (typeof raw === "string" && raw in DURATION_RANK) ? raw : "";
+    return (typeof raw === "string" && Object.hasOwn(TNX_DURATIONS, raw)) ? raw : "";
 }
 
 /**
@@ -107,6 +108,7 @@ export function durationLabelOf(effect) {
  * @returns {boolean}
  */
 export function durationExpiresAt(duration, boundary) {
+    if (duration === "nextCheck") return boundary === TNX_BOUNDARIES.actEnd;
     const d = DURATION_RANK[duration];
     const b = BOUNDARY_RANK[boundary];
     if (!d || !b) return false;
@@ -129,7 +131,8 @@ export function durationExpiresAt(duration, boundary) {
  */
 export function planEffectExpiry(effects, boundary) {
     return (effects ?? [])
-        .filter(e => durationExpiresAt(readEffectDuration(e), boundary))
+        .filter(e => durationExpiresAt(readEffectDuration(e), boundary)
+            && (readEffectDuration(e) !== "nextCheck" || (e.transfer !== true && !e.flags?.[SYSTEM_ID]?.transferredFrom)))
         .map(e => e.id);
 }
 
@@ -152,7 +155,8 @@ export function planItemGrantExpiry(items, boundary) {
     for (const item of (items ?? [])) {
         const effectIds = [];
         for (const effect of (item?.effects ?? [])) {
-            if (effect?.flags?.[SYSTEM_ID]?.grantedFrom === undefined) continue;
+            if (effect?.flags?.[SYSTEM_ID]?.grantedFrom === undefined && !effect?.flags?.[SYSTEM_ID]?.grantInstanceId) continue;
+            if (readEffectDuration(effect) === "nextCheck" && (effect.transfer === true || effect.flags?.[SYSTEM_ID]?.transferredFrom)) continue;
             if (durationExpiresAt(readEffectDuration(effect), boundary)) effectIds.push(effect.id);
         }
         if (effectIds.length) out.push({ itemId: item.id, effectIds });

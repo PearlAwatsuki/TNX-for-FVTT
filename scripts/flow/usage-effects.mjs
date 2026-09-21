@@ -87,6 +87,7 @@ export function buildGrantedEffectDataFrom(source, sourceUuid = null) {
     // effectId=重複排除・置き換えリフレッシュの同一性(供給元に無ければ供給元 uuid を刻む)
     data.flags = data.flags ?? {};
     const f = data.flags[SYSTEM_ID] = { ...(data.flags[SYSTEM_ID] ?? {}) };
+    if (f.tnxDuration === "nextCheck") f.grantInstanceId = globalThis.foundry?.utils?.randomID?.() ?? globalThis.crypto.randomUUID();
     if (sourceUuid) {
         f.grantedFrom = sourceUuid;
         if (!f.effectId) f.effectId = sourceUuid;
@@ -220,6 +221,10 @@ async function pickGrantItem(actor, candidates, effectName) {
  * @param {object} data AE 生成データ
  */
 async function createOrRefreshGrant(doc, data) {
+    if (data.flags?.[SYSTEM_ID]?.tnxDuration === "nextCheck") {
+        data = foundry.utils.deepClone(data);
+        data.flags[SYSTEM_ID].grantInstanceId = globalThis.foundry?.utils?.randomID?.() ?? globalThis.crypto.randomUUID();
+    }
     const f = data.flags?.[SYSTEM_ID] ?? {};
     if (f.effectId && f.stackable !== true) {
         const existing = doc.effects?.find(e => e.flags?.[SYSTEM_ID]?.effectId === f.effectId);

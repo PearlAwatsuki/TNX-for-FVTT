@@ -40,6 +40,8 @@ import { movementStagesFromAchievement } from "../rules/vehicle-move.mjs";
 import { isOpposedConfrontation } from "../rules/confrontation.mjs";
 import { AmountInputDialog } from "../ui/tnx-dialog.mjs";
 import { CONTINUATIONS } from "./check-continuations.mjs";
+import { captureNextCheckEffects, matchNextCheckEffects, checkCriteria } from "../rules/next-check-expiry.mjs";
+import { expireNextCheckEffects, expireResolvedAttackEffects } from "../core/next-check-expiry.mjs";
 
 /**
  * @typedef {object} CheckContext
@@ -92,6 +94,7 @@ export class TnxCheckFlow {
 
         TnxCheckFlow.cancel({ _noRefresh: true });
         TnxCheckFlow._context   = foundry.utils.deepClone(context);
+        TnxCheckFlow._context.nextCheckCandidates = captureNextCheckEffects(game.actors.get(context.actorId));
         TnxCheckFlow._trumpMode = false;
 
         // 社会下位区分の解決(2026-08-26): check.society.<区分> の照合用。キャストのコピーが旧く
@@ -536,27 +539,7 @@ export class TnxCheckFlow {
         if (!actor) return { total: 0, sources: [] };
         const effects = collectActorEffectBuffs(actor);
 
-        let criteria;
-        if (ctx.type === "controlCheck") {
-            criteria = { type: "control", ability: abilityKey };
-        } else if (ctx.type === "abilityCheck" || !(ctx.skillIds?.length)) {
-            criteria = { type: "ability", ability: abilityKey };
-        } else {
-            // 識別キーに加え、スタイル(system.style)・組織(system.special.works.organization)も
-            // criteria に載せ、check.style.<キー> / check.works.<キー> のグループ参照を可能にする。
-            const skills = (ctx.skillIds ?? [])
-                .map(id => actor.items.get(id))
-                .filter(it => it?.system?.identificationKey)
-                .map(it => ({
-                    key: it.system.identificationKey,
-                    style: it.system.style ?? "",
-                    organization: it.system.special?.works?.organization ?? "",
-                    // 社会下位区分(2026-08-26): コピーの値が優先・無ければ起動時に解決した辞典の値
-                    societyClass: it.system.societyClass
-                        || ctx.societyClassByKey?.[it.system.identificationKey] || "",
-                }));
-            criteria = { type: "skill", skills };
-        }
+        const criteria = checkCriteria(actor, ctx, abilityKey);
         const sources = gatherCheckBonusSources(effects, criteria, createEffectBonusEvaluator(actor, formulaOptions));
 
         // コンディション(BS)由来の達成値修正を合流する(酩酊=上方判定 -n、萎縮/憎悪=攻撃判定。
@@ -833,6 +816,11 @@ export class TnxCheckFlow {
         // 継続処理を持つ判定(リアクション/NPC取得/治療/移動/controlNegate)は状態機械のリセットが
         // 必要なため当面対象外(申し送り)
         const recheckCtx = TnxCheckFlow._buildRecheckContext(ctx);
+        const nextCheckExpiry = { actorUuid: actor.uuid,
+            entries: matchNextCheckEffects(actor, ctx.nextCheckCandidates, checkCriteria(actor, ctx, SUIT_TO_ABILITY[suit])) };
+        result.nextCheckExpiry = nextCheckExpiry;
+        // 攻撃はダメージ算出まで未解決。実体を残し、消費対象だけをカードへ運ぶ。
+        if (ctx.attack?.isAttack) ctx.attack.nextCheckExpiry = nextCheckExpiry;
 
         // チャットに結果を投稿。攻撃(ctx.attack)は通常の結果カードの代わりに攻撃カードを出す
         // (成否保留・リアクション導線つき・12-2。attack-flow は本フローを import するため動的 import)。
@@ -843,7 +831,7 @@ export class TnxCheckFlow {
             await TnxCheckFlow._applyRecheckReplacement({ ctx, card, suit, result, cardCheckValue, fromDeck, trumpUsed, suitMismatch, checkSources: checkInfo.sources });
         } else if (ctx.attack) {
             const { postAttackCard } = await import("./attack-flow.mjs");
-            await postAttackCard({ payload: ctx.attack, result, suit, cardCheckValue, card, fromDeck, trumpUsed, suitMismatch, checkSources: checkInfo.sources, recheckCtx });
+            resultMessage = await postAttackCard({ payload: ctx.attack, result, suit, cardCheckValue, card, fromDeck, trumpUsed, suitMismatch, checkSources: checkInfo.sources, recheckCtx });
         } else if (ctx.movement) {
             await postMovementCard({ payload: ctx.movement, result, suit, card, fromDeck, trumpUsed, suitMismatch, checkSources: checkInfo.sources, recheckCtx });
         } else if (!ctx.reaction || ctx.reaction.open === true) {
@@ -886,6 +874,9 @@ export class TnxCheckFlow {
 
         // 残りの継続(表の並び順が実行順)
         await runContinuations("afterSync");
+
+        if (!ctx.attack?.isAttack) await expireNextCheckEffects(actor, nextCheckExpiry);
+        else await expireResolvedAttackEffects(resultMessage ?? game.messages.get(ctx.recheckMessageId));
 
         return true;
     }
@@ -1021,6 +1012,7 @@ export class TnxCheckFlow {
             patch[`flags.${SYSTEM_ID}.attackCheck.suit`] = suit;
             patch[`flags.${SYSTEM_ID}.attackCheck.state`] = overall;
             patch[`flags.${SYSTEM_ID}.attackCheck.targets`] = newTargets;
+            if (ctx.attack.isAttack) patch[`flags.${SYSTEM_ID}.attackCheck.nextCheckExpiry`] = result.nextCheckExpiry;
         } else if (ctx.movement) {
             // 操縦移動は通常結果カードでなく移動カード。達成値÷10 段階を新達成値で描き直す(表示のみ=A)
             patch.content = await buildMovementCardContent({

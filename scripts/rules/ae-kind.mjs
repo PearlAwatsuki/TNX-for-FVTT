@@ -13,7 +13,7 @@ export function enchantmentAppliesToSelf(effect, bearer) {
     if (!isEnchantment(effect)) return true;
     if (bearer?.documentName !== "Item" || !OUTFIT_TYPES.has(bearer.type)) return false;
     const f = effect.flags?.[SYSTEM_ID] ?? {};
-    if (f.transferredFrom !== undefined || f.grantedFrom !== undefined) return true;
+    if (f.transferredFrom !== undefined || f.grantedFrom !== undefined || f.grantInstanceId) return true;
     // 型分離試行時の保存データにはapplyToSelfがないため、自身への適用を互換解決する。
     return effect.transfer !== false && f.applyToParent !== true && f.applyToSelf !== false;
 }
