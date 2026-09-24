@@ -26,6 +26,18 @@ export function planEffectKeyMigration(source, { items = [], bearer = null } = {
     const destinations = new Set();
     let remoteCount = 0;
     let selfCount = 0;
+    const normalizeSlots = (key, target) => {
+        const condition = key?.match(/\[[^\]]*\]/)?.[0] ?? "";
+        const match = key?.replace(condition, "").match(/^system\.slots\.(\d+)\.count(?:\.(?:value|total))?$/);
+        if (!match) return key;
+        const kind = target?.system?.slots?.[Number(match[1])]?.kind;
+        if (!["normal", "surface", "deep", "unconscious", "software", "hardware"].includes(kind)
+            || target.system.slots.filter(slot => slot.kind === kind).length !== 1) {
+            issues.push({ key, reason: "配列位置から一意のスロット種別を解決できない" });
+            return key;
+        }
+        return `system.slot.${kind === "normal" ? "" : `${kind}.`}capacity${condition}`;
+    };
     for (const change of changes) {
         const condition = change.key?.match(/\[[^\]]*\]/)?.[0] ?? "";
         const bareKey = condition ? change.key.replace(condition, "") : change.key;
@@ -33,7 +45,12 @@ export function planEffectKeyMigration(source, { items = [], bearer = null } = {
         if (!remote) {
             if (change.key?.startsWith("item.")) issues.push({ key: change.key, reason: "未対応の旧アイテム指定" });
             else change.key = toPublicEffectKey(change.key);
+            const slotBearer = flags.applyToParent ? [...items].find(item => (item.id ?? item._id) === bearer?.system?.parentItemId) : bearer;
+            change.key = normalizeSlots(change.key, slotBearer);
             const parsed = parseEffectTargetKey(change.key);
+            if (parsed?.scope === "category" && !["generalSkill", "styleSkill"].includes(parsed.selector)) {
+                issues.push({ key: change.key, reason: "分類指定によるアウトフィット群への適用は単一付与先を確定できない" });
+            }
             if (parsed?.scope === "self" && SKILLS.has(bearer?.type)) {
                 if (!bearer.system?.identificationKey) issues.push({ key: change.key, reason: "保持元技能の識別キーが未設定" });
                 else change.key = `system.skill.${bearer.system.identificationKey}.${parsed.path === "levelTotal" ? "level" : parsed.path}${condition}`;
@@ -54,7 +71,7 @@ export function planEffectKeyMigration(source, { items = [], bearer = null } = {
             const destination = target.uuid ?? target.id ?? target._id;
             if (!destination) issues.push({ key: change.key, reason: "付与先の文書IDが不明" });
             else destinations.add(destination);
-            change.key = toPublicEffectKey(`system.${remote[2]}${condition}`);
+            change.key = normalizeSlots(toPublicEffectKey(`system.${remote[2]}${condition}`), target);
         } else issues.push({ key: change.key, reason: "付与対象外のアイテム型" });
     }
     if (destinations.size > 1 || (remoteCount && remoteCount !== changes.length)) {

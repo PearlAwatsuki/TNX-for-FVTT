@@ -267,7 +267,7 @@
                                     <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
                                     {{/each}}
                                 </select>
-                                {{#unless row.isActionRank}}
+                                {{#unless row.isActorResource}}
                                 <select name="consumeItem-{{row.idx}}" {{#unless @root.editable}}disabled{{/unless}}>
                                     {{#each row.itemOptions}}
                                     <option value="{{this.id}}" {{#if this.selected}}selected{{/if}}>{{this.name}}</option>

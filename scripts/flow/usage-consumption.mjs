@@ -156,12 +156,14 @@ export function resolveBunshinOwner(actor) {
 export function resolveConsumeRowsForActor(actor, parentItem, targets) {
     // AR は実行アクター自身の戦闘リソース(分身でも本体へ差し替えない)
     const actionRank = actor?.system?.actionRank ?? null;
+    const bountyData = { bountyBase: actor?.system?.bountyBase ?? 0, bounty: actor?.system?.bounty ?? 0 };
     const owner = resolveBunshinOwner(actor);
     if (!owner) {
         return resolveConsumeRows(targets, {
             parentItem,
             getItem: (id) => actor?.items.get(id) ?? null,
             actionRank,
+            bounty: bountyData,
         });
     }
     const ownerItems = owner.items.contents ?? [];
@@ -179,6 +181,7 @@ export function resolveConsumeRowsForActor(actor, parentItem, targets) {
         parentItem: redirect(parentItem),
         getItem: (id) => redirect(actor?.items.get(id) ?? null),
         actionRank,
+        bounty: bountyData,
     });
     for (const row of rows) {
         if (row.itemId && redirectedIds.has(row.itemId)) {
@@ -197,10 +200,12 @@ export function resolveConsumeRowsForActor(actor, parentItem, targets) {
  * @param {{id:string, type:string, name:string, system:object}|null} ctx.parentItem 用途を持つアイテム
  * @param {(itemId:string) => ({id:string, type:string, name:string, system:object}|null|undefined)} ctx.getItem
  *        同アクター内のアイテム解決(分身共有ではここが本体側へ差し替わる)
+ * @param {object|null} [ctx.actionRank]
+ * @param {object|null} [ctx.bounty]
  * @returns {Array<object>} 解決済み行。消費可能行は kind/remaining/maxDisplay を持つ。
  *          inert=true は無害な no-op(親に制限なし等)、problem は設定不備(消費されない)
  */
-export function resolveConsumeRows(targets, { parentItem, getItem, actionRank = null }) {
+export function resolveConsumeRows(targets, { parentItem, getItem, actionRank = null, bounty = null }) {
     return (targets ?? []).map((t) => {
         const type = t.type || "item";
         const rawAmount = Number(t.amount);
@@ -217,6 +222,19 @@ export function resolveConsumeRows(targets, { parentItem, getItem, actionRank = 
                 remaining: inCombat ? Math.max(0, actionRank.value ?? 0) : 0,
                 maxDisplay: actionRank?.maxTotal ?? 0,
                 outOfCombat: !inCombat,
+            };
+        }
+        // 報酬点の消費(2026-09-23): アクターの報酬点(bountyBase + bounty)を消費する。
+        // AR と同様にアクター直属のリソース。分身でも本体へ差し替えない。
+        if (type === "bounty") {
+            const base = Number(bounty?.bountyBase ?? 0);
+            const current = Number(bounty?.bounty ?? 0);
+            const effective = Math.max(0, base + current);
+            return {
+                type, kind: "bounty", amount, key: "@bounty", itemId: "@bounty",
+                label: "報酬点",
+                remaining: effective,
+                maxDisplay: effective,
             };
         }
         // 資源(2026-07-19): 使用回数(神業も同じ)/残弾。同型のため field 差し替えで解決する。
@@ -320,9 +338,11 @@ export async function promptConsumption(actor, rows, { title = "使用回数の�
             checked: true,
             label: r.kind === "ar"
                 ? `AR を消費${amountLabel || "×1"}`
-                : r.amount < 0
-                    ? `「${r.label}」の${resLabel}を回復${r.amount < -1 ? `×${-r.amount}` : ""}${sharedLabel}`
-                    : `「${r.label}」の${resLabel}を消費${amountLabel}${sharedLabel}`,
+                : r.kind === "bounty"
+                    ? `報酬点を消費${amountLabel || "×1"}`
+                    : r.amount < 0
+                        ? `「${r.label}」の${resLabel}を回復${r.amount < -1 ? `×${-r.amount}` : ""}${sharedLabel}`
+                        : `「${r.label}」の${resLabel}を消費${amountLabel}${sharedLabel}`,
             // カット進行外は消費不可(残量 0 扱い=原則ブロック)である旨を残量欄に示す
             trailing: r.kind === "ar" && r.outOfCombat
                 ? "カット進行外（消費不可）"
@@ -354,7 +374,9 @@ export async function promptConsumption(actor, rows, { title = "使用回数の�
             ? (s.outOfCombat
                 ? "カット進行外のため AR を消費できません（AR を消費する能力はカット進行中にのみ使用できます）。消費チェックを外すと実行できます。"
                 : `AR が足りません（残り ${s.remaining}・消費 ${s.amount}）。消費チェックを外すと実行できます。`)
-            : `「${s.label}」の${s.resourceLabel ?? "使用回数"}が足りません（残り ${s.remaining}・消費 ${s.amount}）。消費チェックを外すと実行できます。`);
+            : s.kind === "bounty"
+                ? `報酬点が足りません（残り ${s.remaining}・消費 ${s.amount}）。消費チェックを外すと実行できます。`
+                : `「${s.label}」の${s.resourceLabel ?? "使用回数"}が足りません（残り ${s.remaining}・消費 ${s.amount}）。消費チェックを外すと実行できます。`);
         return null;
     }
     return built.plan;
@@ -380,12 +402,21 @@ export async function applyConsumptionPlan(plan) {
             const v = actor.system.actionRank?.value ?? 0;
             await actor.update({ "system.actionRank.value": Math.max(0, v - arAmount) });
         }
+        // 報酬点の消費(kind="bounty")
+        const bountyAmount = rows.filter(r => r.kind === "bounty").reduce((s, r) => s + (Number(r.amount) || 0), 0);
+        if (bountyAmount !== 0) {
+            const base = actor.system.bountyBase ?? 0;
+            const current = actor.system.bounty ?? 0;
+            // 有効報酬点 >= 0 でクランプ(没収等でも0を下回らない)
+            const next = Math.max(-base, current - bountyAmount);
+            await actor.update({ "system.bounty": next });
+        }
         // 資源(使用回数/残弾/個数)は**アイテム×資源ごとに消費量を合算してから**一度だけ適用する。
         // 1アイテムに複数行が並びうる(同アイテムの残弾と使用回数・同じ資源の複数行)ため、
         // 行ごとに現在値から算出して push すると、後の行が前の行の結果を上書きしてしまう。
         const amountByItemResource = new Map();
         for (const row of rows) {
-            if (row.kind === "ar") continue;
+            if (row.kind === "ar" || row.kind === "bounty") continue;
             const mapKey = `${row.itemId}:${resourceKeyOf(row.kind)}`;
             amountByItemResource.set(mapKey, (amountByItemResource.get(mapKey) ?? 0) + (Number(row.amount) || 0));
         }

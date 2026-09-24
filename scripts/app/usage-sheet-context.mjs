@@ -628,14 +628,16 @@ export async function prepareUsageContext(sheet, context) {
                 .map(i => ({ id: i.id, name: itemDisplayName(i) })) // 技能は 〈〉 整形
                 .sort((a, b) => a.name.localeCompare(b.name, "ja")),
         ];
-        const TYPE_LABELS = { item: "アイテム", actionRank: "AR" };
+        const TYPE_LABELS = { item: "アイテム", actionRank: "AR", bounty: "報酬点" };
         context.consumeRows = (usage.consumeTargets ?? []).map((t, idx) => {
             const type = t.type || "item";
             const resource = ["ammo", "quantity"].includes(t.resource) ? t.resource : "uses";
             const isActionRank = type === "actionRank";
-            const selectedItem = isActionRank ? null
+            const isBounty = type === "bounty";
+            const isActorResource = isActionRank || isBounty;
+            const selectedItem = isActorResource ? null
                 : (t.itemId ? (actor?.items.get(t.itemId) ?? null) : sheet._item);
-            const known = isActionRank || !t.itemId || itemCandidates.some(o => o.id === t.itemId);
+            const known = isActorResource || !t.itemId || itemCandidates.some(o => o.id === t.itemId);
             const amount = Number(t.amount);
             // 資源セレクトは「使用回数だけ」のアイテムでは描画しない(1択の段を挟まない)。
             // 残弾/個数を持つアイテムは選択肢が1つでも描画する——出さないと既定の
@@ -648,6 +650,9 @@ export async function prepareUsageContext(sheet, context) {
                 type,
                 resource,
                 isActionRank,
+                isBounty,
+                isActorResource,
+                isItem: !isActorResource,
                 itemId: t.itemId ?? "",
                 // 消費数はロックしない(2026-07-18 ユーザー確定): 0/負値(=回復)も許容。未設定のみ 1
                 amount: Number.isFinite(amount) ? amount : 1,
@@ -657,7 +662,7 @@ export async function prepareUsageContext(sheet, context) {
                     ...itemCandidates.map(o => ({ ...o, selected: o.id === (t.itemId ?? "") })),
                     ...(!known && t.itemId ? [{ id: t.itemId, name: `(解決不能: ${t.itemId})`, selected: true }] : []),
                 ],
-                showResource: !isActionRank && !usesOnly,
+                showResource: !isActorResource && !usesOnly,
                 resourceOptions: resourceOpts.map(o => ({ ...o, selected: o.value === resource })),
             };
         });

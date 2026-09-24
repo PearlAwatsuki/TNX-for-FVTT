@@ -25,6 +25,7 @@ export class TokyoNovaActiveEffect extends ActiveEffect {
   }
 
   async _preCreate(data, options, user) {
+    if (options.tnxAEMigration) return super._preCreate(data, options, user);
     if (isEnchantment(this)) {
       const next = normalizeEffectKindData(this.toObject());
       this.updateSource({ statuses: [], flags: next.flags });
@@ -37,6 +38,7 @@ export class TokyoNovaActiveEffect extends ActiveEffect {
   }
 
   async _preUpdate(data, options, user) {
+    if (options.tnxAEMigration) return super._preUpdate(data, options, user);
     const next = foundry.utils.mergeObject(this.toObject(), foundry.utils.expandObject(data), { inplace: false });
     if (isEnchantment(next)) {
       const normalized = normalizeEffectKindData(next);

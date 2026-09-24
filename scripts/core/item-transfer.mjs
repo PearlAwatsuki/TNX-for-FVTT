@@ -35,16 +35,20 @@ async function materializeItemTransfers(actor, effect, bearer) {
     if (flags.transferredFrom || flags.grantedFrom) return;
     const isAuto = effect.transfer !== false; // 自動適用ゲート(オフ=ペイロード)
     const toParent = flags.applyToParent === true && bearer?.documentName === "Item";
-    const hasItemTarget = isAuto && !toParent && (effect.changes ?? []).some(c => {
+    const toTarget = flags.applyToTarget === true && !!flags.targetItemId && bearer?.documentName === "Item";
+    const hasItemTarget = isAuto && !toParent && !toTarget && (effect.changes ?? []).some(c => {
         const p = parseEffectTargetKey(c.key);
         return p && ["skill", "category"].includes(p.scope);
     });
     // 転送先は**モノ(アウトフィット)に限る**(2026-09-02 ユーザー確定)。技能・神業のように
     // キャラクターの一部を表すアイテムのパラメータは、キャラクターに乗った効果から遠隔で
     // 適用する(_applyEffectBuffs)ため、実体コピーを作らない
-    const targets = (item) => isOutfitItem(item) && ((isAuto && toParent)
-        ? bearer.system?.parentItemId === item.id
-        : hasItemTarget);
+    // applyToTarget(2026-09-24): 選択アイテムへの明示転送。applyToParent と同様だが対象を選んで指定
+    const targets = (item) => isOutfitItem(item) && (
+        (isAuto && toParent) ? bearer.system?.parentItemId === item.id
+        : (isAuto && toTarget) ? item.id === flags.targetItemId
+        : hasItemTarget
+    );
     // アクター単位で直列化する(KI-049): 「コピーを探す→無ければ作る」は原子的でないため、
     // 複数アイテムの一括追加でフックが同時多発すると、どの発火も「まだ無い」と判断して
     // 個数分のコピーを作っていた(4アイテム同時ドロップで4重・攻撃力が3回余計に乗る)。
@@ -116,7 +120,11 @@ async function removeItemTransferCopies(actor, sourceUuids) {
 /** 転送の実体化に関わるフックを登録する(init から呼ぶ)。 */
 export function registerItemTransferHooks() {
     registerOutfitPreparationHooks();
-    Hooks.on("createActiveEffect", async (effect, options, userId) => {
+    const on = (name, callback) => Hooks.on(name, (...args) => {
+        if (args.at(-2)?.tnxAEMigration) return;
+        return callback(...args);
+    });
+    on("createActiveEffect", async (effect, options, userId) => {
         if (game.user.id !== userId) return;
         const actor = effect.parent;
         if (!actor || actor.documentName !== "Actor") return;
@@ -189,7 +197,7 @@ export function registerItemTransferHooks() {
     // 脱落マークの自動オフ: メインプロセス不可の状態が除去され、他に該当状態が残っていなければ
     // 脱落マークを外す(治療・制御判定無効・カット終了回復のたびに RL の手動戻しを要しないため。
     // タグと無関係に RL が手で付けた脱落は、この経路では該当状態が元々無い=除去イベントも来ないので触らない)
-    Hooks.on("deleteActiveEffect", async (effect, _options, userId) => {
+    on("deleteActiveEffect", async (effect, _options, userId) => {
         if (game.user.id !== userId) return;
         const actor = effect.parent;
         if (!actor || actor.documentName !== "Actor") return;
@@ -202,14 +210,14 @@ export function registerItemTransferHooks() {
         }
     });
 
-    Hooks.on("createActiveEffect", async (effect, _options, userId) => {
+    on("createActiveEffect", async (effect, _options, userId) => {
         if (game.user.id !== userId) return;
         const parent = effect.parent;
         const actor = parent?.documentName === "Actor" ? parent : parent?.actor;
         if (actor) await materializeItemTransfers(actor, effect, parent);
     });
 
-    Hooks.on("updateActiveEffect", async (effect, changed, _options, userId) => {
+    on("updateActiveEffect", async (effect, changed, _options, userId) => {
         if (game.user.id !== userId) return;
         // transfer(自動適用ゲート)・flags(準備先チェック等)の切替でも転送を再評価する(2026-07-13 再設計)
         if (!["changes", "system", "type", "disabled", "name", "img", "transfer", "flags"].some(k => k in (changed ?? {}))) return;
@@ -219,7 +227,7 @@ export function registerItemTransferHooks() {
     });
 
     // 供給元の効果が削除されたら転送コピーも除去する(供給元が正・2026-07-12)
-    Hooks.on("deleteActiveEffect", async (effect, _options, userId) => {
+    on("deleteActiveEffect", async (effect, _options, userId) => {
         if (game.user.id !== userId) return;
         const flags = effect.flags?.[SYSTEM_ID] ?? {};
         if (flags.transferredFrom || flags.grantedFrom) return; // コピー自身の削除は独立
@@ -229,7 +237,7 @@ export function registerItemTransferHooks() {
     });
 
     // 供給元アイテムごと削除された場合(内包効果の deleteActiveEffect は発火しない)
-    Hooks.on("deleteItem", async (item, _options, userId) => {
+    on("deleteItem", async (item, _options, userId) => {
         if (game.user.id !== userId) return;
         const actor = item.actor;
         if (!actor) return;
@@ -243,7 +251,7 @@ export function registerItemTransferHooks() {
     // アイテム(辞典からドラッグしたドラッグ・サイバーウェア等)は、別の操作が起きるまで効果が
     // 乗らなかった(KI-050)。Foundry はアイテムに内包して作成された効果に createActiveEffect を
     // 発火しないため、そちらの経路でも拾えない
-    Hooks.on("createItem", async (item, _options, userId) => {
+    on("createItem", async (item, _options, userId) => {
         if (game.user.id !== userId) return;
         const actor = item.actor;
         if (!actor) return;
@@ -259,7 +267,7 @@ export function registerItemTransferHooks() {
     // ——効果と用途は参照先の神業から来るので、参照が決まっていないと何も起きない)。
     // **転送コピーの実体化とは別のフックにする**——前段が長い/失敗すると後段が動かないため
     // (実機で、既定技能を持つアクターへインポートしたときに動かなかった)
-    Hooks.on("createItem", (item, _options, userId) => {
+    on("createItem", (item, _options, userId) => {
         if (game.user.id !== userId) return;
         if (!item.actor || item.type !== "miracle") return;
         if (item.system?.asOther?.mode !== "choice" || item.system.asOther.selected) return;
@@ -275,14 +283,14 @@ export function registerItemTransferHooks() {
     // 既定(白兵武器→白兵/射撃武器・搭載兵器→射撃/生体装備→白兵/該当なし=両OFF)で敷き直す
     // (自動入力と同じ「明示的な上書き」の意味論。以後の手動変更はそのまま生きる)
     // 効果の参照を選び直したら、参照先の用途と経験点の取得条件を写し直す(2026-09-06 方針A)
-    Hooks.on("updateItem", async (item, changes, _options, userId) => {
+    on("updateItem", async (item, changes, _options, userId) => {
         if (userId !== game.user.id) return;
         if (item.type !== "miracle") return;
         if (foundry.utils.getProperty(changes, "system.asOther.selected") === undefined) return;
         await applyAsOtherEffectCopy(item);
     });
 
-    Hooks.on("preUpdateItem", (item, changes) => {
+    on("preUpdateItem", (item, changes) => {
         const minor = changes?.system?.minorCategory;
         if (minor === undefined || item.system?.isMeleeWeapon === undefined) return;
         if (minor === item.system.minorCategory) return;
@@ -294,7 +302,7 @@ export function registerItemTransferHooks() {
     // アイテムの装着系フィールドが変わったとき: 転送を再評価する(2026-07-13 再設計)。
     // 準備/解除(parentItemId)で準備先転送が付け外しされ、分類・識別キーの変更で
     // アイテム狙い転送の照合が変わる(従来はここが穴で、装着変更が反映されなかった)
-    Hooks.on("updateItem", async (item, changed, _options, userId) => {
+    on("updateItem", async (item, changed, _options, userId) => {
         if (game.user.id !== userId) return;
         const actor = item.actor;
         if (!actor) return;

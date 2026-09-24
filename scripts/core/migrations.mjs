@@ -101,6 +101,20 @@ export const MIGRATIONS = Object.freeze([
         // 保存済み enchantment は register-config の標準 DataModel 互換登録で扱う。
         run: async () => {},
     },
+    {
+        version: 7,
+        name: "AE公開キー・付与型・参照の移行",
+        run: async () => {
+            const { executeAEMigration } = await import("./ae-migration-execution.mjs");
+            const result = await executeAEMigration(game);
+            if (result.status !== "complete") {
+                game.tnx ??= {};
+                game.tnx.aeMigrationReport = result;
+                ui.notifications.error("AE移行に未解決のデータがあります。game.tnx.aeMigrationReportで対象と理由を確認してください。", { permanent: true });
+                throw new Error(`AE移行を完了できません: ${result.status}`);
+            }
+        },
+    },
 ]);
 
 /** 未登録の設定を読んでも落ちないようにする(旧ゲートは将来削除されうる)。 */
@@ -130,6 +144,7 @@ export function inferAppliedVersion(migrations) {
  */
 export async function applyPendingMigrations() {
     if (!game.user.isGM) return;
+    if (game.users?.activeGM && game.users.activeGM.id !== game.user.id) return;
     let applied = Number(game.settings.get(SYSTEM_ID, DATA_VERSION_SETTING)) || 0;
     if (applied === 0) {
         applied = inferAppliedVersion(MIGRATIONS);

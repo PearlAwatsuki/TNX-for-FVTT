@@ -207,10 +207,12 @@ export async function openDamageRollDialog(attackMessage) {
  *   noTargetRows=対象なしのときの行(対象がいる場合は空配列)
  */
 async function evaluateDamageBonusesPerTarget(damageTargets, { f, attacker, parentItem, result, category }) {
+    // 白兵/射撃の区別をペイロードから取得(2026-09-24: damage.dealt.melee/ranged バフの照合に使う)
+    const weaponKind = f.attackWeaponKind ?? null;
     // 対象非依存の AE(与えるダメージ +値)は 1 回だけ集計する
     const evaluateFor = async (targetActor) => {
         const dealtRows = gatherDamageDealtSources(collectActorEffectBuffs(attacker), category,
-            createEffectBonusEvaluator(attacker, { result, target: targetActor, withReferences: true }));
+            createEffectBonusEvaluator(attacker, { result, target: targetActor, withReferences: true }), weaponKind);
         const self = await evaluateSelfBonus(f.damageBonusSelf, attacker, result, targetActor, parentItem,
             f.damageBonusSelfCondition ?? null, { withReferences: true, stackable: f.damageBonusSelfStackable === true });
         const { sources } = await evaluateBonusRows(f.damageBonuses, attacker, result, null, targetActor, parentItem, { withReferences: true });

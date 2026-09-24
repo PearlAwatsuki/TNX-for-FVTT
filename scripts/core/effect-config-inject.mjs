@@ -140,6 +140,11 @@ export function registerEffectConfigInjection() {
                 "check.<key>", "check.style.<key>", "check.works.<key>",
                 "check.society.nation", "check.society.city",
                 "check.society.industry", "check.society.organization",
+                // 攻撃系・タイミング系の固定判定補正(2026-09-24)
+                "check.physicalAttack", "check.mentalAttack", "check.socialAttack",
+                "check.melee", "check.ranged",
+                "check.dodge", "check.parry", "check.reaction",
+                "check.all.appearance", "check.all.information",
             ];
             // 値バフ①キャラクター(§2.1): 能力値/制御値/CS/AR/生身ダメージ種別
             const charValueKeys = [
@@ -164,6 +169,8 @@ export function registerEffectConfigInjection() {
                 "damage.vsNotWet", "damage.vsNotWet.physical", "damage.vsNotWet.mental", "damage.vsNotWet.social",
                 ...condKinds.map(k => `damage.replaceTag.${k}`),
                 ...condKinds.map(k => `damage.addTag.${k}`),
+                // 攻撃手段別ダメージ加算(2026-09-24)
+                "damage.dealt.melee", "damage.dealt.ranged",
             ];
             // 無視ゲート(§2.11): all / 全BS / 個別BS(全数) / ダメージ由来(全・系統別)
             const ignoreKeys = [
@@ -267,8 +274,7 @@ export function registerEffectConfigInjection() {
         });
 
         function filterKeySuggestions() {
-            const selected = root.querySelector('[name="type"]')?.value;
-            const enchantment = selected ? selected === "enchantment" : isEnchantment(app.document);
+            const enchantment = isEnchmnt;
             for (const option of root.querySelectorAll("#tnx-ae-key-suggestions option")) {
                 const parsed = parseEffectTargetKey(option.value);
                 const itemAttribute = ["self", "partAdd", "itemName"].includes(parsed?.scope);
@@ -327,19 +333,16 @@ export function registerEffectConfigInjection() {
             if (hint) hint.textContent = "オンなら効果がキーの示す対象へ常時自動で適用されます。";
         }
 
-        // 型の選択と付与先はフォーム送信まで保存しない。
-        let typeInput = root.querySelector('[name="type"]');
-        if (!typeInput && app.document?.parent?.documentName === "Item") {
+        // AEの種類は作成時に決まり、シート上では変更しない設計(2026-09-24 修正)。
+        // 読み取り専用ラベルとして表示するのみで、name属性を持たないため送信時に type は含まれない。
+        const isEnchmnt = isEnchantment(app.document) || app.document.getFlag?.(SYSTEM_ID, "applyToParent") === true;
+        if (app.document?.parent?.documentName === "Item") {
             const typeGroup = document.createElement("div");
             typeGroup.classList.add("form-group", "tnx-effect-kind-field");
-            const enchantment = isEnchantment(app.document) || app.document.getFlag?.(SYSTEM_ID, "applyToParent") === true;
-            typeGroup.innerHTML = `<label>AEの種類</label><div class="form-fields"><select name="type">
-                <option value="base"${enchantment ? "" : " selected"}>通常AE</option>
-                <option value="enchantment"${enchantment ? " selected" : ""}>付与AE（アウトフィット）</option>
-                </select></div>`;
+            typeGroup.innerHTML = `<label>AEの種類</label><div class="form-fields"><span class="form-readonly">${isEnchmnt ? "付与AE（アウトフィット）" : "通常AE"}</span></div>`;
             (transferGroup ?? anchor)?.before(typeGroup);
-            typeInput = typeGroup.querySelector("select");
         }
+        const typeInput = null; // 型はシート上で変更しない: typeInput を null にして以下の参照を isEnchmnt で代替
         let parentGroup = null;
         let selfGroup = null;
         if (app.document?.parent?.documentName === "Item") {
@@ -359,6 +362,30 @@ export function registerEffectConfigInjection() {
             selfGroup.innerHTML = `<label>このアイテム自身に適用</label><div class="form-fields">
                 <input type="checkbox" name="flags.${SYSTEM_ID}.applyToSelf" ${self ? "checked" : ""}></div>`;
             parentGroup.after(selfGroup);
+            // 「対象を選択して適用」: 付与AEの適用先として同一アクター内のアウトフィットを選択(2026-09-24)
+            const targetGroup = document.createElement("div");
+            targetGroup.classList.add("form-group", "tnx-apply-target-field");
+            const applyToTargetFlag = app.document.getFlag?.(SYSTEM_ID, "applyToTarget") === true;
+            const targetItemId = app.document.getFlag?.(SYSTEM_ID, "targetItemId") ?? "";
+            // 同一アクター内のアウトフィット一覧(enchantment の親アクターから取得)
+            const ownerItem = app.document?.parent;
+            const ownerActor = ownerItem?.actor;
+            const OUTFIT_TYPES = new Set(["weapon", "armorGear", "cyberware", "psychoApp", "tron",
+                "style", "vehicle", "facility"]);
+            const outfitItems = ownerActor ? [...(ownerActor.items ?? [])].filter(i => {
+                return OUTFIT_TYPES.has(i.type) && i.id !== ownerItem?.id;
+            }) : [];
+            const outfitOpts = `<option value=""${!targetItemId ? " selected" : ""}>（選択してください）</option>`
+                + outfitItems.map(i => `<option value="${i.id}"${i.id === targetItemId ? " selected" : ""}>${foundry.utils.escapeHTML(i.name)}</option>`).join("");
+            targetGroup.innerHTML = `
+                <label>対象を選択して適用</label>
+                <div class="form-fields">
+                    <input type="checkbox" name="flags.${SYSTEM_ID}.applyToTarget" ${applyToTargetFlag ? "checked" : ""}>
+                    <select name="flags.${SYSTEM_ID}.targetItemId" ${applyToTargetFlag ? "" : "disabled"}>
+                        ${outfitOpts}
+                    </select>
+                </div>`;
+            selfGroup.after(targetGroup);
         }
 
         // 効果種別: 使用時付与でこの効果が果たす役割。通常効果(既定・値 "target")=カードの効果
@@ -387,14 +414,18 @@ export function registerEffectConfigInjection() {
 
         const parentInput = parentGroup?.querySelector("input");
         const selfInput = selfGroup?.querySelector("input");
+        const targetCheckbox = root.querySelector(`[name="flags.${SYSTEM_ID}.applyToTarget"]`);
+        const targetSelect = root.querySelector(`[name="flags.${SYSTEM_ID}.targetItemId"]`);
+        const targetGroup = root.querySelector(".tnx-apply-target-field");
         const syncModeFields = () => {
             filterKeySuggestions();
-            const enchantment = typeInput ? typeInput.value === "enchantment" : isEnchantment(app.document);
-            for (const group of [parentGroup, selfGroup]) {
+            const enchantment = isEnchmnt;
+            for (const group of [parentGroup, selfGroup, targetGroup]) {
                 if (!group) continue;
                 group.hidden = !enchantment;
-                group.querySelector("input").disabled = !enchantment;
+                group.querySelectorAll("input, select").forEach(el => { el.disabled = !enchantment; });
             }
+            if (targetCheckbox) targetSelect.disabled = !targetCheckbox.checked || !enchantment;
             const needsTarget = enchantment && transferInput?.checked && !parentInput?.checked && !selfInput?.checked;
             parentInput?.setCustomValidity(needsTarget ? "自動適用する付与先を選択してください。" : "");
             const status = root.querySelector('[name="statuses"]');
@@ -410,14 +441,23 @@ export function registerEffectConfigInjection() {
         };
         for (const [input, other] of [[parentInput, selfInput], [selfInput, parentInput]]) {
             input?.addEventListener("change", () => {
-                if (input.checked) other.checked = false;
-                else if (transferInput?.checked && !other.checked) input.checked = true;
+                if (input.checked) {
+                    other.checked = false;
+                    if (targetCheckbox) targetCheckbox.checked = false;
+                } else if (transferInput?.checked && !other.checked) input.checked = true;
                 syncModeFields();
             });
         }
+        targetCheckbox?.addEventListener("change", () => {
+            if (targetCheckbox.checked) {
+                if (parentInput) parentInput.checked = false;
+                if (selfInput) selfInput.checked = false;
+            }
+            syncModeFields();
+        });
         syncModeFields();
         transferInput?.addEventListener("change", syncModeFields);
-        typeInput?.addEventListener("change", syncModeFields);
+        // typeInput は削除済み(種類は作成時固定)
 
         // コンディション(BS)の効果値フィールドを詳細タブの**末尾**に注入する(フェーズ9-4)。
         // - BS 種別ごとに <fieldset><legend>BS名</legend> で囲む(箇条書きの羅列を避ける)。
@@ -433,7 +473,7 @@ export function registerEffectConfigInjection() {
         const injectConditionFieldsets = () => {
             if (!detailsTab) return;
             detailsTab.querySelectorAll(".tnx-condition-fieldset").forEach(el => el.remove());
-            if (typeInput?.value === "enchantment" || isEnchantment(app.document)) return;
+            if (isEnchmnt) return;
             const perKind = app.document?.getFlag?.(SYSTEM_ID, "conditions") ?? {};
             for (const kind of getConditionKinds(app.document)) {
                 const def = CONDITION_KINDS[kind];
@@ -493,7 +533,7 @@ export function registerEffectConfigInjection() {
         // ファクトリ createMultiSelectInput で optgroup 構成済みの要素を作って置換する。
         // 失敗時は既定の選択欄にフォールバック(絶対に壊さない)。変更時は statuses を即永続化(再注入で欄即出)。
         const persist = (el) => async () => {
-            if (typeInput?.value === "enchantment" || isEnchantment(app.document)) return;
+            if (isEnchmnt) return;
             const v = el.value;
             const ids = Array.isArray(v) ? v : (v ? [v] : []);
             await app.document?.update({ statuses: ids });

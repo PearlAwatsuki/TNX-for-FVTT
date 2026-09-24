@@ -80,7 +80,7 @@ export async function startAppearanceCheck() {
     await activateItemCheck(actor, skill, {
         targetValue: params.targetValue,
         // areaLabel は専用チャットカードの表示用(未設定は ""=行を出さない・2026-08-16)
-        appearance: { actorId: actor.id, ghost: choice.ghost, areaLabel },
+        appearance: { actorId: actor.id, ghost: choice.ghost, areaLabel, area: scene.area || null },
         ...(forcedFailure ? { forcedFailure } : {}),
         ...(params.modifier !== 0
             ? { extraCheckBonuses: [{ formula: String(params.modifier), label: `危険値（${areaLabel}）` }] }

@@ -29,9 +29,21 @@ export function captureNextCheckEffects(actor) {
 }
 
 export function checkCriteria(actor, ctx, ability) {
-    if (ctx.type === "controlCheck") return { type: "control", ability };
-    if (ctx.type === "abilityCheck" || !ctx.skillIds?.length) return { type: "ability", ability };
-    return { type: "skill", skills: ctx.skillIds.map(id => actor.items.get(id)).filter(item => item?.system?.identificationKey)
+    // 用途タイプ・タイミング・特殊判定情報を criteria へ付加(2026-09-24 usageCheck/timingCheck/specialCheck 対応)。
+    const usageExtra = {
+        usageType:       ctx.usageType ?? null,
+        usageKind:       ctx.usageKind ?? null,
+        attackWeaponKind: ctx.attackWeaponKind ?? null,
+        usageTiming:     ctx.usageTiming ?? null,
+        // 特殊判定種別: "appearance"(登場判定) / "information"(情報収集判定) / null(通常判定)
+        checkSubKind:    ctx.appearance ? "appearance" : ctx.infoGathering ? "information" : null,
+        // 登場エリアキー: ctx.appearance が存在するとき ctx.appearance.area から供給
+        // (appearance-check.mjs は scene.area を openExtra.appearance.area として渡す)
+        appearanceArea:  ctx.appearance?.area ?? null,
+    };
+    if (ctx.type === "controlCheck") return { type: "control", ability, ...usageExtra };
+    if (ctx.type === "abilityCheck" || !ctx.skillIds?.length) return { type: "ability", ability, ...usageExtra };
+    return { type: "skill", ...usageExtra, skills: ctx.skillIds.map(id => actor.items.get(id)).filter(item => item?.system?.identificationKey)
         .map(({ system }) => ({ key: system.identificationKey, style: system.style ?? "",
             organization: system.special?.works?.organization ?? "",
             societyClass: system.societyClass || ctx.societyClassByKey?.[system.identificationKey] || "" })) };
@@ -52,7 +64,7 @@ export function matchNextCheckEffects(actor, entries, criteria) {
         if (!current) return false;
         const changes = current.effect.system?.changes ?? current.effect.changes ?? [];
         const parsed = changes.map(change => ({ change, parsed: parseEffectTargetKey(change.key) }));
-        const checkRows = parsed.filter(row => ["anyCheck", "abilityCheck", "controlCheck", "skillCheck", "cardValue", "suitChange"].includes(row.parsed?.scope));
+        const checkRows = parsed.filter(row => ["anyCheck", "abilityCheck", "controlCheck", "skillCheck", "usageCheck", "timingCheck", "specialCheck", "cardValue", "suitChange"].includes(row.parsed?.scope));
         const rows = checkRows.length ? checkRows : parsed;
         if (!rows.length) return true;
         return rows.some(({ change, parsed: target }) => target

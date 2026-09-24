@@ -449,6 +449,7 @@ export async function prepareOutfitGroups(actor) {
                 const capByKind = hostCapByKind(item.system);
                 const usedByKind = new Map();
                 for (const o of opts) {
+                    if (o.system.minorCategory === "housingAccessory") continue; // 非消費: 住宅アクセサリ
                     const k = o.system.parentSlotKind || "normal";
                     usedByKind.set(k, (usedByKind.get(k) ?? 0) + optionConsumption(o.system));
                 }
@@ -523,7 +524,8 @@ export function preparePartOccupancy(actor) {
             count: s?.count?.mode === "value" ? (Number(s.count.total ?? s.count.value) || 0) : 0,
         })),
     }));
-    const hostOptions = prepared.filter(i => i.system.isOption && i.system.parentItemId).map(i => ({
+    const hostOptions = prepared.filter(i => i.system.isOption && i.system.parentItemId
+        && i.system.minorCategory !== "housingAccessory").map(i => ({
         name:           i.name,
         parentItemId:   i.system.parentItemId,
         parentSlotKind: i.system.parentSlotKind,

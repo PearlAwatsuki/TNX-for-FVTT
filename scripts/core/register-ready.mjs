@@ -22,11 +22,15 @@ import { syncCastExpToUser, performInitialHistorySync, performUnsyncSeparation }
 import { applyPendingMigrations } from "./migrations.mjs";
 import { planEffectKeyMigration } from "./ae-key-migration.mjs";
 import { buildAEMigrationInventory } from "./ae-migration-inventory.mjs";
+import { prepareAEMigration, executeAEMigration, restoreAEMigration } from "./ae-migration-execution.mjs";
 import { vehicleRegistrationError } from "../session/vehicle-state.mjs";
 
 export async function onSystemReady() {
     game.tnx = game.tnx || {};
     game.tnx.previewAEMigration = options => buildAEMigrationInventory(game, options);
+    game.tnx.prepareAEMigration = options => prepareAEMigration(game, options);
+    game.tnx.applyAEMigration = options => executeAEMigration(game, options);
+    game.tnx.restoreAEMigration = options => restoreAEMigration(game, options);
     // 移行計画だけを返す読取専用の診断入口。自動移行・版番号更新は行わない。
     game.tnx.previewAEKeyMigration = () => {
         const plans = [];

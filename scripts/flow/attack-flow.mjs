@@ -146,6 +146,10 @@ export async function useAttack(item, usage) {
 
     await TnxCheckFlow.open({
         ...base,
+        // 用途タイプ・武器種別を上書き: usageCheck/timingCheck バフの照合に使う(2026-09-24)
+        usageType:        usage.type,
+        usageKind:        "attack",
+        attackWeaponKind: category === "physical" ? (usage.attackWeaponKind === "ranged" ? "ranged" : "melee") : null,
         targetValue:  null, // 成否は対決判定カード上で確定(リアクションなし=制御値/対決=相手の達成値)
         usageEffects: null, // 適用効果は攻撃ペイロードで運ぶ(攻撃カード→ダメージカードに一本化)
         attack: {
@@ -154,6 +158,7 @@ export async function useAttack(item, usage) {
             targets,   // 命中判定は全対象で共有・postAttackCard が対象ごとの状態へ展開(2026-07-15)
             isAttack: true,                    // 対決判定カードの攻撃項目を出す(2026-07-17 一般化)
             usageType: usage.type,
+            attackWeaponKind: category === "physical" ? (usage.attackWeaponKind === "ranged" ? "ranged" : "melee") : null,
             // 対決欄(2026-07-17): リアクション導線の正本(手段行・技能名行・不可マスク)
             confrontation: foundry.utils.deepClone(usage.confrontation ?? []),
             category, damageType, weaponAttack, attackSourceName,

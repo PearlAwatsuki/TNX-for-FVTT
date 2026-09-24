@@ -19,6 +19,7 @@ import { applyContentLinkCardTooltips } from './chat/item-card-tooltips.mjs';
 import { registerEffectConfigInjection } from "./core/effect-config-inject.mjs";
 import { registerItemTransferHooks } from "./core/item-transfer.mjs";
 import { registerNextCheckExpiryHooks } from "./core/next-check-expiry.mjs";
+import { registerAEMigrationHooks } from "./core/ae-migration-execution.mjs";
 import { registerTroopNameSync } from "./core/troop-name.mjs";
 import { registerSystemConfig } from "./core/register-config.mjs";
 import { registerSheets } from "./core/register-sheets.mjs";
@@ -33,6 +34,7 @@ import { handleRefreshSheets } from "./core/sheet-refresh.mjs";
 registerEffectConfigInjection();
 registerItemTransferHooks();
 registerNextCheckExpiryHooks();
+registerAEMigrationHooks();
 registerTroopNameSync();
 
 Hooks.on("renderCompendiumDirectory", (_app, html) => injectDictionaryBrowserButton(html));

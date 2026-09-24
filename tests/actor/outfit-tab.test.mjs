@@ -11,6 +11,7 @@
 import { describe, it, expect } from "vitest";
 import {
   computeColValue, computeCombinedColValue, displayGroupKey, optionConsumption,
+  prepareOutfitGroups, preparePartOccupancy,
   OUTFIT_GROUP_CONFIG,
 } from "../../scripts/actor/outfit-tab.mjs";
 import { OUTFIT_CATEGORIES } from "../../scripts/data/item/outfit-categories.mjs";
@@ -200,3 +201,107 @@ describe("optionConsumption()（オプションが装備先で消費するスロ
     ]))).toBe(1);
   });
 });
+
+describe("住宅アクセサリ(housingAccessory)のスロット消費免除", () => {
+  const createTestActor = (options = []) => {
+    const residenceItem = {
+      id: "res1",
+      name: "セーフハウス",
+      type: "residence",
+      system: {
+        majorCategory: "housing",
+        minorCategory: "residence",
+        isPrepared: true,
+        isCarrying: true,
+        slots: [{ kind: "normal", count: { mode: "value", value: 2 } }],
+      },
+    };
+    const items = [residenceItem, ...options];
+    items.get = (id) => items.find((i) => i.id === id);
+    return {
+      system: { partSlotsEffective: [] },
+      items,
+    };
+  };
+
+  const accessoryItem = {
+    id: "acc1",
+    name: "防犯カメラ",
+    type: "general",
+    system: {
+      majorCategory: "housing",
+      minorCategory: "housingAccessory",
+      isOption: true,
+      parentItemId: "res1",
+      parentSlotKind: "normal",
+      isPrepared: true,
+      isPreparedEffective: true,
+      isCarrying: true,
+      part: [{ kind: "option", slots: 1 }],
+    },
+  };
+
+  const normalOptionItem = {
+    id: "opt1",
+    name: "秘密シェルター",
+    type: "general",
+    system: {
+      majorCategory: "housing",
+      minorCategory: "housingOption",
+      isOption: true,
+      parentItemId: "res1",
+      parentSlotKind: "normal",
+      isPrepared: true,
+      isPreparedEffective: true,
+      isCarrying: true,
+      part: [{ kind: "option", slots: 1 }],
+    },
+  };
+
+  it("preparePartOccupancy: 住宅アクセサリは hostOptions に含まれずスロットを消費しない", () => {
+    const actorWithAccessory = createTestActor([accessoryItem]);
+    const resAccessory = preparePartOccupancy(actorWithAccessory);
+    expect(resAccessory.hostChips).toHaveLength(1);
+    expect(resAccessory.hostChips[0]).toMatchObject({
+      label: "住宅施設",
+      used: 0,
+      capacity: 2,
+    });
+
+    const actorWithBoth = createTestActor([accessoryItem, normalOptionItem]);
+    const resBoth = preparePartOccupancy(actorWithBoth);
+    expect(resBoth.hostChips).toHaveLength(1);
+    expect(resBoth.hostChips[0]).toMatchObject({
+      label: "住宅施設",
+      used: 1,
+      capacity: 2,
+    });
+  });
+
+  it("prepareOutfitGroups: 住宅アクセサリはホストの slotGauges で消費としてカウントされない", async () => {
+    globalThis.foundry.applications.ux ??= { TextEditor: { enrichHTML: async (t) => t } };
+
+    const actorWithAccessory = createTestActor([accessoryItem]);
+    const groupsAcc = await prepareOutfitGroups(actorWithAccessory);
+    const housingGroupAcc = groupsAcc.find((g) => g.key === "housing");
+    const resRowAcc = housingGroupAcc.items.find((i) => i._id === "res1");
+    expect(resRowAcc.slotGauges).toBeDefined();
+    expect(resRowAcc.slotGauges[0]).toMatchObject({
+      kind: "normal",
+      used: 0,
+      capacity: 2,
+    });
+
+    const actorWithBoth = createTestActor([accessoryItem, normalOptionItem]);
+    const groupsBoth = await prepareOutfitGroups(actorWithBoth);
+    const housingGroupBoth = groupsBoth.find((g) => g.key === "housing");
+    const resRowBoth = housingGroupBoth.items.find((i) => i._id === "res1");
+    expect(resRowBoth.slotGauges).toBeDefined();
+    expect(resRowBoth.slotGauges[0]).toMatchObject({
+      kind: "normal",
+      used: 1,
+      capacity: 2,
+    });
+  });
+});
+

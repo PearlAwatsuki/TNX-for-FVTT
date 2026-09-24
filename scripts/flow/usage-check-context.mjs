@@ -15,7 +15,7 @@ import { resolveConsumeRowsForActor, promptConsumption } from "./usage-consumpti
 import { prepareUsageEffectPayload } from "./usage-effects.mjs";
 import { applyInterruptGrantForUsage } from "./interrupt-grant.mjs";
 import { resolveUsageTargetValue } from "../rules/usage-target-value.mjs";
-import { executionFormOf, effectiveBaseSkillId, usageDisplayName } from "../rules/usage-types.mjs";
+import { executionFormOf, effectiveBaseSkillId, usageDisplayName, isReactionType, isAttackType } from "../rules/usage-types.mjs";
 import { formatSkillName } from "../core/identification.mjs";
 import { effectiveUsageTiming } from "../data/item/modification-params.mjs";
 import { resolveUsageTargetRefs } from "./target-resolution.mjs";
@@ -238,6 +238,10 @@ export async function buildUsageCheckContext(actor, item, usage, {
         // メジャーアクション記帳の判定に使う(2026-07-26 一般則)。ドラッグ改造の
         // マイナーアクション化(16-4)は実効タイミングとしてここで解決される
         usageTiming:     effectiveUsageTiming(usage, item.system),
+        // 用途タイプ・種別: usageCheck/timingCheck バフの照合に使う(2026-09-24)
+        usageType:       usage.type ?? null,
+        usageKind:       isAttackType(usage.type) ? "attack" : isReactionType(usage.type) ? "reaction" : null,
+        attackWeaponKind: null, // 白兵/射撃の区別は攻撃フローで上書き
         usageEffects,               // 付与効果ペイロード(null=効果なし)
         allowRecheck:    usage.allowRecheck === true, // 再判定可能(用途の設定・2026-07-11)
         allowSuitChange: usage.allowSuitChange === true, // スート変更可能(用途の設定・2026-07-12)

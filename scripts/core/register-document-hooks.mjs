@@ -336,7 +336,8 @@ export function registerDocumentHooks() {
 
     // シナリオコントロールパネルと HUD の情報項目(14-9)の表示は台本(アクトシートのフラグ)に
     // 追随する(14-3)。実行状態(sessionState)の変化は設定の onChange が再描画する。
-    Hooks.on("updateJournalEntry", (doc, changes) => {
+    Hooks.on("updateJournalEntry", (doc, changes, options) => {
+        if (options?.tnxAEMigration) return;
         if (changes.flags?.[SYSTEM_ID]?.handouts) {
             import("../session/key-handouts.mjs").then(m => m.syncKeyHandoutRecipients(doc));
         }

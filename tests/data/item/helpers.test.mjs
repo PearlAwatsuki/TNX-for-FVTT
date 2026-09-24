@@ -149,8 +149,11 @@ describe("computeItemEffectiveValues()（v2: total=base）", () => {
 
 describe("checkChangeMatches()", () => {
   it("技能(完全一致/プレフィックス)", () => {
-    expect(checkChangeMatches("check.melee", { type: "skill", skillKeys: ["melee", "shooting"] })).toBe(true);
-    expect(checkChangeMatches("check.melee", { type: "skill", skillKeys: ["shooting"] })).toBe(false);
+    // check.melee は usageCheck(白兵攻撃バフ)として扱われる(2026-09-24 予約語化)
+    // 白兵攻撃判定バフとして照合: usageType=physicalAttack + attackWeaponKind=melee
+    expect(checkChangeMatches("check.melee", { usageType: "physicalAttack", attackWeaponKind: "melee" })).toBe(true);
+    expect(checkChangeMatches("check.melee", { usageType: "physicalAttack", attackWeaponKind: "ranged" })).toBe(false);
+    expect(checkChangeMatches("check.melee", { type: "skill", skills: [{ key: "melee" }] })).toBe(false);
     expect(checkChangeMatches("check.society_*", { type: "skill", skillKeys: ["society_police"] })).toBe(true);
   });
   it("グループ参照(スタイル/ワークス)は criteria.skills の style/organization で照合", () => {
@@ -761,7 +764,8 @@ describe("parseEffectTargetKey()（v2 system.<名前空間> 文法）", () => {
   it("判定: check.<能力値> / controlCheck.<能力値> / check.<技能>", () => {
     expect(parseEffectTargetKey("check.reason")).toMatchObject({ scope: "abilityCheck", ability: "reason" });
     expect(parseEffectTargetKey("controlCheck.reason")).toMatchObject({ scope: "controlCheck", ability: "reason" });
-    expect(parseEffectTargetKey("check.melee")).toMatchObject({ scope: "skillCheck", selector: "melee", prefix: false });
+    // check.melee は usageCheck の予約語(physicalAttack のエイリアス)(2026-09-24)
+    expect(parseEffectTargetKey("check.melee")).toMatchObject({ scope: "usageCheck", usageType: "melee" });
     expect(parseEffectTargetKey("check.society_*")).toMatchObject({ scope: "skillCheck", selector: "society_", prefix: true });
   });
 

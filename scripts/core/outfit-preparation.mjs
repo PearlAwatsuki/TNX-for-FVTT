@@ -14,7 +14,7 @@ export async function reconcileOutfitPreparation(actor) {
 export function registerOutfitPreparationHooks() {
     const pending = new Set();
     const schedule = (document, options, userId) => {
-        if (game.user.id !== userId || options?.tnxPreparationReconcile) return;
+        if (game.user.id !== userId || options?.tnxPreparationReconcile || options?.tnxAEMigration) return;
         const owner = document.documentName === "ActiveEffect" ? document.parent : document;
         const actor = owner?.documentName === "Actor" ? owner : owner?.actor;
         if (!actor || pending.has(actor.uuid)) return;

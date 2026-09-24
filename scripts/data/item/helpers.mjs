@@ -398,6 +398,47 @@ export function parseBooleanFlagValue(raw) {
 export function checkChangeMatches(key, criteria) {
   const p = parseEffectTargetKey(key);
   if (!p || !criteria) return false;
+  // 用途タイプ別判定バフ(2026-09-24): check.<usageType> / check.meleeAttack / check.rangedAttack
+  // criteria に usageType(用途タイプキー)と attackWeaponKind("melee"/"ranged")を追加。
+  // 白兵/射撃の攻撃種別は〈白兵〉〈射撃〉技能判定のキー(check.melee/check.ranged)と衝突するため、
+  // 攻撃種別側を meleeAttack/rangedAttack とする(2026-09-24 ユーザー指示)。
+  if (p.scope === "usageCheck") {
+    if (!criteria.usageType) return false;
+    if (p.usageType === "reaction") {
+      // check.reaction: kind="reaction" のあらゆる用途タイプのリアクション判定に合致
+      return criteria.usageKind === "reaction";
+    }
+    if (p.usageType === "meleeAttack") {
+      return criteria.usageType === "physicalAttack" && criteria.attackWeaponKind === "melee";
+    }
+    if (p.usageType === "rangedAttack") {
+      return criteria.usageType === "physicalAttack" && criteria.attackWeaponKind === "ranged";
+    }
+    return criteria.usageType === p.usageType;
+  }
+  // アクションタイミング限定バフ(2026-09-24): check.<skillKey>.<actionName>
+  // criteria に usageTiming({value, actionName}) を追加。timing.value==="action" の判定のみ。
+  // 新設計では必ず selector(技能識別キー)を持つ。selector なしは存在しない。
+  if (p.scope === "timingCheck") {
+    const timing = criteria.usageTiming;
+    if (!timing || timing.value !== "action" || timing.actionName !== p.actionName) return false;
+    if (criteria.type !== "skill") return false;
+    const skills = criteria.skills ?? [];
+    return skills.some(s => p.prefix ? !!s.key?.startsWith?.(p.selector) : s.key === p.selector);
+  }
+  // 特殊判定バフ(2026-09-24): check.<skillKey|all>.appearance[.<area>] / check.<skillKey|all>.information
+  // criteria に checkSubKind("appearance"|"information") と appearanceArea(エリアキー) を追加。
+  if (p.scope === "specialCheck") {
+    if (criteria.checkSubKind !== p.kind) return false;
+    // エリア限定: p.area が null でなければ criteria.appearanceArea が一致する必要がある
+    if (p.kind === "appearance" && p.area !== null && p.area !== criteria.appearanceArea) return false;
+    // 技能キー指定なし(check.all.*): 全技能に合致
+    if (!p.selector) return true;
+    // 技能キー指定あり: 技能判定のみ照合
+    if (criteria.type !== "skill") return false;
+    const skills = criteria.skills ?? [];
+    return skills.some(s => p.prefix ? !!s.key?.startsWith?.(p.selector) : s.key === p.selector);
+  }
   // 判定全般(check.all・2026-07-13): 無印「判定」=能力値判定+技能判定に合致(制御判定は対象外)
   if (p.scope === "anyCheck") return criteria.type === "skill" || criteria.type === "ability";
   if (criteria.type === "ability") return p.scope === "abilityCheck" && p.ability === criteria.ability;
@@ -526,9 +567,22 @@ export function gatherDamageVsSources(effects, criteria, evaluateValue = Number)
  * @param {"physical"|"mental"|"social"} category  攻撃の系統
  * @returns {boolean}
  */
-export function damageDealtChangeMatches(key, category) {
+/**
+ * 与えるダメージバフ(`damage.dealt[.<系統|meleeAttack|rangedAttack]`)の変更キーが、攻撃の系統と
+ * 武器種別に合致するか(2026-09-24 weaponKind 追加)。
+ * meleeAttack/rangedAttack は暗黙的に physical 系統として扱い、かつ weaponKind が合致しない限り適用しない。
+ * @param {string} key  change.key
+ * @param {string} category  攻撃の系統("physical"|"mental"|"social")
+ * @param {string|null} [weaponKind]  武器種別("melee"|"ranged"|null)
+ * @returns {boolean}
+ */
+export function damageDealtChangeMatches(key, category, weaponKind = null) {
   const p = parseEffectTargetKey(key);
   if (!p || p.scope !== "damageDealt") return false;
+  // weaponKind 付き(meleeAttack/rangedAttack): physical かつ weaponKind 一致のみ合致
+  if (p.weaponKind) {
+    return category === "physical" && p.weaponKind === weaponKind;
+  }
   return p.category === null || p.category === category;
 }
 
@@ -539,8 +593,8 @@ export function damageDealtChangeMatches(key, category) {
  * @param {"physical"|"mental"|"social"} category  攻撃の系統
  * @returns {Array<{name:string, value:number}>}
  */
-export function gatherDamageDealtSources(effects, category, evaluateValue = Number) {
-  return _gatherBonusSources(effects, (key) => damageDealtChangeMatches(key, category), { evaluateValue });
+export function gatherDamageDealtSources(effects, category, evaluateValue = Number, weaponKind = null) {
+  return _gatherBonusSources(effects, (key) => damageDealtChangeMatches(key, category, weaponKind), { evaluateValue });
 }
 
 /**
@@ -716,14 +770,17 @@ export function itemChangeTargets(parsed, item) {
 export function buildTransferredEffectData(effect, targetItem, bearer, scope = SYSTEM_ID) {
   const srcFlags = effect.flags?.[scope] ?? {};
   const toParent = srcFlags.applyToParent === true;
+  const toTarget = srcFlags.applyToTarget === true && !!srcFlags.targetItemId;
   if (toParent && (bearer?.documentName !== "Item" || bearer.system?.parentItemId !== targetItem.id)) return null;
   if (toParent && bearer.system?.isPrepared === false) return null;
+  // applyToTarget: 選択アイテムへの明示転送(2026-09-24)。同一アクター内の指定アイテムへ素のキーを転送
+  if (toTarget && targetItem.id !== srcFlags.targetItemId) return null;
   const changes = [];
   for (const c of (effect.system?.changes ?? effect.changes ?? [])) {
     const parsed = parseEffectTargetKey(c.key);
     if (!parsed) continue;
-    if (toParent) {
-      // 準備先転送は素のキーのみ(混在非対応)。partAdd(system.part.<キー>)と name も素のキー形
+    if (toParent || toTarget) {
+      // 準備先転送・選択先転送は素のキーのみ(混在非対応)。partAdd(system.part.<キー>)と name も素のキー形
       if (!["self", "partAdd", "itemName"].includes(parsed.scope)) continue;
     } else if (!itemChangeTargets(parsed, targetItem)) continue;
     // 名前装飾はドキュメント直下の `name` へ(フェーズ12)。それ以外は素の system.<パス>
@@ -1031,10 +1088,24 @@ export function parseEffectTargetKey(key) {
       return { scope: isControl ? "controlCheck" : "abilityCheck", ability: x, conditions };
     }
     if (isControl) return null; // 制御判定は能力値のみ
-    // 判定全般(2026-07-13 ユーザー確定): check.all＝無印「判定」(能力値判定+技能判定)すべてへの
-    // 判定バフ。用語規約どおり制御判定には掛からない(controlCheck.all は現状なし=必要時に追加)。
+    // 判定全般(2026-07-13 ユーザー確定): check.all[.<下位区分>]
+    // check.all: 無印「判定」(能力値判定+技能判定)すべてへの判定バフ。制御判定には掛からない。
+    // check.all.appearance[.<エリアキー>]: 登場判定バフ(全技能・エリア限定はエリアキーで)
+    // check.all.information: 情報収集判定バフ(全技能)
     // ※"all" は予約語(識別キーとしては使えない)
     if (x === "all") {
+      if (segs.length === 2) return { scope: "anyCheck", conditions };
+      const sub = segs[2];
+      if (sub === "appearance") {
+        // check.all.appearance[.<area>]: 登場判定バフ(全技能)。エリアキーあり=特定エリアへの登場のみ
+        const area = segs.length > 3 ? segs.slice(3).join(".") : null;
+        return { scope: "specialCheck", kind: "appearance", area, conditions };
+      }
+      if (sub === "information") {
+        // check.all.information: 情報収集判定バフ(全技能)
+        return { scope: "specialCheck", kind: "information", conditions };
+      }
+      // 不明な下位区分は無視して全判定バフとして扱う
       return { scope: "anyCheck", conditions };
     }
     // カード数字の上書き(2026-07-13 ユーザー確定): check.cardValue＝判定に使用したカードの
@@ -1057,6 +1128,54 @@ export function parseEffectTargetKey(key) {
     if ((x === "style" || x === "works" || x === "society") && segs.length > 2) {
       return { scope: "skillCheck", group: x, selector: segs.slice(2).join("."), conditions };
     }
+    // 用途タイプ別判定バフ(2026-09-24): check.<usageType> / check.meleeAttack / check.rangedAttack
+    // 用途タイプキー(USAGE_TYPE_DEFS のキー名)または meleeAttack/rangedAttack(physicalAttack の
+    // 攻撃種別サブ区分)を予約語として認識。**〈白兵〉〈射撃〉技能判定のキー check.melee/check.ranged
+    // とは衝突させない**(2026-09-24 ユーザー指示)。
+    // segs.length === 2 のみ(下位修飾子なし): check.<usageType>
+    const USAGE_TYPE_KEYS = new Set([
+      "physicalAttack", "mentalAttack", "socialAttack",
+      "dodge", "parry", "mentalReaction", "socialReaction",
+      "moveBlockReaction", "escapeBlockReaction", "reaction",
+      "move", "escape", "treatment", "repair", "modification",
+      "purchase", "covering", "declaration",
+      "meleeAttack", "rangedAttack", // physicalAttack の攻撃種別サブ区分
+    ]);
+    if (USAGE_TYPE_KEYS.has(x) && segs.length === 2) {
+      return { scope: "usageCheck", usageType: x, conditions };
+    }
+    // 技能識別キー＋下位修飾子(2026-09-24): check.<skillKey>.<qualifier>[.<area>]
+    // qualifier が アクション名(major/minor/reaction 等)→ タイミング限定バフ(timingCheck)
+    // qualifier が "appearance"             → 登場判定バフ(specialCheck) + オプションエリアキー
+    // qualifier が "information"            → 情報収集判定バフ(specialCheck)
+    // TnxSkillUtils.getSkillOptions().actions のキーをアクション名として認識する。
+    // これらは技能識別キーとして使用禁止(予約語)。
+    const TIMING_ACTION_NAMES = new Set(["major", "minor", "reaction", "move", "auto", "explanation", "other"]);
+    const SPECIAL_CHECK_KINDS = new Set(["appearance", "information"]);
+    if (segs.length >= 3) {
+      const sub = segs[2];
+      if (TIMING_ACTION_NAMES.has(sub)) {
+        // check.<skillKey>.<actionName>: そのアクションタイミングの特定技能判定バフ
+        // timing.value === "action" の判定にのみ合致する(プロセス・常時・イニシアチブメジャーは対象外)
+        const prefix = x.endsWith("*");
+        return { scope: "timingCheck", actionName: sub,
+          selector: prefix ? x.slice(0, -1) : x, prefix, conditions };
+      }
+      if (sub === "appearance") {
+        // check.<skillKey>.appearance[.<area>]: 特定技能の登場判定バフ
+        const prefix = x.endsWith("*");
+        const area = segs.length > 3 ? segs.slice(3).join(".") : null;
+        return { scope: "specialCheck", kind: "appearance", area,
+          selector: prefix ? x.slice(0, -1) : x, prefix, conditions };
+      }
+      if (sub === "information") {
+        // check.<skillKey>.information: 特定技能の情報収集判定バフ
+        const prefix = x.endsWith("*");
+        return { scope: "specialCheck", kind: "information",
+          selector: prefix ? x.slice(0, -1) : x, prefix, conditions };
+      }
+    }
+    // 素の技能識別キー(前方一致 * に対応)
     const prefix = x.endsWith("*");
     return { scope: "skillCheck", selector: prefix ? x.slice(0, -1) : x, prefix, conditions };
   }
@@ -1079,6 +1198,12 @@ export function parseEffectTargetKey(key) {
     }
     if (segs[1] === "dealt") {
       const cat = segs.length > 2 ? segs[2] : null;
+      // 白兵/射撃攻撃ダメージバフ(2026-09-24): damage.dealt.meleeAttack / damage.dealt.rangedAttack
+      // 物理攻撃の攻撃種別サブ区分として機能する(暗黙的に category=physical)。
+      if (cat === "meleeAttack" || cat === "rangedAttack") {
+        return { scope: "damageDealt", category: "physical",
+          weaponKind: cat === "meleeAttack" ? "melee" : "ranged", conditions };
+      }
       if (cat !== null && !["physical", "mental", "social"].includes(cat)) return null;
       return { scope: "damageDealt", category: cat, conditions };
     }

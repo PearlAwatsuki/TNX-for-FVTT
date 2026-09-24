@@ -62,6 +62,12 @@ export function actorEffectKeySuggestions(actor) {
                     add(`system.skill.${key}.${attr}`, `${item.name} ${attr === "level" ? "技能レベル" : attr} ${key}`);
                 }
                 add(`system.check.${key}`, `${item.name} 判定補正 ${key}`);
+                // タイミング限定・特殊判定バフの動的サジェスト(2026-09-24)
+                for (const action of ["major", "minor", "reaction", "move", "auto"]) {
+                    add(`system.check.${key}.${action}`, `${item.name} ${action}アクション判定補正 ${key}`);
+                }
+                add(`system.check.${key}.appearance`, `${item.name} 登場判定補正 ${key}`);
+                add(`system.check.${key}.information`, `${item.name} 情報収集判定補正 ${key}`);
             }
             group("style", sys.style, sys.style);
             group("works", sys.special?.works?.organization, sys.special?.works?.organization);

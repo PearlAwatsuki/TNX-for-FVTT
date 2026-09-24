@@ -3,6 +3,26 @@ import { planEffectKeyMigration } from "../../scripts/core/ae-key-migration.mjs"
 import { SYSTEM_ID } from "../../scripts/constants.mjs";
 
 describe("AEキー移行の事前計画", () => {
+    it("配列番号のスロット容量を実際の種別から移す", () => {
+        const bearer = { type: "weapon", system: { slots: [{ kind: "software" }, { kind: "normal" }] } };
+        const plan = planEffectKeyMigration({ _id: "e", changes: [{ key: "system.slots.0.count.total[hack>=3]", value: "2" }] }, { bearer });
+        expect(plan.issues).toEqual([]);
+        expect(plan.data.changes[0].key).toBe("system.slot.software.capacity[hack>=3]");
+        expect(planEffectKeyMigration(plan.data, { bearer }).changed).toBe(false);
+    });
+    it("準備先指定の配列スロットは保持元でなく準備先の種別を読む", () => {
+        const bearer = { type: "weapon", system: { parentItemId: "host", slots: [{ kind: "normal" }] } };
+        const host = { id: "host", type: "tap", system: { slots: [{ kind: "hardware" }] } };
+        const source = { _id: "e", flags: { [SYSTEM_ID]: { applyToParent: true } }, changes: [{ key: "system.slots.0.count.value", value: "1" }] };
+        expect(planEffectKeyMigration(source, { bearer, items: [host] }).data.changes[0].key).toBe("system.slot.hardware.capacity");
+        expect(planEffectKeyMigration(source, { bearer }).issues).toHaveLength(1);
+    });
+    it("複数対象になり得る分類指定は無断で単一付与へ変換しない", () => {
+        const source = { _id: "e", changes: [{ key: "system.category.weapon.attack", value: "1" }] };
+        const plan = planEffectKeyMigration(source);
+        expect(plan.issues).toHaveLength(1);
+        expect(plan.data).toEqual(source);
+    });
     it("技能の自己実効レベルも正準キーへ変換する", () => {
         const bearer = { type: "generalSkill", system: { identificationKey: "melee" } };
         const plan = planEffectKeyMigration({ _id: "e", changes: [{ key: "system.levelTotal[hack>=3]", value: "2" }] }, { bearer });

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import "../setup.mjs";
 
-const { resolveConsumeRows, buildConsumptionPlan, matchSharedItem, deriveConsumeTargets, isConsumptionDepleted } =
+const { resolveConsumeRows, resolveConsumeRowsForActor, buildConsumptionPlan, matchSharedItem, deriveConsumeTargets, isConsumptionDepleted } =
   await import("../../scripts/flow/usage-consumption.mjs");
 
 describe("isConsumptionDepleted()（用途の消費リソースが枯渇＝使えない・13-6）", () => {
@@ -292,6 +292,70 @@ describe("resolveConsumeRows()（消費先設定の解決・2026-07-18 再編）
       );
       const { plan } = buildConsumptionPlan([row], new Set(["@ar"]), "actor1");
       expect(plan).toEqual([{ actorId: "actor1", itemId: "@ar", kind: "ar", amount: 2 }]);
+    });
+  });
+
+  describe("bounty（報酬点の消費・2026-09-23）", () => {
+    it("kind bounty・残量 = bountyBase + bounty・itemId はセンチネル @bounty", () => {
+      const [row] = resolveConsumeRows(
+        [{ type: "bounty", amount: 2 }],
+        { parentItem: skill("p1"), getItem: () => null, bounty: { bountyBase: 10, bounty: -3 } },
+      );
+      expect(row.kind).toBe("bounty");
+      expect(row.remaining).toBe(7);
+      expect(row.maxDisplay).toBe(7);
+      expect(row.itemId).toBe("@bounty");
+      expect(row.key).toBe("@bounty");
+      expect(row.label).toBe("報酬点");
+    });
+
+    it("有効報酬点が負なら 0 でクランプされる", () => {
+      const [row] = resolveConsumeRows(
+        [{ type: "bounty", amount: 1 }],
+        { parentItem: skill("p1"), getItem: () => null, bounty: { bountyBase: 5, bounty: -10 } },
+      );
+      expect(row.remaining).toBe(0);
+      expect(row.maxDisplay).toBe(0);
+    });
+
+    it("bounty コンテキスト無しは残量 0 扱い", () => {
+      const [row] = resolveConsumeRows(
+        [{ type: "bounty", amount: 1 }],
+        { parentItem: skill("p1"), getItem: () => null },
+      );
+      expect(row.kind).toBe("bounty");
+      expect(row.remaining).toBe(0);
+    });
+
+    it("残量不足でチェック済みなら shortage（原則ブロック）", () => {
+      const [row] = resolveConsumeRows(
+        [{ type: "bounty", amount: 5 }],
+        { parentItem: skill("p1"), getItem: () => null, bounty: { bountyBase: 3, bounty: 0 } },
+      );
+      const result = buildConsumptionPlan([row], new Set(["@bounty"]), "actor1");
+      expect(result.shortage).toBeDefined();
+      expect(result.shortage.kind).toBe("bounty");
+    });
+
+    it("プラン化: kind bounty・実行アクターに帰属", () => {
+      const [row] = resolveConsumeRows(
+        [{ type: "bounty", amount: 3 }],
+        { parentItem: skill("p1"), getItem: () => null, bounty: { bountyBase: 10, bounty: 0 } },
+      );
+      const { plan } = buildConsumptionPlan([row], new Set(["@bounty"]), "actor1");
+      expect(plan).toEqual([{ actorId: "actor1", itemId: "@bounty", kind: "bounty", amount: 3 }]);
+    });
+
+    it("resolveConsumeRowsForActor でアクターの報酬点(bountyBase + bounty)が解決される", () => {
+      const actor = {
+        id: "actor1",
+        system: { bountyBase: 15, bounty: -5 },
+        items: new Map(),
+      };
+      const [row] = resolveConsumeRowsForActor(actor, skill("p1"), [{ type: "bounty", amount: 2 }]);
+      expect(row.kind).toBe("bounty");
+      expect(row.remaining).toBe(10);
+      expect(row.amount).toBe(2);
     });
   });
 });
