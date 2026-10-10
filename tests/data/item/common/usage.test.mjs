@@ -124,11 +124,10 @@ describe("UsageTemplate.defineSchema()", () => {
       expect(entryFields).not.toHaveProperty("recoveryTargetFormula");
     });
 
-    it("スート変更可能（allowSuitChange）／スートを変更（grantSuitChange・2026-07-12）は BooleanField で initial false", () => {
+    it("スート変更可能（allowSuitChange）は BooleanField で initial false、待ち受け式 grantSuitChange は廃止済み", () => {
       expect(entryFields.allowSuitChange).toBeInstanceOf(MockBooleanField);
       expect(entryFields.allowSuitChange.options.initial).toBe(false);
-      expect(entryFields.grantSuitChange).toBeInstanceOf(MockBooleanField);
-      expect(entryFields.grantSuitChange.options.initial).toBe(false);
+      expect(entryFields.grantSuitChange).toBeUndefined();
     });
 
     it("再判定を付与（grantRecheck・2026-07-11）は BooleanField で initial false", () => {

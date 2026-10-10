@@ -76,7 +76,12 @@ export async function submitUsageForm(sheet, event, form, formData) {
         update.checkBonuses = collectBonusRows(raw, "checkBonus");
         update.checkBonusSelf = raw["checkBonusSelf"] ?? usage.checkBonusSelf ?? "";
         update.checkBonusSelfStackable = [true, "true", "on"].includes(raw.checkBonusSelfStackable);
-        // 判定モード(ラジオ・2026-07-11/12): normal/grant/modify/suitChange。排他はラジオが保証。
+        if (usage.type === "parry") {
+            update.guardBonuses = collectBonusRows(raw, "guardBonus");
+            update.guardBonusSelf = raw["guardBonusSelf"] ?? usage.guardBonusSelf ?? "";
+            update.guardBonusSelfStackable = [true, "true", "on"].includes(raw.guardBonusSelfStackable);
+        }
+        // 判定モード: normal/grant/modify。排他はラジオが保証。
         // 再判定可能(allowRecheck)・スート変更可能(allowSuitChange)は「判定を行う用途」の性質の
         // ため通常モードでのみ保持
         const prevCheckMode = usage.grantRecheck === true ? "grant"
@@ -295,7 +300,7 @@ export async function submitUsageForm(sheet, event, form, formData) {
         update.damageType = raw["damageType"] ?? usage.damageType;
         attackKindChanged = update.attackWeaponKind !== prevKind;
     } else if (isAttackType(usage.type)) {
-        update.weaponRefs = [];
+        if (usage.type !== "parry") update.weaponRefs = [];
         update.damageType = "";
     }
 

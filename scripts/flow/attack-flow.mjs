@@ -31,6 +31,8 @@ import { TargetSelectionDialog } from "../ui/tnx-dialog.mjs";
 import { TnxSocketHandler } from "../core/tnx-socket-handler.mjs";
 import { resolveNoReaction, resolveOpposed, formatAttackLabel, combineWeaponAttack, resolveAttackRecheckState } from "../rules/attack-flow.mjs";
 import { resolveTargetDefense, resolveOpenReactions, reactionButtonPlan } from "../rules/reaction.mjs";
+import { evaluateBonusRows, evaluateSelfBonus } from "../rules/tnx-formula.mjs";
+import { selectFormulaContributions } from "../rules/formula-duplicates.mjs";
 import { buildCheckCardContext, suitSymbolOf } from "../chat/check-card-context.mjs";
 import { resolveAttackWeapons, attackWeaponDisplayName, attackWeaponKindEligible } from "../rules/attack-weapons.mjs";
 import { isOutfitUnusable, isOutfitDestroyed } from "../data/item/helpers.mjs";
@@ -1188,23 +1190,8 @@ export async function startReaction(reactionMsg, mode) {
     const sel = await selectReactionSkill(reactor, attackF.confrontation ?? [], mode);
     if (!sel) return;
 
-    // パリー: 受け値=パリー参照武器(weaponRefs.parry)の guardValue(判定成立なら敗北でも軽減に加算)。
-    // AR−1 の専用自動化は廃止(2026-07-12)——パリー技能の用途の消費先設定(AR を消費)が担う
-    let parryGuard = 0;
-    if (mode === "parry") {
-        // パリー参照武器(character-base の weaponRefs.parryItemId)。受け値は実効値(total=AE込み)を
-        // 読み、未選択=生身(baseGuard.value+mod=戦闘タブ表示と同じ値)にフォールバックする
-        // (2026-07-14・攻撃力と同じ素値読み/生身無視の是正)
-        const parryId = reactor.system.weaponRefs?.parryItemId || "";
-        const parryWeapon = parryId ? reactor.items.get(parryId) : null;
-        if (parryWeapon) {
-            parryGuard = parryWeapon.system.guardValue?.mode === "value"
-                ? (Number(parryWeapon.system.guardValue.total ?? parryWeapon.system.guardValue.value) || 0) : 0;
-        } else {
-            const bg = reactor.system.baseGuard ?? {};
-            parryGuard = (Number(bg.value) || 0) + (Number(bg.mod) || 0);
-        }
-    }
+    // 受け値は用途確定後に item-activation が usage.weaponRefs だけから解決する。
+    // 戦闘タブの設定はここでは参照しない。
 
     // 起動は唯一の起動関数へ集約(2026-07-15 ユーザー確定)。用途・コンボ・消費・判定ボーナス・適用効果は
     // シートの技能クリックと全く同じ処理で解決し、ここではリアクション文脈だけを注入する
@@ -1214,7 +1201,7 @@ export async function startReaction(reactionMsg, mode) {
         ...(sel.usageId ? { usageId: sel.usageId } : {}),
         reaction: {
             reactionMessageId: reactionMsg.id, attackMessageId: r.attackMessageId,
-            targetIndex: r.targetIndex, open: false, mode, parryGuard,
+            targetIndex: r.targetIndex, open: false, mode,
             reactorUuid: reactor.uuid, reactorName: reactor.name, isSelf: r.isSelf === true,
         },
     });
@@ -1272,6 +1259,22 @@ export async function completeReactionFromCheck(payload, result, { suitMismatch 
     const reactAch = ok ? (result.achievement ?? 0) : 0;
     // このリアクション自身の勝敗(特性フラグの発火・リアクションカードの成否表示用)
     const { hit, diff } = resolveOpposed(f.achievement, reactAch);
+    let resolvedParryGuard = 0;
+    let parryGuardBonusSources = [];
+    if (payload.mode === "parry" && ok) {
+        const reactorDoc = payload.reactorUuid ? await fromUuid(payload.reactorUuid).catch(() => null) : null;
+        const reactor = reactorDoc?.actor ?? reactorDoc;
+        const bearer = reactor?.items?.get?.(payload.guardBonusSourceItemId) ?? null;
+        const rows = [];
+        const self = await evaluateSelfBonus(payload.guardBonusSelf, reactor, result, null, bearer, null,
+            { withReferences: true, stackable: payload.guardBonusSelfStackable === true });
+        if (self) rows.push(self);
+        const extra = await evaluateBonusRows(payload.guardBonuses, reactor, result, null, null, bearer, { withReferences: true });
+        rows.push(...extra.sources);
+        const selected = selectFormulaContributions(rows);
+        parryGuardBonusSources = selected.sources;
+        resolvedParryGuard = Math.max(0, (Number(payload.parryGuardBase) || 0) + selected.total);
+    }
     const entry = {
         reactorUuid: payload.reactorUuid ?? "",
         reactorName: payload.reactorName ?? "?",
@@ -1280,7 +1283,10 @@ export async function completeReactionFromCheck(payload, result, { suitMismatch 
         achievement: result.achievement ?? 0,
         established: ok,
         // 受け値はパリー成立時のみ有効(実効値は resolveTargetDefense が成立パリーの最大1つを採る)
-        parryGuard: payload.mode === "parry" && ok ? (payload.parryGuard ?? 0) : 0,
+        parryWeapons: payload.parryWeapons ?? [],
+        parryGuardBase: Number(payload.parryGuardBase) || 0,
+        parryGuardBonusSources,
+        parryGuard: resolvedParryGuard,
         messageId: payload.reactionMessageId ?? null,
     };
 
@@ -1337,8 +1343,9 @@ export async function completeReactionFromCheck(payload, result, { suitMismatch 
         triggerAllAvoid = ok && !hit
             && (payload.reactionAreaAttack === true || payload.reactionFailsAttack === true);
         if (triggerAllAvoid) {
+            const selectedAreaTargets = new Set(payload.reactionAreaTargetUuids ?? []);
             for (let i = 0; i < targets.length; i++) {
-                if (i === payload.targetIndex) continue;
+                if (i === payload.targetIndex || !selectedAreaTargets.has(targets[i].uuid)) continue;
                 targets[i].state = "miss";
                 targets[i].resolution = "areaCover"; // 範囲攻撃へのリアクションで回避(達成値を持たない)
                 targets[i].reactionAchievement = null;

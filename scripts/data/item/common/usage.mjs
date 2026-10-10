@@ -182,8 +182,9 @@ export class UsageTemplate extends SystemDataModel {
                         new fields.StringField({ initial: "" })
                     ),
 
-                    // attack: 使用武器参照(複数可)。2 個目以降を加えると攻撃力を合算する
-                    // (複数武器の攻撃力合算能力の表現・2026-07-09)。武器・ヴィークルを参照できる
+                    // attack/parry: 用途で実際に使用する武器参照(複数可)。攻撃は攻撃力、パリーは
+                    // 受け値を合算する。実行時の正本はこの配列だけであり、戦闘タブの武器設定は
+                    // 用途の自動入力元としてのみ使う。武器・ヴィークルを参照できる。
                     weaponRefs: new fields.ArrayField(
                         new fields.SchemaField({
                             itemId: new fields.StringField({ initial: "" }),
@@ -395,6 +396,17 @@ export class UsageTemplate extends SystemDataModel {
                     // 台帳は親名で帰属。modifyDamage ではダメージ修正値(増加=正/軽減=負)としてこの欄を使う。
                     damageBonusSelf: new fields.StringField({ initial: "" }),
                     damageBonusSelfStackable: new fields.BooleanField({ initial: false }),
+
+                    // parry: 用途自身の受け値修正と、供給元つきの追加修正。
+                    guardBonuses: new fields.ArrayField(
+                        new fields.SchemaField({
+                            formula: new fields.StringField({ initial: "" }),
+                            source: new fields.StringField({ initial: "" }),
+                            stackable: new fields.BooleanField({ initial: false }),
+                        })
+                    ),
+                    guardBonusSelf: new fields.StringField({ initial: "" }),
+                    guardBonusSelfStackable: new fields.BooleanField({ initial: false }),
 
                     // attack: 自身の修正値の対象条件(damageBonuses 行の targetCondition と同形・
                     // 2026-09-01 承認)。

@@ -293,6 +293,12 @@ export async function deriveUsageAutoFill(item, usage) {
         );
     }
 
+    // パリー武器は戦闘タブを自動入力元として用途へ実体参照を保存する。実行時は用途だけを見る。
+    if (usage.type === "parry" && !(usage.weaponRefs ?? []).length) {
+        const parryItemId = actor?.system?.weaponRefs?.parryItemId || "";
+        if (parryItemId) patch.weaponRefs = [{ itemId: parryItemId }];
+    }
+
     // 消費行: 導出結果で置き換え(既存自動入力と同じ「明示的な上書き」の意味論)
     patch.consumeTargets = deriveConsumeTargets(item.id, skills);
 

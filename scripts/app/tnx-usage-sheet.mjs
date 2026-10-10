@@ -61,6 +61,8 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             checkBonusDelete:      TnxUsageSheet._onCheckBonusDelete,
             damageBonusAdd:        TnxUsageSheet._onDamageBonusAdd,
             damageBonusDelete:     TnxUsageSheet._onDamageBonusDelete,
+            guardBonusAdd:         TnxUsageSheet._onGuardBonusAdd,
+            guardBonusDelete:      TnxUsageSheet._onGuardBonusDelete,
             effectRemove:          TnxUsageSheet._onEffectRemove,
             autoFill:              TnxUsageSheet._onAutoFill,
             incrementTargetValue:  TnxUsageSheet._onTvIncrement,
@@ -484,6 +486,19 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         if (!usage) return;
         const idx = Number(target.dataset.idx);
         await this._patchUsage({ damageBonuses: (usage.damageBonuses ?? []).filter((_, i) => i !== idx) });
+        this.render({ force: true });
+    }
+    static async _onGuardBonusAdd(_event, _target) {
+        const usage = this.usage;
+        if (!usage) return;
+        await this._patchUsage({ guardBonuses: [...(usage.guardBonuses ?? []), { formula: "", source: "" }] });
+        this.render({ force: true });
+    }
+    static async _onGuardBonusDelete(_event, target) {
+        const usage = this.usage;
+        if (!usage) return;
+        const idx = Number(target.dataset.idx);
+        await this._patchUsage({ guardBonuses: (usage.guardBonuses ?? []).filter((_, i) => i !== idx) });
         this.render({ force: true });
     }
 
@@ -962,6 +977,11 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
     }
     /** @override 組み立ての実体は usage-sheet-context.mjs(super はここでしか呼べない)。 */
     async _prepareContext(options) {
+        const usage = this.usage;
+        if (usage?.type === "parry" && !(usage.weaponRefs ?? []).length) {
+            const parryItemId = this._item.actor?.system?.weaponRefs?.parryItemId || "";
+            if (parryItemId) await this._patchUsage({ weaponRefs: [{ itemId: parryItemId }] });
+        }
         return prepareUsageContext(this, await super._prepareContext(options));
     }
 

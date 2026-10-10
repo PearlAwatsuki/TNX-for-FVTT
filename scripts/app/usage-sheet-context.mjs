@@ -15,6 +15,7 @@ import { ATTACK_DAMAGE_TYPES, readFlag } from "../data/item/helpers.mjs";
 import { OUTFIT_ITEM_TYPES } from "../data/helpers.mjs";
 import { buildCategoryKeyGroups, categoryKeyLabel, ALL_CATEGORIES_KEY } from "../data/item/outfit-categories.mjs";
 import { attackWeaponDisplayName, attackWeaponKindEligible } from "../rules/attack-weapons.mjs";
+import { effectiveGuardValue, effectiveUnarmedGuardValue, isParryWeaponEligible } from "../rules/parry-weapons.mjs";
 import { WEAPON_RANGE_MAX_OPTIONS } from "../data/item/weapon.mjs";
 import { loadSkillChoices, loadCascadeData, buildSkillCascadeSteps, SKILL_PACKS, STYLE_PACK, ORGANIZATION_PACK } from "../dictionary/skill-dictionary.mjs";
 import { isAttackType, isReactionType, isMiracleType, executionFormOf, usageDisplayName } from "../rules/usage-types.mjs";
@@ -146,10 +147,12 @@ export async function prepareUsageContext(sheet, context) {
     context.isDeclarationType  = usage.type === "declaration";
     if (context.isDeclarationType) {
         context.checkBonusSelf  = usage.checkBonusSelf ?? "";
+        context.guardBonusSelf  = usage.guardBonusSelf ?? "";
         context.damageBonusSelf = usage.damageBonusSelf ?? "";
     }
     // リアクションタイプ(2026-07-17): リアクション設定(範囲/攻撃を失敗させる/対決不可無視)を出す
     context.isReactionUsage    = isReactionType(usage.type);
+    context.isParry             = usage.type === "parry";
     // 治療タイプ(2026-07-17): 実行形式(判定/宣言)は用途の設定で固定・回復範囲の設定を持つ
     context.isTreatment        = usage.type === "treatment";
     if (context.isTreatment) {
@@ -504,6 +507,25 @@ export async function prepareUsageContext(sheet, context) {
         });
     }
 
+    // パリー用途の使用武器。戦闘タブは自動入力元のみで、表示・実行とも用途の weaponRefs が正本。
+    if (usage.type === "parry" && !context.isFixedCheck) {
+        const actorItems = [...(sheet._item.actor?.items ?? [])];
+        const refs = usage.weaponRefs ?? [];
+        const refIds = new Set(refs.map(r => r.itemId).filter(Boolean));
+        context.parryWeaponRows = refs.length
+            ? refs.map((r, idx) => {
+                const w = actorItems.find(i => i.id === r.itemId) ?? (r.itemId === sheet._item.id ? sheet._item : null);
+                const guard = effectiveGuardValue(w);
+                return { idx, id: r.itemId, name: w?.name ?? `(削除済み: ${r.itemId})`, guardLabel: guard === null ? "受け値なし" : `受け値${guard}`, removable: true };
+            })
+            // ダメージ側と同じ既存規約: weaponRefs が空なら生身。生身は Item 検索へ流さない。
+            : [{ idx: -1, id: "", name: "生身", guardLabel: `受け値${effectiveUnarmedGuardValue(sheet._item.actor)}`, removable: false }];
+        context.availableParryWeapons = actorItems
+            // 「-」(mode=none)だけを除外する。受け値0は正当なパリー武器なので候補に残す。
+            .filter(w => isParryWeaponEligible(w) && !refIds.has(w.id))
+            .map(w => ({ id: w.id, name: `${w.name}（受け値${effectiveGuardValue(w)}）` }));
+    }
+
     // 攻撃プロファイル(2026-07-17 再編: 攻撃は行動種別タイプ)。物理攻撃のみ武器・ダメージ種別を
     // 持ち、白兵/射撃の選択(attackWeaponKind)で使用武器の候補を区分フラグで絞り込む
     // (射撃攻撃は生身では行えない=射撃武器フラグの武器が無ければ実行時ブロック)
@@ -580,6 +602,7 @@ export async function prepareUsageContext(sheet, context) {
         }));
         context.checkBonusRows  = (usage.checkBonuses  ?? []).map((r, idx) => ({ idx, formula: r.formula, source: r.source, stackable: r.stackable === true, sourceGroups: rowGroups(r.source) }));
         context.damageBonusRows = (usage.damageBonuses ?? []).map((r, idx) => ({ idx, formula: r.formula, source: r.source, stackable: r.stackable === true, sourceGroups: rowGroups(r.source) }));
+        context.guardBonusRows  = (usage.guardBonuses  ?? []).map((r, idx) => ({ idx, formula: r.formula, source: r.source, stackable: r.stackable === true, sourceGroups: rowGroups(r.source) }));
         // 用途自身の修正値(専用欄・供給元つきの追加行とは別枠。式で @item.self=親アイテムを参照可)
         context.checkBonusSelf  = usage.checkBonusSelf ?? "";
         context.damageBonusSelf = usage.damageBonusSelf ?? "";

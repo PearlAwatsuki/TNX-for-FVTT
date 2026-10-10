@@ -18,6 +18,7 @@ import { useNpcAcquire } from "./npc-acquisition.mjs";
 import { useRecovery } from "./recovery-flow.mjs";
 import { useRepair } from "./repair-flow.mjs";
 import { buildUsageCheckContext } from "./usage-check-context.mjs";
+import { buildParryGuardSnapshot } from "../rules/parry-weapons.mjs";
 import { useAttack, useOpposedCheck } from "./attack-flow.mjs";
 import { prepareUsageEffectPayload } from "./usage-effects.mjs";
 import { applyInterruptGrantForUsage } from "./interrupt-grant.mjs";
@@ -49,6 +50,33 @@ import { ghostCanInteract, preparedVehicle } from "../session/vehicle-state.mjs"
  *   asOther={uuid,name,source}: 効果の参照/コピー(17-5)の解決済みの参照先(再入時に載る)
  * @returns {Promise<boolean|undefined>} 神業の分岐は発動したか(要求カードが使用済みを記録する)。判定系は未定義
  */
+async function promptAreaReactionTargets(reaction) {
+    const attackMessage = game.messages.get(reaction.attackMessageId);
+    const attack = attackMessage?.getFlag(game.system.id, "attackCheck");
+    const targets = attack?.targets ?? [];
+    if (targets.length < 2) return targets[reaction.targetIndex]?.uuid ? [targets[reaction.targetIndex].uuid] : [];
+    const rows = targets.map((t, i) => {
+        const uuid = foundry.utils.escapeHTML(t.uuid ?? "");
+        const name = foundry.utils.escapeHTML(t.name ?? "?");
+        const fixed = i === reaction.targetIndex;
+        return `<label class="tnx-dialog-check-row"><input type="checkbox" name="areaTarget" value="${uuid}"${fixed ? " checked disabled" : ""}> <span>${name}</span></label>`;
+    }).join("");
+    const result = await foundry.applications.api.DialogV2.wait({
+        window: { title: "範囲攻撃へのリアクション" },
+        content: `<div class="tnx-dialog-body"><p>このリアクションで守る対象を選択してください。</p>${rows}</div>`,
+        buttons: [
+            { action: "confirm", label: "決定", icon: "fa-solid fa-check", default: true, callback: (_e, button) => {
+                const chosen = [...button.form.querySelectorAll('input[name="areaTarget"]:checked')].map(el => el.value);
+                const self = targets[reaction.targetIndex]?.uuid;
+                return [...new Set([...(self ? [self] : []), ...chosen])];
+            } },
+            { action: "cancel", label: "キャンセル", icon: "fa-solid fa-xmark", callback: () => null },
+        ],
+        close: () => null,
+    });
+    return result;
+}
+
 export async function activateItemCheck(actor, item, extraOpen = {}) {
     // usageId(用途の直接指定)は起動制御のみに使い、open へは流さない
     const { usageId: directUsageId, ...openExtra } = extraOpen;
@@ -364,6 +392,30 @@ export async function activateItemCheck(actor, item, extraOpen = {}) {
             const atkActor = atkDoc?.actor ?? atkDoc;
             if (atkActor) effectTargetOverride = [{ uuid: atkActor.uuid, name: atkActor.name }];
         }
+    }
+
+    if (openExtra.reaction?.mode === "parry") {
+        const snapshot = buildParryGuardSnapshot(actor, selectedUsage, item);
+        if (!snapshot.weapons.length || snapshot.invalid.length) {
+            const details = snapshot.invalid.map(x => `${x.name ?? x.id}: ${x.reason}`).join("、");
+            ui.notifications.warn(details || "パリー用途に使用武器が設定されていません。");
+            return;
+        }
+        openExtra.reaction = {
+            ...openExtra.reaction,
+            parryWeapons: snapshot.weapons,
+            parryGuardBase: snapshot.base,
+            guardBonusSelf: selectedUsage.guardBonusSelf ?? "",
+            guardBonusSelfStackable: selectedUsage.guardBonusSelfStackable === true,
+            guardBonuses: selectedUsage.guardBonuses ?? [],
+            guardBonusSourceItemId: item.id,
+        };
+    }
+    if (openExtra.reaction && selectedUsage.reactionAreaAttack === true
+        && selectedUsage.reactionFailsAttack !== true && openExtra.reaction.open !== true) {
+        const selected = await promptAreaReactionTargets(openExtra.reaction);
+        if (selected === null) return;
+        openExtra.reaction = { ...openExtra.reaction, reactionAreaTargetUuids: selected };
     }
 
     // 判定起動の共通前段(エキストラ制限・不備検知・参加技能・報酬点・消費・適用効果・目標値)。

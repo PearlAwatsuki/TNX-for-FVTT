@@ -418,6 +418,32 @@
                         <span>対決不可にもリアクション可</span>
                     </label>
                 </div>
+                {{#if isParry}}
+                <label class="usage-field-label">使用武器</label>
+                <div class="usage-skill-ref-list">
+                    {{#each parryWeaponRows}}
+                    <div class="usage-skill-ref-row">
+                        <span class="usage-skill-ref-name">{{this.name}}（{{this.guardLabel}}）</span>
+                        {{#if this.removable}}{{#if ../editable}}<a class="usage-icon-btn" data-action="weaponRefDelete" data-idx="{{this.idx}}" title="この武器を外す"><i class="fas fa-times"></i></a>{{/if}}{{/if}}
+                    </div>
+                    {{/each}}
+                </div>
+                {{#if editable}}
+                <div class="usage-skill-ref-add">
+                    <select class="weapon-ref-select">
+                        <option value="">── パリーに使用する武器を追加 ──</option>
+                        {{#each availableParryWeapons}}<option value="{{this.id}}">{{this.name}}</option>{{/each}}
+                    </select>
+                </div>
+                {{/if}}
+                <label class="usage-field-label">この用途の受け値修正</label>
+                <input type="text" name="guardBonusSelf" value="{{guardBonusSelf}}" placeholder="式（例: 2、@card、@item.self.system.level）" {{#unless editable}}disabled{{/unless}}>
+                <label class="usage-toggle-inline"><input type="checkbox" name="guardBonusSelfStackable" {{checked usage.guardBonusSelfStackable}} {{#unless editable}}disabled{{/unless}}>重複可</label>
+                <label class="usage-field-label">受け値修正（供給元つき・追加）</label>
+                {{> "systems/tokyo-nova-axleration/templates/app/usage-sheet-bonus-rows.hbs"
+                    rows=guardBonusRows prefix="guardBonus" addAction="guardBonusAdd" deleteAction="guardBonusDelete"
+                    addLabel="受け値修正を追加" placeholder="式" emptyHint="（追加の受け値修正なし）" editable=editable}}
+                {{/if}}
             </fieldset>
             {{/if}}
 
