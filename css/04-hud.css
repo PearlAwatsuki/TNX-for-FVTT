@@ -1142,6 +1142,28 @@ body.tnx-bottom-hud-expanded #hotbar {
     flex: 0 0 auto;
 }
 
+/* 判定ダイアログ内の一時的な組み合わせ技能。チップは追加プルダウンの上へ積む。 */
+.check-combo-skills {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 8px;
+    align-items: start;
+}
+
+.check-combo-skills > label {
+    padding-top: 5px;
+    font-size: 0.8em;
+    opacity: 0.7;
+}
+
+.check-combo-skills .tnx-tag-field,
+.check-combo-skills .tnx-tag-list,
+.check-combo-skills .tnx-tag-add-row,
+.check-combo-skills .tnx-tag-add {
+    width: 100%;
+    min-width: 0;
+}
+
 /* スタン/説得の宣言トグル(2026-07-15): 攻撃の判定のみ・既定オフのインラインチェック */
 .check-stun-toggle {
     display: flex;

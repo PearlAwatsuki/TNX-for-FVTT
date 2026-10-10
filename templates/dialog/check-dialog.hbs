@@ -30,6 +30,33 @@
         </div>
     </div>
 
+    {{#if canAddComboSkills}}
+    <div class="check-combo-skills">
+        <label>組み合わせ技能</label>
+        <div class="tnx-tag-field">
+            {{#if addedSkillChips.length}}
+            <div class="tnx-tag-list">
+                {{#each addedSkillChips as |chip|}}
+                <span class="tnx-tag">{{chip.label}}<a class="tnx-tag-remove" data-action="removeDialogSkill" data-skill-id="{{chip.id}}" title="外す"><i class="fas fa-times"></i></a></span>
+                {{/each}}
+            </div>
+            {{/if}}
+            <div class="tnx-tag-add-row">
+                <select data-dialog-skill-add class="tnx-tag-add">
+                    <option value="">＋ 技能を追加</option>
+                    {{#each skillGroups as |group|}}
+                    <optgroup label="{{group.label}}">
+                        {{#each group.skills as |skill|}}
+                        <option value="{{skill.id}}">{{skill.label}}</option>
+                        {{/each}}
+                    </optgroup>
+                    {{/each}}
+                </select>
+            </div>
+        </div>
+    </div>
+    {{/if}}
+
     {{#if stunOption}}
     <div class="check-stun-toggle">
         <label class="tnx-check-inline-toggle">

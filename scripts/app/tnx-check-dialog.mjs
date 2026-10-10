@@ -16,6 +16,7 @@
 
 import { TnxCheckFlow } from '../flow/tnx-check-flow.mjs';
 import { getUserFlagData } from '../core/user-flag-schema.mjs';
+import { formatSkillName } from '../core/identification.mjs';
 
 const { HandlebarsApplicationMixin, ApplicationV2 } = foundry.applications.api;
 
@@ -32,6 +33,7 @@ export class TnxCheckDialog extends HandlebarsApplicationMixin(ApplicationV2) {
             cancel:          TnxCheckDialog._onCancel,
             modDecrement:    TnxCheckDialog._onModStep,
             modIncrement:    TnxCheckDialog._onModStep,
+            removeDialogSkill: TnxCheckDialog._onRemoveDialogSkill,
         },
     };
 
@@ -67,11 +69,34 @@ export class TnxCheckDialog extends HandlebarsApplicationMixin(ApplicationV2) {
             stunOption = { label: "説得として実行", checked: atk.stunDeclared === true };
         }
 
+        const actor = game.actors.get(ctx.actorId);
+        const addedIds = ctx.dialogAddedSkillIds ?? [];
+        const addedSkillChips = addedIds
+            .map(id => actor?.items.get(id))
+            .filter(Boolean)
+            .map(item => ({ id: item.id, label: formatSkillName(item.name ?? "") }));
+        const activeIds = new Set([...(ctx.baseSkillIds ?? ctx.skillIds ?? []), ...addedIds]);
+        const skillGroups = ctx.type === "skillCheck" && actor
+            ? [
+                { label: "一般技能", skills: [...actor.items]
+                    .filter(item => item.type === "generalSkill" && !activeIds.has(item.id))
+                    .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0) || a.name.localeCompare(b.name, "ja"))
+                    .map(item => ({ id: item.id, label: formatSkillName(item.name ?? "") })) },
+                { label: "スタイル技能", skills: [...actor.items]
+                    .filter(item => item.type === "styleSkill" && !activeIds.has(item.id))
+                    .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0) || a.name.localeCompare(b.name, "ja"))
+                    .map(item => ({ id: item.id, label: formatSkillName(item.name ?? "") })) },
+            ].filter(group => group.skills.length)
+            : [];
+
         return {
             stunOption,
             ...context,
             typeLabel:      TYPE_LABEL[ctx.type] ?? ctx.type,
             skillLabel:     ctx.skillLabel,
+            canAddComboSkills: ctx.type === "skillCheck",
+            addedSkillChips,
+            skillGroups,
             validSuits:     ctx.validSuits.map(s => ({
                 key:    s,
                 symbol: SUIT_SYMBOL[s] ?? s,
@@ -98,6 +123,12 @@ export class TnxCheckDialog extends HandlebarsApplicationMixin(ApplicationV2) {
         const input = this.element.querySelector('input[name="checkManualMod"]');
         input?.addEventListener("change", () => {
             TnxCheckFlow.setManualMod(Number(input.value) || 0);
+        });
+        const skillAdd = this.element.querySelector('[data-dialog-skill-add]');
+        skillAdd?.addEventListener("change", async () => {
+            const skillId = skillAdd.value;
+            skillAdd.value = "";
+            if (skillId) await TnxCheckFlow.addDialogSkill(skillId);
         });
         // スタン/説得の宣言トグルを判定コンテキストへ同期する(カードプレイ時に読まれる・2026-07-15)
         const stunInput = this.element.querySelector('input[name="stunDeclared"]');
@@ -135,5 +166,10 @@ export class TnxCheckDialog extends HandlebarsApplicationMixin(ApplicationV2) {
         if (target.dataset.action === "modIncrement") input.stepUp();
         else input.stepDown();
         TnxCheckFlow.setManualMod(Number(input.value) || 0);
+    }
+
+    static async _onRemoveDialogSkill(event, target) {
+        event.preventDefault();
+        await TnxCheckFlow.removeDialogSkill(target.dataset.skillId);
     }
 }

@@ -18,7 +18,7 @@
 import { SYSTEM_ID } from "../constants.mjs";
 import { forcedDeletion } from "../core/forced-deletion.mjs";
 import { ghostCanInteract } from "../session/vehicle-state.mjs";
-import { getCardCheckValue, calcSkillCheck, calcControlCheck, normalizeSuit, ALL_SUITS, SUIT_TO_ABILITY } from '../rules/tnx-check-engine.mjs';
+import { getCardCheckValue, calcSkillCheck, calcControlCheck, normalizeSuit, ALL_SUITS, SUIT_TO_ABILITY, getComboSuits, comboUsesBounty } from '../rules/tnx-check-engine.mjs';
 import { gatherCheckBonusSources, collectActorEffectBuffs, actorHasSuitChangeBuff, actorCardValueOverride, readFlag } from '../data/item/helpers.mjs';
 import { evaluateBonusRows, evaluateSelfBonus, createEffectBonusEvaluator } from '../rules/tnx-formula.mjs';
 import { canonicalFormulaReference, selectFormulaContributions, appendFormulaContribution } from '../rules/formula-duplicates.mjs';
@@ -95,6 +95,8 @@ export class TnxCheckFlow {
 
         TnxCheckFlow.cancel({ _noRefresh: true });
         TnxCheckFlow._context   = foundry.utils.deepClone(context);
+        TnxCheckFlow._context.baseSkillIds = [...(TnxCheckFlow._context.skillIds ?? [])];
+        TnxCheckFlow._context.dialogAddedSkillIds = [];
         TnxCheckFlow._context.nextCheckCandidates = captureNextCheckEffects(game.actors.get(context.actorId));
         TnxCheckFlow._trumpMode = false;
 
@@ -144,6 +146,77 @@ export class TnxCheckFlow {
             if (block.blocked) return `「${block.by}」により、その能力値を使う判定はできません。`;
         }
         return null;
+    }
+
+    /** 判定ダイアログで一時的に組み合わせる技能を追加する。用途データは更新しない。 */
+    static async addDialogSkill(skillId) {
+        const ctx = TnxCheckFlow._context;
+        if (!ctx || ctx.type !== "skillCheck" || !skillId) return false;
+        const actor = game.actors.get(ctx.actorId);
+        const skill = actor?.items.get(skillId);
+        if (!skill || !["generalSkill", "styleSkill"].includes(skill.type)) return false;
+
+        const baseIds = [...(ctx.baseSkillIds ?? ctx.skillIds ?? [])];
+        const addedIds = [...(ctx.dialogAddedSkillIds ?? [])];
+        if (baseIds.includes(skillId) || addedIds.includes(skillId)) return false;
+
+        const candidateIds = [...baseIds, ...addedIds, skillId];
+        const candidateSystems = candidateIds.map(id => actor.items.get(id)?.system).filter(Boolean);
+        const validSuits = getComboSuits(candidateSystems);
+        if (!validSuits.length) {
+            ui.notifications.warn("この技能を組み合わせると、使用可能なスートがなくなります。");
+            return false;
+        }
+
+        const candidate = { ...ctx, skillIds: candidateIds, validSuits };
+        const blockReason = TnxCheckFlow._activationBlockReason(candidate);
+        if (blockReason) {
+            ui.notifications.warn(blockReason);
+            return false;
+        }
+
+        ctx.dialogAddedSkillIds = [...addedIds, skillId];
+        await TnxCheckFlow._rebuildDialogSkillContext();
+        TnxCheckFlow._refreshDialog();
+        game.tnx.hud?.render(false);
+        return true;
+    }
+
+    /** 判定ダイアログで追加した技能だけを削除する。開始時点の参加技能は変更しない。 */
+    static async removeDialogSkill(skillId) {
+        const ctx = TnxCheckFlow._context;
+        if (!ctx || !(ctx.dialogAddedSkillIds ?? []).includes(skillId)) return false;
+        ctx.dialogAddedSkillIds = ctx.dialogAddedSkillIds.filter(id => id !== skillId);
+        await TnxCheckFlow._rebuildDialogSkillContext();
+        TnxCheckFlow._refreshDialog();
+        game.tnx.hud?.render(false);
+        return true;
+    }
+
+    /** 開始時技能とダイアログ追加技能から、判定に使う導出値を再構築する。 */
+    static async _rebuildDialogSkillContext() {
+        const ctx = TnxCheckFlow._context;
+        if (!ctx || ctx.type !== "skillCheck") return;
+        const actor = game.actors.get(ctx.actorId);
+        if (!actor) return;
+
+        const skillIds = [...new Set([
+            ...(ctx.baseSkillIds ?? []),
+            ...(ctx.dialogAddedSkillIds ?? []),
+        ])];
+        const skills = skillIds.map(id => actor.items.get(id)).filter(Boolean);
+        const systems = skills.map(item => item.system);
+        ctx.skillIds = skillIds;
+        ctx.validSuits = getComboSuits(systems);
+        ctx.skillLabel = skills.map(item => formatSkillName(item.name ?? "")).filter(Boolean).join("+");
+        const actorBounty = (actor.system.bountyBase ?? 0) + (actor.system.bounty ?? 0);
+        ctx.bountyAvailable = comboUsesBounty(systems) ? actorBounty : 0;
+
+        const classByKey = await loadSkillClassByKey();
+        ctx.societyClassByKey = Object.fromEntries(skills
+            .map(item => item.system?.identificationKey)
+            .filter(Boolean)
+            .map(key => [key, classByKey.get(key)?.societyClass ?? ""]));
     }
 
     /**
