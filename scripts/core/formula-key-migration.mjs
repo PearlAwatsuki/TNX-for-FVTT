@@ -21,8 +21,7 @@ export function planFormulaKeyMigration(formula, { items = [], bearer = null, re
     const candidates = [...items];
     if (bearer && !candidates.some(item => sameDocument(item, bearer))) candidates.push(bearer);
     const value = formula.replace(/@([a-zA-Z0-9_.-]+)/g, (token, reference) => {
-        const result = { diff: "margin", achievement: "achievement", card: "card" };
-        if (result[reference]) return `@check.${result[reference]}`;
+        // 判定結果の公開キー @achievement / @diff / @card はそのまま維持する。
         const ability = reference.match(/^(target\.)?(?:system\.)?(reason|passion|life|mundane)\.(total|totalControl|value)$/);
         if (ability) return `@${ability[1] ?? ""}abilities.${ability[2]}.${({ total: "value", totalControl: "control", value: "base" })[ability[3]]}`;
         const old = reference.match(/^item\.([^.]+)\.system\.(.+)$/);

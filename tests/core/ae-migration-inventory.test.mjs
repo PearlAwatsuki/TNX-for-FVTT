@@ -21,7 +21,7 @@ describe("移行対象の読取専用棚卸し", () => {
         expect(snapshots.every(p => p.readOnly && p.changed && !p.issues.length)).toBe(true);
         expect(snapshots[0].data.checkBonusSelf).toBe("@skill.melee.level");
         expect(snapshots[0].changes[0].path).toBe("checkBonusSelf");
-        expect(snapshots[1].data.damageBonusSelf).toBe("@check.margin + @abilities.life.value");
+        expect(snapshots[1].data.damageBonusSelf).toBe("@diff + @abilities.life.value");
         expect(snapshots[1].data.damageBonuses[0]).toEqual({ formula: "@skill.melee.level", stackable: true });
         expect(snapshots[1].data.achievement).toBe(15);
         expect(flags).toEqual(before);
@@ -35,7 +35,7 @@ describe("移行対象の読取専用棚卸し", () => {
         expect(report.plans[0].data.checkBonusSelf).toBe(snapshot.checkBonusSelf);
         expect(report.plans[0].issues).toHaveLength(1);
         expect(report.plans[1].path).toContain("checkRecheck.usageEffects.effects.0.data");
-        expect(report.plans[1].data.changes[0]).toEqual({ key: "system.check.all", value: "@check.card" });
+        expect(report.plans[1].data.changes[0]).toEqual({ key: "system.check.all", value: "@card" });
     });
     it("ワールド・非リンクToken・プリセット・過去カードを調査し、重複走査も更新もしない", async () => {
         const held = item("Actor.a.Item.s");

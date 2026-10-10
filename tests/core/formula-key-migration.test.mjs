@@ -5,6 +5,16 @@ import { SYSTEM_ID } from "../../scripts/constants.mjs";
 const skill = { _id: "s", type: "generalSkill", system: { identificationKey: "melee" } };
 const outfit = { _id: "w", type: "weapon", system: { identificationKey: "sword" } };
 describe("式キーの移行", () => {
+    it("判定結果の3キーだけなら移行対象にせず原文を維持する", () => {
+        const formula = "@achievement + floor(@diff / 2) + @card";
+        expect(planFormulaKeyMigration(formula)).toEqual({ original: formula, value: formula, changed: false, issues: [] });
+    });
+    it("他の参照を移行しても判定結果の3キーは維持する", () => {
+        const formula = "@achievement + @diff + @card + @system.life.total";
+        const plan = planFormulaKeyMigration(formula);
+        expect(plan).toMatchObject({ value: "@achievement + @diff + @card + @abilities.life.value", changed: true, issues: [] });
+        expect(planFormulaKeyMigration(plan.value).changed).toBe(false);
+    });
     it("旧部位指定の関係と消費数を新キーへ分ける", () => {
         const plan = planEffectKeyMigration({ changes: [{ key: "system.part.hand[hack>=3]", value: "or:2" }] }, { bearer: outfit });
         expect(plan.data.changes[0]).toMatchObject({ key: "system.equip.alternative.hand[hack>=3]", value: "2" });
@@ -12,7 +22,7 @@ describe("式キーの移行", () => {
     it("素値と実効値を区別し、算術・空白を維持する", () => {
         const formula = "floor(@system.life.total / 2) + @diff + @item.self.system.levelTotal";
         const plan = planFormulaKeyMigration(formula, { bearer: skill });
-        expect(plan.value).toBe("floor(@abilities.life.value / 2) + @check.margin + @skill.melee.level");
+        expect(plan.value).toBe("floor(@abilities.life.value / 2) + @diff + @skill.melee.level");
         expect(planFormulaKeyMigration("@system.life.value + @item.self.system.level", { bearer: skill }).value).toBe("@abilities.life.base + @skill.melee.base");
         expect(planFormulaKeyMigration(plan.value, { bearer: skill }).changed).toBe(false);
     });
@@ -30,7 +40,7 @@ describe("式キーの移行", () => {
         const plan = planItemFormulaMigration(source);
         expect(plan.data.system.description).toBe("@diff の説明");
         expect(plan.data.system.uses.max).toBe("@skill.melee.level");
-        expect(plan.data.system.actions[0]).toMatchObject({ _id: "u", checkBonusSelf: "@check.card", damageBonuses: [{ formula: "@check.margin", stackable: true }] });
+        expect(plan.data.system.actions[0]).toMatchObject({ _id: "u", checkBonusSelf: "@card", damageBonuses: [{ formula: "@diff", stackable: true }] });
         expect(source.system.actions[0].checkBonusSelf).toBe("@card");
     });
     it("AE移設で旧保持元への相対参照を付与先参照に変えてしまわない", () => {
