@@ -256,7 +256,9 @@ export class TokyoNovaCastSheet extends HistoryInputStateMixin(TnxCharacterSheet
             const genCat = system.generalSkillCategory;
             if (genCat === 'onomasticSkill') {
                 const cost = Number(system.onomasticSkill?.expCost) || 5;
-                return system.onomasticSkill?.isInitial ? Math.max(0, level - 1) * cost : level * cost;
+                const initialLevels = Math.max(0, Number(system.onomasticSkill?.initialLevels)
+                    || (system.onomasticSkill?.isInitial ? 1 : 0));
+                return Math.max(0, level - initialLevels) * cost;
             }
             if (genCat === 'initialSkill') return Math.max(0, level - 1) * (Number(system.initialSkill?.expCost) || 10);
             return level * 5;

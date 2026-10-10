@@ -10,6 +10,10 @@ export class TokyoNovaGeneralSkillSheet extends TokyoNovaItemSheet {
     static DEFAULT_OPTIONS = {
         classes: ["tokyo-nova", "sheet", "item", "skill"],
         position: { width: 600, height: 650 },
+        actions: {
+            increment: TokyoNovaGeneralSkillSheet._onIncrementInitialLevels,
+            decrement: TokyoNovaGeneralSkillSheet._onDecrementInitialLevels,
+        },
     };
 
     static PARTS = {
@@ -34,11 +38,16 @@ export class TokyoNovaGeneralSkillSheet extends TokyoNovaItemSheet {
         context.options.societyClass  = { "": "-", ...SOCIETY_CLASSES };
         const onomType = onomasticTypeOf(system);
         const typeLabel = ONOMASTIC_TYPES[onomType] ?? "";
+        const initialEligible = onomType === "society" || onomType === "contact";
+        const ownInitialLevels = Math.max(0, Number(system.onomasticSkill?.initialLevels)
+            || (system.onomasticSkill?.isInitial ? 1 : 0));
         context.onomastic = {
             active: system.generalSkillCategory !== "initialSkill" && !!typeLabel,
             type: onomType,
             isSociety: onomType === "society",
             isCraft: onomType === "craft",
+            initialEligible,
+            initialLevels: ownInitialLevels,
             prefix: typeLabel ? `${typeLabel}：` : "",
             // 名前欄には固有名詞部分だけを出す(保存形はフル名のまま)。現在のプレフィックスで
             // 始まらない旧い名前はそのまま出し、次にこの欄を編集したときだけ正規形へ合成される
@@ -88,8 +97,8 @@ export class TokyoNovaGeneralSkillSheet extends TokyoNovaItemSheet {
             this.item.update({ name: composed || suffix });
         });
 
-        // 固有名詞技能 isInitial: combined update のため stop propagation
-        const isInitialInput = this.element.querySelector('input[name="system.onomasticSkill.isInitial"]');
+        // 初期取得レベル: 0以上の整数。旧 isInitial は互換印として同期する。
+        const isInitialInput = this.element.querySelector('input[name="system.onomasticSkill.initialLevels"]');
         if (isInitialInput) {
             isInitialInput.addEventListener("change", (event) => {
                 event.stopPropagation();
@@ -171,6 +180,7 @@ export class TokyoNovaGeneralSkillSheet extends TokyoNovaItemSheet {
             } else {
                 if (this.item.system.onomasticSkill?.isInitial) {
                     updateData["system.onomasticSkill.isInitial"] = false;
+                    updateData["system.onomasticSkill.initialLevels"] = 0;
                     updateData["system.level"] = 0;
                 }
             }
@@ -180,13 +190,29 @@ export class TokyoNovaGeneralSkillSheet extends TokyoNovaItemSheet {
     }
 
     async _onInitialSkillChange(event) {
-        const isChecked = event.currentTarget.checked;
-        const updateData = { "system.onomasticSkill.isInitial": isChecked };
-        if (isChecked) {
-            if (this.item.system.level === 0) updateData["system.level"] = 1;
-        } else {
-            updateData["system.level"] = 0;
-        }
+        await this._setInitialLevels(event.currentTarget.value);
+    }
+
+    /** 初期取得レベルを保存し、旧 isInitial と技能レベルを同期する。 */
+    async _setInitialLevels(value) {
+        const initialLevels = Math.max(0, Math.trunc(Number(value) || 0));
+        const updateData = {
+            "system.onomasticSkill.initialLevels": initialLevels,
+            "system.onomasticSkill.isInitial": initialLevels > 0,
+        };
+        if (initialLevels > Number(this.item.system.level ?? 0)) updateData["system.level"] = initialLevels;
         await this.item.update(updateData);
+    }
+
+    static async _onIncrementInitialLevels(_event, _target) {
+        const current = Number(this.item.system.onomasticSkill?.initialLevels)
+            || (this.item.system.onomasticSkill?.isInitial ? 1 : 0);
+        await this._setInitialLevels(current + 1);
+    }
+
+    static async _onDecrementInitialLevels(_event, _target) {
+        const current = Number(this.item.system.onomasticSkill?.initialLevels)
+            || (this.item.system.onomasticSkill?.isInitial ? 1 : 0);
+        await this._setInitialLevels(current - 1);
     }
 }

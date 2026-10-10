@@ -304,7 +304,7 @@ export function mergeSkillEntries(packEntries, worldEntries, position = skillSor
 }
 
 /** 辞典(compendium)側だけを読む。結果はキャッシュする(ワールド分は都度読みなので混ぜない)。 */
-async function loadPackSkillEntries(packName) {
+async function loadPackSkillEntries(packName, { strict = false } = {}) {
   if (_cache.has(packName)) return _cache.get(packName);
   const pack = game.packs?.get(packName);
   if (!pack) return [];
@@ -341,6 +341,7 @@ async function loadPackSkillEntries(packName) {
     return entries;
   } catch (e) {
     console.error(`TokyoNOVA | Failed to load skill compendium ${packName}:`, e);
+    if (strict) throw e;
     return [];
   }
 }
@@ -369,10 +370,12 @@ function loadWorldSkillEntries(packName) {
  * (2026-08-12 ユーザー指示・スタイル選択プルダウンの並びをシステム内で固定するため)。
  * どちらの正規位置も持たない項目(ワークス等)は従来どおり名前順。
  * @param {string} packName compendium の完全名
+ * @param {{refresh?: boolean}} [options] 明示的な再読み込み。失敗時は例外を呼び出し元へ返す。
  * @returns {Promise<{identificationKey: string, name: string, uuid: string}[]>}
  */
-export async function loadSkillEntries(packName) {
-  const packEntries = await loadPackSkillEntries(packName);
+export async function loadSkillEntries(packName, { refresh = false } = {}) {
+  if (refresh) _cache.delete(packName);
+  const packEntries = await loadPackSkillEntries(packName, { strict: refresh });
   const worldEntries = loadWorldSkillEntries(packName);
   if (!worldEntries.length) return packEntries;
   return mergeSkillEntries(packEntries, worldEntries, positionFor(packName));

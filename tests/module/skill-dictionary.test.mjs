@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   idKeyPrefix,
   onomasticTypeOf,
@@ -10,8 +10,39 @@ import {
   resolveComboSkillName,
   formatGroupedSkillNames,
   mergeSkillEntries,
+  loadSkillEntries,
 } from "../../scripts/dictionary/skill-dictionary.mjs";
 import { styleSortPosition } from "../../scripts/core/identification.mjs";
+
+describe("明示的な候補キャッシュ再読み込み", () => {
+  it("明示的再読み込みの失敗を空配列に隠さず呼び出し元へ返す", async () => {
+    const packName = "test.failed-refresh";
+    vi.stubGlobal("game", { packs: new Map([[packName, { getIndex: async () => { throw new Error("index unavailable"); } }]]), items: [] });
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      await expect(loadSkillEntries(packName, { refresh: true })).rejects.toThrow("index unavailable");
+      await expect(loadSkillEntries(packName)).resolves.toEqual([]);
+    } finally { log.mockRestore(); vi.unstubAllGlobals(); }
+  });
+  it("作成順に依存せず、後から追加した参照先もシートの候補に反映する", async () => {
+    const packName = "test.roundtrip-skills";
+    const rows = [{ _id: "upper", name: "上位", system: { identificationKey: "upper", style: "style1" } }];
+    const getIndex = vi.fn(async () => [...rows]);
+    vi.stubGlobal("game", { packs: new Map([[packName, { getIndex, getUuid: id => `Compendium.${packName}.Item.${id}` }]]), items: [] });
+    try {
+      expect((await loadSkillEntries(packName, { refresh: true })).map(e => e.identificationKey)).toEqual(["upper"]);
+      rows.push({ _id: "base", name: "基本", system: { identificationKey: "base", style: "style1" } });
+      expect((await loadSkillEntries(packName)).some(e => e.identificationKey === "base")).toBe(false);
+      const fresh = await loadSkillEntries(packName, { refresh: true });
+      const steps = buildSkillCascadeSteps({ style: fresh, styleNames: { style1: "スタイル" } },
+        { dict: "style", group: "style1", skill: "base" });
+      expect(steps.find(s => s.key === "skill").options.base).toBe("〈基本〉");
+      expect(steps.find(s => s.key === "skill").value).toBe("base");
+      expect(await loadSkillEntries(packName)).toBe(fresh);
+      expect(getIndex).toHaveBeenCalledTimes(2);
+    } finally { vi.unstubAllGlobals(); }
+  });
+});
 
 describe("idKeyPrefix()", () => {
   it("区切り「_」までを返す", () => {

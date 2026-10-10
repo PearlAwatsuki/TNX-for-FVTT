@@ -85,9 +85,19 @@ describe("GeneralSkillDataModel.defineSchema()", () => {
       expect(schema.onomasticSkill).toBeInstanceOf(MockSchemaField);
     });
 
-    it("onomasticSkill に isInitial / expCost が存在する", () => {
+    it("onomasticSkill に isInitial / initialLevels / expCost が存在する", () => {
       expect(schema.onomasticSkill.fields).toHaveProperty("isInitial");
+      expect(schema.onomasticSkill.fields).toHaveProperty("initialLevels");
       expect(schema.onomasticSkill.fields).toHaveProperty("expCost");
+    });
+
+    it("onomasticSkill.initialLevels は0以上の整数で上限を持たない", () => {
+      const field = schema.onomasticSkill.fields.initialLevels;
+      expect(field).toBeInstanceOf(MockNumberField);
+      expect(field.options.initial).toBe(0);
+      expect(field.options.min).toBe(0);
+      expect(field.options.integer).toBe(true);
+      expect(field.options).not.toHaveProperty("max");
     });
 
     it("onomasticSkill.isInitial は BooleanField で initial が false", () => {

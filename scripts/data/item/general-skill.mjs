@@ -36,6 +36,7 @@ export class GeneralSkillDataModel extends SystemDataModel.mixin(
       }),
       onomasticSkill: new fields.SchemaField({
         isInitial: new fields.BooleanField({ initial: false }),
+        initialLevels: new fields.NumberField({ initial: 0, min: 0, integer: true }),
         expCost:   new fields.NumberField({ initial: 5 }),
       }),
       identificationKey: new fields.StringField({ initial: "" }),
