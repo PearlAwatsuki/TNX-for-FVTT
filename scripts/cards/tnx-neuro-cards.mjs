@@ -6,8 +6,10 @@ export function createNeuroDeckData() {
     const cards = [];
     const basePath = "systems/tokyo-nova-axleration/assets/cards/neuro-cards/";
     const neuroCardList = [
+        { value: -21, name: '-21：ウツワ / <span style="display: inline-block; transform: scaleX(-1);">the world</span>', description: "神話の再現。神（英雄）の誕生。神（英雄）の降臨。", img: "utsuwa.png", text: "「神話」" },
         { value: -18, name: '-18：アヤカシ / <span style="display: inline-block; transform: scaleX(-1);">the moon</span>', description: "停止。凪。自縄自縛。手がかりが消える。", img: "ayakashi.png", text: "「倦怠」" },
         { value: -17, name: '-17：エトランゼ / <span style="display: inline-block; transform: scaleX(-1);">the star</span>', description: "不思議な出来事。白昼夢。夢か現か。曖昧になる虚構と現実。", img: "etranger.png", text: "「夢」" },
+        { value: -12, name: '-12：ミギウデ / <span style="display: inline-block; transform: scaleX(-1);">the hanged man</span>', description: "助言者の出現。忠誠を誓う。砕けぬ絆。", img: "migiude.png", text: "「忠誠」" },
         { value: -9, name: '-9：カゲムシャ / <span style="display: inline-block; transform: scaleX(-1);">the hermit</span>', description: "懐疑。嫌疑。疑心暗鬼を生ず。不自然な行動。痛くもない腹を探られる。", img: "kagemusha.png", text: "「疑惑」" },
         { value: -7, name: '-7：アラシ / <span style="display: inline-block; transform: scaleX(-1);">the chariot</span>', description: "危機的な状況からの脱出。改革、解放。即断即決を迫られる。", img: "arashi.png", text: "「離脱」" },
         { value: -6, name: '-6：シキガミ / <span style="display: inline-block; transform: scaleX(-1);">the lovers</span>', description: "約束が結ばれる。選択の時。和解、合一。信頼関係。", img: "shikigami.png", text: "「契約」" },
