@@ -338,10 +338,6 @@
                         <input type="radio" name="checkMode" value="modify" {{checked (eq checkMode "modify")}} {{#unless editable}}disabled{{/unless}}>
                         <span>判定を修正</span>
                     </label>
-                    <label class="usage-toggle-inline">
-                        <input type="radio" name="checkMode" value="suitChange" {{checked (eq checkMode "suitChange")}} {{#unless editable}}disabled{{/unless}}>
-                        <span>スートを変更</span>
-                    </label>
                 </div>
                 {{#if (eq checkMode "normal")}}
                 {{!-- 再判定可能・スート変更可能は「判定を行う用途」の性質のため通常モードでのみ表示 --}}
@@ -595,13 +591,6 @@
                        {{#unless editable}}disabled{{/unless}}>
                 <label class="usage-toggle-inline"><input type="checkbox" name="checkBonusSelfStackable" {{checked usage.checkBonusSelfStackable}} {{#unless editable}}disabled{{/unless}}>重複可</label>
                 {{/if}}
-                <div class="usage-form-row usage-toggle-row">
-                    <label class="usage-toggle-inline">
-                        <input type="checkbox" name="grantSuitChange" {{checked usage.grantSuitChange}}
-                               {{#unless editable}}disabled{{/unless}}>
-                        <span>スートを変更（次の判定）</span>
-                    </label>
-                </div>
                 {{!-- 割り込み許可(13-5): この宣言で対象に割り込み許可を立てる(トラッカーの割り込み入口が開く) --}}
                 <div class="usage-form-row usage-toggle-row">
                     <label class="usage-toggle-inline">

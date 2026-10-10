@@ -136,11 +136,10 @@ export async function prepareUsageContext(sheet, context) {
     context.attackWeaponKind   = usage.attackWeaponKind === "ranged" ? "ranged" : "melee";
     // ダメージを修正(2026-07-11→2026-07-17): 汎用の判定タイプのみの使用の仕方フラグ(攻撃はタイプ化で分離)
     context.isModifyDamage     = usage.type === "check" && usage.modifyDamage === true;
-    // 判定モードのラジオ値(2026-07-11/12): 通常/再判定を付与/判定を修正/スートを変更
+    // 判定モードのラジオ値: 通常/再判定を付与/判定を修正
     // (判定用途に「なし」は無い)
     context.checkMode          = usage.grantRecheck === true ? "grant"
-        : (usage.modifyCheck === true ? "modify"
-            : (usage.grantSuitChange === true ? "suitChange" : "normal"));
+        : (usage.modifyCheck === true ? "modify" : "normal");
     // 宣言(declaration)の判定/ダメージ修正(2026-07-12 ユーザー確定): バフ宣言の表現。
     // 判定用途とレイアウトを揃えた〈判定〉〈ダメージ〉fieldset・チェックボックス2つは独立
     // (排他 UI にしない。両方 ON の運用は想定せず、使用時は「判定を修正」が先に振られる)

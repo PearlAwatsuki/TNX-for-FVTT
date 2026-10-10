@@ -237,13 +237,6 @@ export class UsageTemplate extends SystemDataModel {
                     // 同じ型)。無印「判定」の機構のため制御判定は対象外(用語規約)。
                     allowSuitChange: new fields.BooleanField({ initial: false }),
 
-                    // check/declaration: スートを変更(次の判定・2026-07-12 ユーザー確定)。ON の用途は
-                    // 使用しても判定を行わず「スート変更待ち」に入る(アイテムロール使用・再使用で
-                    // キャンセル)。次に自分が行う判定で使用不可スートを出したとき、使用可能スートへの
-                    // 変更が適用される(消費は適用確定時)。他者へは AE `check.suitChange` の付与で表す
-                    // (「1回の判定」Duration の自動失効は時間管理フェーズ=持続時間と AE キーは独立)。
-                    grantSuitChange: new fields.BooleanField({ initial: false }),
-
                     // check/declaration: 回復(2026-07-13 ユーザー確定)。BS/戦闘不能/負傷を除去する
                     // 回復・治療系スタイル技能の表現。使用はアイテムロール→対象解決→**対象が現在
                     // 受けている状態から回復対象を選択**→宣言=即除去/判定=成功で除去(ctx.recovery)。

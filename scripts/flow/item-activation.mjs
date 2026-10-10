@@ -176,14 +176,13 @@ export async function activateItemCheck(actor, item, extraOpen = {}) {
     // 再判定を付与=達成値クリックでその判定にこの技能を組み合わせた再判定を起動。
     // 判定を修正=達成値クリックでその判定に事後ボーナス/ペナルティを適用。
     // ダメージを修正=ダメージカードの攻撃側合計クリックでそのダメージに修正を適用。
-    // スートを変更=次の自分の判定で使用不可スートを出したとき使用可能スートへ変更(2026-07-12)。
-    // 宣言(declaration)の再判定を付与/判定を修正/ダメージを修正/スートを変更も同経路
+    // 宣言(declaration)の再判定を付与/判定を修正/ダメージを修正も同経路
     // (バフ宣言・2026-07-12。再判定を付与は 2026-07-13=判定でないため組み合わせなし)。
     // 複数フラグ ON は上記の順で先に振る(排他 UI にはしない・複数 ON の運用は想定しない)。
     // 消費は用途の consumeTargets(プランを持ち回り、発動時に適用)
     if ((selectedUsage.type === "check" || selectedUsage.type === "declaration")
         && (selectedUsage.grantRecheck === true || selectedUsage.modifyCheck === true
-            || selectedUsage.modifyDamage === true || selectedUsage.grantSuitChange === true)) {
+            || selectedUsage.modifyDamage === true)) {
         const kind = selectedUsage.grantRecheck === true ? "recheck"
             : (selectedUsage.modifyCheck === true ? "modify"
                 : (selectedUsage.modifyDamage === true ? "modifyDamage" : "suitChange"));

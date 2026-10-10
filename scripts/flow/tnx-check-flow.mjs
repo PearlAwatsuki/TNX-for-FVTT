@@ -309,32 +309,27 @@ export class TnxCheckFlow {
         const cardNumeric = TnxCheckFlow._cardValueOverride(ctx) ?? card.value;
         const cardOverride = cardNumeric !== card.value ? { from: card.value, to: cardNumeric } : null;
 
-        // スート不一致 → スート変更(2026-07-12)があれば使用可能スートへ置き換えて成立、
-        // なければ判定不成立による失敗（起動は拒否しない。カードをプレイしてチャットに投稿）
-        if (!suit || !ctx.validSuits.includes(suit)) {
-            const changed = await TnxCheckFlow._trySuitChange(suit, ctx);
-            if (changed) {
-                if (cardNumeric === 1 && ctx.type !== "controlCheck") {
-                    return TnxCheckFlow._handleAceChoice(card, changed, ctx, { suitChangedFrom: suit ?? null, cardOverride });
-                }
-                return TnxCheckFlow._execute({
-                    card, cardCheckValue: getCardCheckValue({ numericValue: cardNumeric }),
-                    suit: changed, ctx, suitChangedFrom: suit ?? null, cardOverride,
-                });
-            }
+        // スート変更は成立可否の判定より前に行う。変更先は全スートから自由に選び、
+        // 変更後に通常のスート一致判定を行う（変更によって不成立になっても補正しない）。
+        const effectiveSuit = await TnxCheckFlow._resolveSuitChange(suit, ctx);
+        const suitChangedFrom = suit && effectiveSuit !== suit ? suit : null;
+
+        // スート不一致 → 判定不成立による失敗（起動は拒否しない。カードをプレイしてチャットに投稿）
+        if (!effectiveSuit || !ctx.validSuits.includes(effectiveSuit)) {
             return TnxCheckFlow._execute({
-                card, cardCheckValue: null, suit: suit ?? "spade", ctx, suitMismatch: true,
+                card, cardCheckValue: null, suit: effectiveSuit ?? suit ?? "spade", ctx,
+                suitMismatch: true, suitChangedFrom, cardOverride,
             });
         }
 
         // A: 11 か 21固定を選択（制御判定は選択不要）
         if (cardNumeric === 1 && ctx.type !== "controlCheck") {
-            return TnxCheckFlow._handleAceChoice(card, suit, ctx, { cardOverride });
+            return TnxCheckFlow._handleAceChoice(card, effectiveSuit, ctx, { suitChangedFrom, cardOverride });
         }
 
         // 通常カード
         const cardCheckValue = getCardCheckValue({ numericValue: cardNumeric });
-        return TnxCheckFlow._execute({ card, cardCheckValue, suit, ctx, cardOverride });
+        return TnxCheckFlow._execute({ card, cardCheckValue, suit: effectiveSuit, ctx, suitChangedFrom, cardOverride });
     }
 
     /**
@@ -406,21 +401,21 @@ export class TnxCheckFlow {
             return TnxCheckFlow._execute({ card, cardCheckValue, suit: suit ?? ctx.validSuits[0] ?? "spade", ctx, fromDeck: true, cardOverride });
         }
 
-        // スート不一致 → スート変更(2026-07-12)があれば置き換え、なければ不成立（手札判定と同様）
-        if (!suit || !ctx.validSuits.includes(suit)) {
-            const changed = await TnxCheckFlow._trySuitChange(suit, ctx);
-            if (changed) {
-                if (cardNumeric === 1 && ctx.type !== "controlCheck") {
-                    return TnxCheckFlow._handleAceChoice(card, changed, ctx, { fromDeck: true, suitChangedFrom: suit ?? null, cardOverride });
-                }
-                return TnxCheckFlow._execute({ card, cardCheckValue, suit: changed, ctx, fromDeck: true, suitChangedFrom: suit ?? null, cardOverride });
-            }
+        // 手札判定と同様、スート変更後に通常の成立可否を判定する。
+        const effectiveSuit = await TnxCheckFlow._resolveSuitChange(suit, ctx);
+        const suitChangedFrom = suit && effectiveSuit !== suit ? suit : null;
+        if (!effectiveSuit || !ctx.validSuits.includes(effectiveSuit)) {
             return TnxCheckFlow._execute({
-                card, cardCheckValue: null, suit: suit ?? "spade", ctx, fromDeck: true, suitMismatch: true,
+                card, cardCheckValue: null, suit: effectiveSuit ?? suit ?? "spade", ctx, fromDeck: true,
+                suitMismatch: true, suitChangedFrom, cardOverride,
             });
         }
 
-        return TnxCheckFlow._execute({ card, cardCheckValue, suit, ctx, fromDeck: true, cardOverride });
+        // 従来どおり、山札の A 選択はスートを実際に変更した経路でのみ行う。
+        if (suitChangedFrom && cardNumeric === 1 && ctx.type !== "controlCheck") {
+            return TnxCheckFlow._handleAceChoice(card, effectiveSuit, ctx, { fromDeck: true, suitChangedFrom, cardOverride });
+        }
+        return TnxCheckFlow._execute({ card, cardCheckValue, suit: effectiveSuit, ctx, fromDeck: true, suitChangedFrom, cardOverride });
     }
 
     // ─── プライベートヘルパー ──────────────────────────────────────────────────
@@ -481,38 +476,38 @@ export class TnxCheckFlow {
     }
 
     /**
-     * スート変更(2026-07-12 ユーザー確定): 「判定で使用できないスートのカードを、使用可能な
-     * スートに変更する」能力の表現。発火点はスート不一致の置換——次のいずれかが有効なとき、
-     * 不成立にせず使用可能スートの選択ダイアログを出して置き換える(それ以外の判定では出ない):
-     * ①用途の「スート変更可能」(ctx.allowSuitChange・組み合わせたスタイル技能の効果の用途側設定)
-     * ②付与された AE `check.suitChange`(他者バフの付与形。失効は当面手動＝「1回の判定」Duration
-     *   は時間管理フェーズで持続時間側に足す。持続時間と AE キーは独立)
-     * ③クリック待ち kind="suitChange"(次の自分の判定・アイテムロールで使用→待ち受け)
-     * 無印の「判定」＝能力値判定/技能判定の機構のため**制御判定は対象外**(制御判定は常に明示される
-     * =用語規約)。キャンセルは従来どおりスート不一致(不成立)。待ち受けの消費は適用確定時。
-     * @param {string|null} originalSuit 出したカードの元スート(不明は null)
+     * 用途設定または AE によるスート変更。成立するスートへの救済ではなく、カードの実効スートを
+     * 書き換える操作として、全4スートをプルダウンに提示する。キャンセル時は元スートを維持する。
+     * 制御判定・変更権なしではダイアログを出さず元スートを返す。
+     * @param {string|null} originalSuit カードの元スート
      * @param {object} ctx 判定コンテキスト
-     * @returns {Promise<string|null>} 置き換え後のスート。null=変更しない(不成立へ)
+     * @returns {Promise<string|null>} 判定に流す実効スート
      */
-    static async _trySuitChange(originalSuit, ctx) {
-        if (ctx.type === "controlCheck") return null;
+    static async _resolveSuitChange(originalSuit, ctx) {
+        if (ctx.type === "controlCheck") return originalSuit;
         const actor = game.actors.get(ctx.actorId);
         const hasBuff = actor ? actorHasSuitChangeBuff(actor) : false;
-        const armed = TnxCheckFlow.peekAchievementAction("suitChange");
-        const armedMatch = armed && armed.actorId === ctx.actorId ? armed : null;
-        if (ctx.allowSuitChange !== true && !hasBuff && !armedMatch) return null;
-        if (!ctx.validSuits?.length) return null;
-        const chosen = await TnxCheckFlow._chooseSuit(ctx.validSuits, {
-            title: "スート変更",
-            content: `<p>このカードのスート${originalSuit ? `（${SUIT_LABELS[originalSuit] ?? originalSuit}）` : ""}は判定に使用できません。使用可能なスートに変更しますか？（キャンセル＝スート不一致で不成立）</p>`,
+        if (ctx.allowSuitChange !== true && !hasBuff) return originalSuit;
+
+        const initialSuit = ALL_SUITS.includes(originalSuit) ? originalSuit : ALL_SUITS[0];
+        const options = ALL_SUITS.map(s =>
+            `<option value="${s}"${s === initialSuit ? " selected" : ""}>${SUIT_LABELS[s] ?? s}</option>`
+        ).join("");
+        const selected = await foundry.applications.api.DialogV2.wait({
+            window:   { title: "スート変更" },
+            classes:  ["tokyo-nova", "tnx-dialog"],
+            position: { width: 360 },
+            content:  `<form autocomplete="off"><div class="form-group"><label>変更後のスート</label><select name="suit">${options}</select></div></form>`,
+            buttons: [
+                {
+                    action: "ok", icon: "fas fa-check", label: "変更", default: true,
+                    callback: (_event, _button, dialog) => dialog.element.querySelector("[name=suit]")?.value ?? initialSuit,
+                },
+                { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => false },
+            ],
+            close: () => null,
         });
-        if (!chosen || chosen === "cancel") return null;
-        // 待ち受け(次の判定)からの発動は、用途設定・付与 AE が無い場合のみ消費する(非消費の源が優先)
-        if (armedMatch && ctx.allowSuitChange !== true && !hasBuff) {
-            TnxCheckFlow.cancelAchievementAction();
-            if (armedMatch.consumeUses?.length) await applyConsumptionPlan(armedMatch.consumeUses);
-        }
-        return chosen;
+        return ALL_SUITS.includes(selected) ? selected : originalSuit;
     }
 
     static async _chooseSuit(validSuits, { title = "スートを選択", content = "<p>判定に使用するスートを選んでください。</p>" } = {}) {
@@ -1293,11 +1288,9 @@ export class TnxCheckFlow {
     //   - "modify"(判定を修正): 結果カードの達成値クリック=その判定に事後ボーナス/ペナルティを適用
     //   - "modifyDamage"(ダメージを修正): ダメージカードの攻撃側合計クリック=そのダメージに修正を適用
     //     (発動処理は damage-flow.handleDamageModifyClick。状態は peekAchievementAction で覗く)
-    //   - "suitChange"(スートを変更): 次の自分の判定で使用不可スートを出したとき=使用可能スートへ変更
-    //     (発動処理は _trySuitChange。クリックでなく判定のカードプレイが発動点)
     // 排他(同時に1つ)・同じ用途の再使用でキャンセル。発動条件(失敗時のみ等)は自動強制しない(卓裁定)。
 
-    /** @type {{kind:"recheck"|"modify"|"modifyDamage"|"suitChange"|"covering", actorId:string, skillItemId:string, skillName:string, usageId:string, consumeUses:Array, merge:boolean}|null} */
+    /** @type {{kind:"recheck"|"modify"|"modifyDamage"|"covering", actorId:string, skillItemId:string, skillName:string, usageId:string, consumeUses:Array, merge:boolean}|null} */
     static _clickState = null;
 
     static get isGrantPending() { return TnxCheckFlow._clickState !== null; }
@@ -1309,7 +1302,7 @@ export class TnxCheckFlow {
 
     /**
      * クリック待ちモードを開始する。
-     * @param {"recheck"|"modify"|"modifyDamage"|"suitChange"} kind
+     * @param {"recheck"|"modify"|"modifyDamage"} kind
      * @param {Actor} actor 用途の使用者
      * @param {Item} skill 用途の親技能
      * @param {{usageId?:string, consumeUses?:Array, merge?:boolean}} [opts]
@@ -1331,10 +1324,6 @@ export class TnxCheckFlow {
             modifyDamage: {
                 cancel: "ダメージの修正をキャンセルしました。",
                 start:  `ダメージ・チャットカードのダメージ（攻撃側合計）をクリックすると、そのダメージに「${skill.name}」の修正を適用します（「${skill.name}」をもう一度使用するとキャンセル）。`,
-            },
-            suitChange: {
-                cancel: "スートの変更をキャンセルしました。",
-                start:  `次に自分が行う判定で使用できないスートのカードを出したとき、使用可能なスートに変更できます（「${skill.name}」をもう一度使用するとキャンセル）。`,
             },
             covering: {
                 cancel: "カバーをキャンセルしました。",
@@ -1391,7 +1380,6 @@ export class TnxCheckFlow {
         }
         if (state.kind === "modifyDamage") return; // ダメージクリック待ちは達成値クリックでは発動しない(damage-flow 側)
         if (state.kind === "covering") return;     // カバー待ちの発動点はダメージカードの対象クリック(damage-flow 側)
-        if (state.kind === "suitChange") return;   // スート変更待ちの発動点は判定のカードプレイ(_trySuitChange)
         if (state.kind === "protect") return;      // 防御(適用前に防ぐ)の発動点はダメージカードの対象行(damage-flow 側)
         if (state.kind === "evade") return;        // 回避の発動点は攻撃カードの自分の対象行(attack-flow 側)
         if (state.kind === "negate") {             // 打ち消し(17-2): その判定を失敗させる(miracle-flow 側)

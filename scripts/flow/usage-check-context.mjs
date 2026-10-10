@@ -53,7 +53,7 @@ function canAnswerCheckRequest(usage) {
     if (Number.isFinite(usage.fixedResult)) return false;
     if (usage.npcAcquire === true) return false;
     if (usage.grantRecheck === true || usage.modifyCheck === true
-        || usage.modifyDamage === true || usage.grantSuitChange === true) return false;
+        || usage.modifyDamage === true) return false;
     return true;
 }
 

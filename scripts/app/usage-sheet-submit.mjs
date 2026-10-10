@@ -80,12 +80,10 @@ export async function submitUsageForm(sheet, event, form, formData) {
         // 再判定可能(allowRecheck)・スート変更可能(allowSuitChange)は「判定を行う用途」の性質の
         // ため通常モードでのみ保持
         const prevCheckMode = usage.grantRecheck === true ? "grant"
-            : (usage.modifyCheck === true ? "modify"
-                : (usage.grantSuitChange === true ? "suitChange" : "normal"));
+            : (usage.modifyCheck === true ? "modify" : "normal");
         const checkMode = raw["checkMode"] ?? prevCheckMode;
         update.grantRecheck    = checkMode === "grant";
         update.modifyCheck     = checkMode === "modify";
-        update.grantSuitChange = checkMode === "suitChange";
         update.allowRecheck = checkMode === "normal"
             ? (raw["allowRecheck"] ?? usage.allowRecheck ?? false) : false;
         update.allowSuitChange = checkMode === "normal"
@@ -136,8 +134,6 @@ export async function submitUsageForm(sheet, event, form, formData) {
         // 再判定を付与(2026-07-13): 宣言は組み合わせなしの素の再判定権を事後付与する。
         // 式欄を持たないため再描画は不要
         update.grantRecheck = raw["grantRecheck"] ?? (usage.grantRecheck === true);
-        // スートを変更(次の判定・2026-07-12): 式欄を持たないため再描画は不要
-        update.grantSuitChange = raw["grantSuitChange"] ?? (usage.grantSuitChange === true);
         declModifyChanged = update.modifyCheck !== prevMC || update.modifyDamage !== prevMD;
     }
 
