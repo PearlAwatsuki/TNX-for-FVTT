@@ -1,3 +1,4 @@
+import { syncViewModeCheckboxes } from "../ui/sheet-input-state.mjs";
 import { vehicleOutfit, requestVehicleOperation, toggleCrewTarget, selectedCrew, crewTarget, dronePilot } from "../session/vehicle-state.mjs";
 import { buildOutfitSummaryRows } from "../ui/outfit-view.mjs";
 import { isDrone } from "../rules/vehicle.mjs";
@@ -86,6 +87,7 @@ export class TokyoNovaVehicleSheet extends HandlebarsApplicationMixin(ActorSheet
         super._onRender(context, options);
         this.element.classList.toggle("edit-mode", context.isEditMode);
         this.element.classList.toggle("view-mode", !context.isEditMode);
+        syncViewModeCheckboxes(this.element, context.isEditMode);
         const header = this.element.querySelector(".window-header");
         header?.querySelector(".edit-mode-toggle")?.remove();
         if (header && this.isEditable) {

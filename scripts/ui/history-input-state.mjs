@@ -1,10 +1,11 @@
+import { isValueEntry } from "./sheet-input-state.mjs";
 /** 履歴保存・同期の再描画でも、現在入力中の行・値・選択範囲を引き継ぐ。 */
 export function HistoryInputStateMixin(Base) {
     return class extends Base {
         _preSyncPartState(partId, newElement, priorElement, state) {
             super._preSyncPartState(partId, newElement, priorElement, state);
             const input = priorElement.ownerDocument.activeElement;
-            if (!priorElement.contains(input) || !input?.matches("input, textarea")) return;
+            if (!priorElement.contains(input) || !isValueEntry(input)) return;
             
             let selector = "";
             if (input.id) selector = `#${CSS.escape(input.id)}`;

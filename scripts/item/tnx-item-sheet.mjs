@@ -1,3 +1,4 @@
+import { isValueEntry, syncViewModeCheckboxes } from "../ui/sheet-input-state.mjs";
 import { bindListDragDrop } from "../ui/list-drag-drop.mjs";
 import { restoreEnchantmentEditValues } from "../rules/enchantment-attributes.mjs";
 import { captureScrollTop, restoreScrollTop } from "../ui/scroll-preserve.mjs";
@@ -126,7 +127,7 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
     _preSyncPartState(partId, newElement, priorElement, state) {
         super._preSyncPartState?.(partId, newElement, priorElement, state);
         const input = priorElement.ownerDocument.activeElement;
-        if (!priorElement.contains(input) || !input?.matches("input, textarea")) return;
+        if (!priorElement.contains(input) || !isValueEntry(input)) return;
         
         let selector = "";
         if (input.id) selector = `#${CSS.escape(input.id)}`;
@@ -169,6 +170,7 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
         // edit/view モード CSS クラスを同期
         el.classList.toggle("edit-mode", !!context.isEditMode);
         el.classList.toggle("view-mode", !context.isEditMode);
+        syncViewModeCheckboxes(el, context.isEditMode);
 
         // @UUID コンテンツリンクのカード・ツールチップ(16-x): 解説内の辞典リンクに適用
         import("../chat/item-card-tooltips.mjs").then(m => m.applyContentLinkCardTooltips(el));

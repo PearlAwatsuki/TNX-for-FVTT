@@ -1,3 +1,4 @@
+import { isValueEntry, syncViewModeCheckboxes } from "../ui/sheet-input-state.mjs";
 /**
  * @fileoverview TnxCharacterSheetBase - アクターシート共通基底(フェーズ11-2 共通部品化)
  *
@@ -433,6 +434,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
 
         el.classList.toggle("edit-mode",  !!context.isEditMode);
         el.classList.toggle("view-mode", !context.isEditMode);
+        syncViewModeCheckboxes(el, context.isEditMode);
 
         // アイテム行のカード・ツールチップ(16-2): レンダー後に非同期で属性を流し込む
         // (ホバー時には出来上がっている・HUD シーンカードのツールチップと同方式)
@@ -597,7 +599,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
     _preSyncPartState(partId, newElement, priorElement, state) {
         super._preSyncPartState?.(partId, newElement, priorElement, state);
         const input = priorElement.ownerDocument.activeElement;
-        if (!priorElement.contains(input) || !input?.matches("input, textarea")) return;
+        if (!priorElement.contains(input) || !isValueEntry(input)) return;
         
         let selector = "";
         if (input.id) selector = `#${CSS.escape(input.id)}`;

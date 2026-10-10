@@ -1,3 +1,4 @@
+import { syncViewModeCheckboxes } from "../ui/sheet-input-state.mjs";
 /**
  * @fileoverview TnxRecordSheet — レコードシート(User flag ビューア・エディタ)
  *
@@ -31,10 +32,12 @@ export class TnxRecordSheet extends HistoryInputStateMixin(HandlebarsApplication
   constructor(user, options = {}) {
     super({ id: `tnx-record-sheet-${user.id}`, ...options });
     this.user = user;
+    this._isEditMode = false;
   }
 
   static DEFAULT_OPTIONS = {
-    classes: ["tokyo-nova", "record-sheet"],
+    // `sheet` は既存の編集トグルとヘッダー意匠を流用するために付ける。
+    classes: ["tokyo-nova", "sheet", "record-sheet"],
     window: {
       icon: "fas fa-id-card",
       resizable: true,
@@ -74,7 +77,7 @@ export class TnxRecordSheet extends HistoryInputStateMixin(HandlebarsApplication
       user: this.user,
       exp: flagData.exp,
       history,
-      isEditMode: this._canEdit(),
+      isEditMode: this._canEdit() && this._isEditMode,
     };
   }
 
@@ -85,11 +88,147 @@ export class TnxRecordSheet extends HistoryInputStateMixin(HandlebarsApplication
   }
 
   /** @override */
-  _onRender(_context, _options) {
+  _onRender(context, _options) {
     restoreScrollTop(this.element, ".record-sheet-body", this._scrollTop);
-    if (!this._canEdit()) return;
-    for (const input of this.element.querySelectorAll(".history-input")) {
+    const el = this.element;
+    el.classList.toggle("edit-mode", !!context.isEditMode);
+    el.classList.toggle("view-mode", !context.isEditMode);
+    syncViewModeCheckboxes(el, context.isEditMode);
+    this._renderHeaderControls();
+
+    if (!context.isEditMode) return;
+    for (const input of el.querySelectorAll(".history-input")) {
       input.addEventListener("change", this._onHistoryInputChange.bind(this));
+    }
+  }
+
+  /** 既存シートと同じヘッダー構造へ、レコード固有の操作だけを追加する。 */
+  _renderHeaderControls() {
+    const header = this.element.querySelector(".window-header");
+    if (!header) return;
+
+    // 再描画時や旧試作版から残った操作を先に除去し、入口を一組だけにする。
+    header.querySelectorAll(".record-header-control, .edit-mode-toggle").forEach(element => element.remove());
+
+    const title = header.querySelector(".window-title");
+    if (title) {
+      // `.tokyo-nova.sheet` の一般則は本文に名前を持つシートのタイトルを隠すが、
+      // レコードシートはヘッダーのタイトルが正本なので元どおり表示する。
+      title.style.display = "flex";
+      title.style.flex = "1 1 auto";
+      title.style.minWidth = "0";
+    }
+
+    // 左端: 既存の編集／閲覧トグル。その直後にはコア生成のアイコンとタイトルが残る。
+    if (this._canEdit()) {
+      const toggle = document.createElement("a");
+      toggle.className = "edit-mode-toggle";
+      toggle.title = "編集モード切替";
+      toggle.setAttribute("aria-label", "編集モード切替");
+      toggle.innerHTML = '<i class="fa-solid fa-eye tnx-view-icon"></i><i class="fa-solid fa-pen tnx-edit-icon"></i>';
+      toggle.addEventListener("click", event => {
+        event.preventDefault();
+        this._isEditMode = !this._isEditMode;
+        this.render();
+      });
+      header.prepend(toggle);
+    }
+
+    const close = header.querySelector('[data-action="close"]') ?? header.lastElementChild;
+    const addControl = (action, titleText, icon, handler) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      // Foundry ApplicationV2 の既存ヘッダーコントロールと同じ構造を使う。
+      button.className = `header-control icon fa-solid ${icon} record-header-control`;
+      button.dataset.action = action;
+      button.title = titleText;
+      button.setAttribute("aria-label", titleText);
+      button.addEventListener("click", async event => {
+        event.preventDefault();
+        event.stopPropagation();
+        await handler.call(this);
+      });
+      if (close?.parentNode === header) header.insertBefore(button, close);
+      else header.append(button);
+    };
+
+    // 下向き=外部ファイルから取り込み、上向き=外部ファイルへ書き出し、の対称な組。
+    if (this._canEdit()) addControl("importRecord", "レコードをインポート", "fa-download", this._importRecord);
+    addControl("exportRecord", "レコードをエクスポート", "fa-upload", this._exportRecord);
+  }
+
+  /** User flag のレコードを JSON として書き出す。 */
+  async _exportRecord() {
+    try {
+      const flag = getUserFlagData(this.user);
+      const payload = {
+        format: "tokyo-nova-axleration.record",
+        version: 1,
+        userName: this.user.name,
+        exportedAt: new Date().toISOString(),
+        record: { history: flag.history, exp: flag.exp },
+      };
+      const safeName = String(this.user.name || "record").replace(/[\/:*?"<>|]/g, "_");
+      const save = foundry.utils.saveDataToFile ?? globalThis.saveDataToFile;
+      if (typeof save !== "function") throw new Error("ファイル保存機能を利用できません。");
+      save(JSON.stringify(payload, null, 2), "application/json", `tnx-record-${safeName}.json`);
+    } catch (error) {
+      console.error("TNX | レコードのエクスポートに失敗しました", error);
+      ui.notifications.error(`レコードをエクスポートできませんでした: ${error.message}`);
+    }
+  }
+
+  /** JSON を選択して対象 User のレコードへ読み込む。 */
+  async _importRecord() {
+    if (!this._canEdit()) return;
+    const file = await foundry.applications.api.DialogV2.prompt({
+      window: { title: "レコードのインポート" },
+      classes: ["tokyo-nova", "tnx-dialog"],
+      content: '<div class="form-group"><label>JSONファイル</label><div class="form-fields"><input type="file" name="recordFile" accept="application/json,.json"></div></div>',
+      ok: {
+        label: "インポート",
+        icon: "fas fa-download",
+        callback: (_event, button) => button.form.elements.recordFile.files?.[0] ?? null,
+      },
+      modal: true,
+      rejectClose: false,
+    });
+    if (!file) return;
+
+    try {
+      const read = foundry.utils.readTextFromFile ?? globalThis.readTextFromFile;
+      if (typeof read !== "function") throw new Error("ファイル読込機能を利用できません。");
+      const parsed = JSON.parse(await read(file));
+      const record = parsed?.format === "tokyo-nova-axleration.record" ? parsed.record : parsed;
+      if (!record || typeof record.history !== "object" || Array.isArray(record.history)
+          || !record.exp || typeof record.exp !== "object") throw new Error("レコード形式ではありません。");
+
+      const history = {};
+      for (const [id, entry] of Object.entries(record.history)) {
+        if (!entry || typeof entry !== "object") continue;
+        const key = String(entry.id || id || foundry.utils.randomID());
+        history[key] = {
+          id: key,
+          date: String(entry.date ?? ""),
+          title: String(entry.title ?? ""),
+          exp: Number(entry.exp) || 0,
+          rl: String(entry.rl ?? ""),
+          players: String(entry.players ?? ""),
+          origin: String(entry.origin ?? this.user.id),
+          castUuid: String(entry.castUuid ?? ""),
+        };
+      }
+      await this.user.update({
+        [`flags.${game.system.id}.history`]: history,
+        [`flags.${game.system.id}.exp.total`]: calcHistoryExpTotal(history),
+        [`flags.${game.system.id}.exp.value`]: Number(record.exp.value) || 0,
+        [`flags.${game.system.id}.exp.spent`]: Number(record.exp.spent) || 0,
+      });
+      ui.notifications.info("レコードをインポートしました。");
+      this.render();
+    } catch (error) {
+      console.error("TNX | レコードのインポートに失敗しました", error);
+      ui.notifications.error(`レコードをインポートできませんでした: ${error.message}`);
     }
   }
 
