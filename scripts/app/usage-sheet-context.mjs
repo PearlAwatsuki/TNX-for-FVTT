@@ -351,8 +351,10 @@ export async function prepareUsageContext(sheet, context) {
     }
     context.isAcquireCheckMode = context.isNpcAcquireType && !context.isAcquireExtraMode;
 
-    // 技能ベースの用途（コンボ・対決表示・自動入力の対象）。攻撃は check なのでここに含まれる
+    // 技能ベースの用途（コンボの設定対象）。攻撃は check なのでここに含まれる
     context.showSkillParams    = context.isCheckType || context.isAcquireCheckMode;
+    // 宣言にも親技能の発動パラメータを再取得するボタンを表示する。
+    context.showAutoFill = !context.isFixedCheck && (context.showSkillParams || context.isDeclarationType);
 
     // ベース技能・組み合わせ技能候補（check / attack）
     if (context.showSkillParams) {

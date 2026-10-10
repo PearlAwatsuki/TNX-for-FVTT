@@ -297,10 +297,10 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
             ...(isFixedCheck ? { fixedResult: 10 } : {}),
         };
 
-        // 自動入力の作成時一回適用(11-6 追補・2026-07-06 承認): 判定系用途は親技能の固有値から
+        // 自動入力の作成時一回適用: 判定系・宣言用途は親技能の固有値から
         // 発動パラメータと消費行を導出して初期値にする(以降の再導出はシートのボタンで明示的に。
         // ライブ追従はしない)。固定値判定は発動項目を持たないため対象外
-        if (!isFixedCheck && executionFormOf(entry) === "check") {
+        if (!isFixedCheck && (executionFormOf(entry) === "check" || entry.type === "declaration")) {
             const patch = await deriveUsageAutoFill(this.item, entry);
             foundry.utils.mergeObject(entry, foundry.utils.expandObject(patch));
         }
