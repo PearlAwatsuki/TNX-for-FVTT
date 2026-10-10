@@ -32,7 +32,7 @@ export function processLabel(phase) {
  *          isMainOwner:boolean, isSpotOwner:boolean, candidateName:string|null}} state
  * @returns {Array<{action:string, label:string, primary?:boolean}>}
  */
-export function footerPlan({ hasCombat, started, phase, isGM, isMainOwner, isSpotOwner, candidateName, isInterruptMain }) {
+export function footerPlan({ hasCombat, started, phase, isGM, isMainOwner, isSpotOwner, candidateName, isInterruptMain, canRewind }) {
   if (!hasCombat) return [];
   if (!started) {
     return isGM ? [{ action: "tnxStartCombat", label: "カット進行の開始", primary: true }] : [];
@@ -60,7 +60,8 @@ export function footerPlan({ hasCombat, started, phase, isGM, isMainOwner, isSpo
   const buttons = phase === "main"
     ? endMainButtons
     : [nextButton, ...(phaseJumpLabel ? [{ action: "tnxPhase", label: phaseJumpLabel }] : [])];
-  return [...buttons, { action: "tnxEndCombat", label: "カット進行の終了" }];
+  const rewind = canRewind ? [{ action: "tnxRewind", label: "戻る" }] : [];
+  return [...rewind, ...buttons, { action: "tnxEndCombat", label: "カット進行の終了" }];
 }
 
 /**

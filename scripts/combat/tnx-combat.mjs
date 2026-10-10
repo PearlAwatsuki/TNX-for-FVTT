@@ -93,6 +93,64 @@ export class TnxCombat extends Combat {
    */
   get majorActed() { return this.getFlag(SYSTEM_ID, "majorActed") ?? []; }
 
+  /** トラッカー前進前の履歴。戻る操作は末尾のスナップショットを復元する。 */
+  get progressionHistory() { return this.getFlag(SYSTEM_ID, "progressionHistory") ?? []; }
+
+  /** 現在の進行位置と、進行で変更し得る各参加者のAR・CSカレントを保存する。 */
+  _progressionSnapshot() {
+    return {
+      round: this.round,
+      turn: this.turn,
+      phase: this.cutPhase,
+      mainCombatantId: this.mainCombatantId,
+      spotCombatantId: this.getFlag(SYSTEM_ID, "spotCombatantId") ?? null,
+      majorActed: [...this.majorActed],
+      interruptStack: foundry.utils.deepClone(this.interruptStack),
+      interruptConsumesAr: this.interruptConsumesAr,
+      actors: this.combatants.map(combatant => ({
+        combatantId: combatant.id,
+        ar: Number(combatant.actor?.system?.actionRank?.value ?? 0),
+        csCurrent: Number(combatant.actor?.system?.combatSpeed?.current ?? 0),
+      })),
+    };
+  }
+
+  /** 前進直前の状態を履歴へ積む。 */
+  async _pushProgressionHistory() {
+    const history = [...this.progressionHistory, this._progressionSnapshot()].slice(-100);
+    await this.setFlag(SYSTEM_ID, "progressionHistory", history);
+  }
+
+  /** 直前のトラッカー前進を1段階戻す。 */
+  async rewindProgression() {
+    if (!game.user.isGM) return this;
+    const history = [...this.progressionHistory];
+    const snapshot = history.pop();
+    if (!snapshot) return this;
+
+    for (const state of snapshot.actors ?? []) {
+      const actor = this.actorOf(state.combatantId);
+      if (!actor) continue;
+      await applyActorUpdate(actor, {
+        "system.actionRank.value": state.ar,
+        "system.combatSpeed.current": state.csCurrent,
+      });
+    }
+
+    await this.update({
+      round: snapshot.round,
+      turn: snapshot.turn,
+      [`flags.${SYSTEM_ID}.phase`]: snapshot.phase,
+      [`flags.${SYSTEM_ID}.mainCombatantId`]: snapshot.mainCombatantId,
+      [`flags.${SYSTEM_ID}.spotCombatantId`]: snapshot.spotCombatantId,
+      [`flags.${SYSTEM_ID}.majorActed`]: snapshot.majorActed ?? [],
+      [`flags.${SYSTEM_ID}.interruptStack`]: snapshot.interruptStack ?? [],
+      [`flags.${SYSTEM_ID}.interruptConsumesAr`]: snapshot.interruptConsumesAr,
+      [`flags.${SYSTEM_ID}.progressionHistory`]: history,
+    });
+    return this;
+  }
+
   /**
    * サブターン内で今プロセスの行動権(スポット)を持つ combatant id。
    * セットアップ/イニシアチブ/クリンナップ中のみ。走査を終えていれば null。
@@ -199,6 +257,7 @@ export class TnxCombat extends Combat {
       [`flags.${SYSTEM_ID}.interruptStack`]: [],
       [`flags.${SYSTEM_ID}.interruptConsumesAr`]: null,
       [`flags.${SYSTEM_ID}.majorActed`]: [],
+      [`flags.${SYSTEM_ID}.progressionHistory`]: [],
     };
     Hooks.callAll("combatStart", this, updateData);
     await this.update(updateData);
@@ -213,7 +272,7 @@ export class TnxCombat extends Combat {
    * 「次へ」＝形を変えた「次のターンへ」(nextTurn 1本)。
    * - サブターン(setup/initiative/cleanup)中: スポット(プロセスの行動権)を CS順の次のキャラへ渡す。
    *   走査を終えていればフェーズ送り(advancePhase)。
-   * - メインターン中: 手番終了(メジャーを行っていれば AR−1・CSカレント0)→ イニシアチブへ戻る。
+   * - メインターン中: 手番終了(メジャー実行の有無を問わず AR−1・CSカレント0)→ イニシアチブへ戻る。
    */
   async advanceCut() {
     if (!game.user.isGM) return this;
@@ -221,12 +280,14 @@ export class TnxCombat extends Combat {
     // キーバインド等から nextTurn が来ても、退避スタックを壊さないためのガード。
     if (this.inInterrupt) return this;
     const phase = this.cutPhase;
+    if (!phase) return this;
+    await this._pushProgressionHistory();
     if (WALK_PHASES.has(phase)) {
       const spot = this.getFlag(SYSTEM_ID, "spotCombatantId") ?? null;
-      if (spot === null) return this.advancePhase(); // 走査済み(または対象なし)
+      if (spot === null) return this.advancePhase(false); // 走査済み(または対象なし)
       // 手番はそのプロセスの用途を持つ参加者にだけ回す(用途なし・消費枯渇は飛ばす・13-6)
       const next = nextSpotId(this.cutParticipants, spot, this._eligibleSpotIds(phase));
-      if (next === null) return this.advancePhase(); // 最後のキャラまで渡し終えた
+      if (next === null) return this.advancePhase(false); // 最後のキャラまで渡し終えた
       // core の turn(ターンプレイヤー)もスポットに同期して進める
       await this.update({
         turn: this._turnIndexOf(next),
@@ -234,7 +295,7 @@ export class TnxCombat extends Combat {
       });
       return this;
     }
-    if (phase === "main") return this.advancePhase();
+    if (phase === "main") return this.advancePhase(false);
     return this;
   }
 
@@ -247,10 +308,11 @@ export class TnxCombat extends Combat {
    *   (2026-07-26 一般則。空メジャー廃止＝メジャーを実際に行った者だけ消費)
    * - cleanup→setup: 次カット(round+1・再シード=AR全回復を含む)
    */
-  async advancePhase() {
+  async advancePhase(recordHistory = true) {
     if (!game.user.isGM) return this;
     const fromPhase = this.cutPhase;
     if (!fromPhase) return this;
+    if (recordHistory) await this._pushProgressionHistory();
     // 境界イベント計画用に遷移前の状態を退避(発火は update 後・13-6)
     const fromMainId = this.mainCombatantId;
     const fromCut = this.round;
@@ -262,11 +324,10 @@ export class TnxCombat extends Combat {
         if (c.actor) await applyActorUpdate(c.actor, buildSetupConfirmUpdate(c.actor.system));
       }
     }
-    //   プロセス終了: そのプロセスでメジャーアクションを行った者に AR−1＋CSカレント0(空メジャー廃止・
-    //   AR減少⟺CS0・2026-07-26 一般則)。**confirmMain より先**に適用し、行動済みの者が次のメイン候補に
-    //   来ないようにする。majorActed はメジャー実行フック(markMajorAction)が積む。
-    for (const id of this.majorActed) {
-      const actor = this.actorOf(id);
+    //   メインプロセス終了: メジャーアクションの実行有無に関係なく、その手番の行動者へ
+    //   AR−1＋CSカレント0を適用する。開始時ではなく終了時に確定する。
+    if (fromPhase === "main" && fromMainId) {
+      const actor = this.actorOf(fromMainId);
       if (actor) await applyActorUpdate(actor, buildArDecrementUpdate(actor.system));
     }
 
@@ -453,12 +514,10 @@ export class TnxCombat extends Combat {
     }
     if (!this.inInterrupt) return this;
     const endedId = this.mainCombatantId;
-    // consumesAr のときだけ、挿入メインでメジャーを行った者に AR−1＋CS0(空メジャーは対象外)
+    // ARを消費する挿入メインは、メジャーアクションの有無に関係なく終了時に行動者へAR−1＋CS0。
     if (this.interruptConsumesAr) {
-      for (const id of this.majorActed) {
-        const actor = this.actorOf(id);
-        if (actor) await applyActorUpdate(actor, buildArDecrementUpdate(actor.system));
-      }
+      const actor = this.actorOf(endedId);
+      if (actor) await applyActorUpdate(actor, buildArDecrementUpdate(actor.system));
     }
     const { restore, remaining } = popInterruptFrame(this.interruptStack);
     // 復元先の turn: メイン復帰ならメイン行動者・サブターン復帰ならスポットへ(位置は退避時に保存済み)

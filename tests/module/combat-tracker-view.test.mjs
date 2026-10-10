@@ -32,6 +32,15 @@ describe("footerPlan()（フッター＝「次へ」＋フェーズ送り＋開�
     expect(footerPlan({ ...base, started: false, isGM: false })).toEqual([]);
   });
 
+  it("履歴があれば RL の進行操作の先頭に戻るボタンを出す", () => {
+    expect(footerPlan({ ...base, phase: "setup", canRewind: true })).toEqual([
+      { action: "tnxRewind", label: "戻る" },
+      { action: "tnxAdvance", label: "次へ", primary: true },
+      { action: "tnxPhase", label: "イニシアチブへ" },
+      { action: "tnxEndCombat", label: "カット進行の終了" },
+    ]);
+  });
+
   it("セットアップ（RL）＝次へ＋イニシアチブへ＋終了", () => {
     expect(footerPlan({ ...base, phase: "setup" })).toEqual([
       { action: "tnxAdvance", label: "次へ", primary: true },

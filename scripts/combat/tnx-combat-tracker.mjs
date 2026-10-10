@@ -30,6 +30,7 @@ export class TnxCombatTracker extends CombatTracker {
       tnxStartCombat:      TnxCombatTracker._onStartCombat,
       tnxEndCombat:        TnxCombatTracker._onEndCombat,
       tnxAdvance:          TnxCombatTracker._onAdvance,
+      tnxRewind:           TnxCombatTracker._onRewind,
       tnxPhase:            TnxCombatTracker._onPhase,
       tnxWait:             TnxCombatTracker._onWait,
       tnxInterrupt:        TnxCombatTracker._onInterrupt,
@@ -82,6 +83,7 @@ export class TnxCombatTracker extends CombatTracker {
       candidateName: candidate?.name ?? null,
       // 挿入メイン(割り込み)中は終了2ボタン(終了 / AR を−1して終了)へ切り替える(13-5)
       isInterruptMain: !!this._tnxInterruptMainId,
+      canRewind: (combat?.progressionHistory?.length ?? 0) > 0,
     });
   }
 
@@ -166,6 +168,7 @@ export class TnxCombatTracker extends CombatTracker {
   static async _onStartCombat() { await this.viewed?.startCombat(); }
   static async _onEndCombat()   { await this.viewed?.endCombat(); }
   static async _onAdvance()     { await this.viewed?.nextTurn(); }
+  static async _onRewind()      { await this.viewed?.rewindProgression(); }
   static async _onPhase()       { await this.viewed?.advancePhase(); }
   static async _onWait(event, target) { await this.viewed?.declareWait(combatantIdOf(target)); }
 
