@@ -34,7 +34,9 @@ export class ResidenceDataModel extends SystemDataModel.mixin(
     return {
       ...super.defineSchema(),
       appearanceTarget:    new fields.NumberField({ initial: 0 }),
+      cyberSecurityMode: new fields.StringField({ initial: "value", choices: ["none", "value", "reference"] }),
       cyberSecurity:       new fields.NumberField({ initial: 0 }),
+      analogSecurityMode: new fields.StringField({ initial: "value", choices: ["none", "value", "reference"] }),
       analogSecurity:      new fields.NumberField({ initial: 0 }),
       housingArea:         new fields.StringField({ initial: "" }),
       useHousingAreaDrop:  new fields.BooleanField({ initial: false }),

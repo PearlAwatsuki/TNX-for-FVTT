@@ -79,6 +79,9 @@ describe("computeColValue()（アウトフィット行の列の値）", () => {
     expect(computeColValue("appearance", { appearanceTarget: 8 }, { appearanceTarget: 12 })).toBe("12");
     expect(computeColValue("appearance", {}, null)).toBe("0");
     expect(computeColValue("security", { cyberSecurity: 1, analogSecurity: 2 }, null)).toBe("1／2");
+    expect(computeColValue("security", {cyberSecurity:0, cyberSecurityMode:"none", analogSecurity:7}, {cyberSecurity:10,analogSecurity:9})).toBe("-／9");
+    expect(computeColValue("security", {cyberSecurity:0, analogSecurity:0}, null)).toBe("0／0");
+
     expect(computeColValue("security", {}, { cyberSecurity: 5 })).toBe("5／0");
   });
 

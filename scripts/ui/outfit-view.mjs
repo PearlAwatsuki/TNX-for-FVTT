@@ -212,7 +212,10 @@ export function buildOutfitSummaryRows(system, type, { areaMods = null, resolveH
             const hideR = hideLabel(system.hide);
             push("購", buyR); push("隠", hideR);
             push("登場", fmtNum((system.appearanceTargetTotal ?? system.appearanceTarget ?? 0) + am("appearanceTargetMod")), "full");
-            push("セ(電／ア)", `${fmtNum((system.cyberSecurityTotal ?? system.cyberSecurity ?? 0) + am("cyberSecurityMod"))}／${fmtNum((system.analogSecurityTotal ?? system.analogSecurity ?? 0) + am("analogSecurityMod"))}`, "full");
+            const security = key => system[`${key}Mode`] === "none" ? "-"
+                : system[`${key}Mode`] === "reference" ? "解説参照"
+                : fmtNum((system[`${key}Total`] ?? system[key] ?? 0) + am(`${key}Mod`));
+            push("セ(電／ア)", `${security("cyberSecurity")}／${security("analogSecurity")}`, "full");
             const slotBase = slots.find((s) => s.kind === "normal");
             const slotCount = slotBase?.count?.mode === "value" ? (slotBase.count.total ?? slotBase.count.value ?? 0) : 0;
             push("ス", fmtNum(slotCount + am("slotMod")));

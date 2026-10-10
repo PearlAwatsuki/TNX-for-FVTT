@@ -52,8 +52,8 @@ export async function residenceEffectiveValues(sys) {
     const base = (key) => Number(sys?.[`${key}Total`] ?? sys?.[key] ?? 0);
     return {
         appearanceTarget: base("appearanceTarget") + Number(mods?.appearanceTargetMod ?? 0),
-        cyberSecurity:    base("cyberSecurity")    + Number(mods?.cyberSecurityMod ?? 0),
-        analogSecurity:   base("analogSecurity")   + Number(mods?.analogSecurityMod ?? 0),
+        cyberSecurity:    ["none", "reference"].includes(sys?.cyberSecurityMode) ? null : base("cyberSecurity")    + Number(mods?.cyberSecurityMod ?? 0),
+        analogSecurity:   ["none", "reference"].includes(sys?.analogSecurityMode) ? null : base("analogSecurity")   + Number(mods?.analogSecurityMod ?? 0),
         area:             mods?.area ?? "none",
         hasArea:          !!mods,
     };

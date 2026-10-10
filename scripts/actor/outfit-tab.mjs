@@ -157,7 +157,9 @@ export function computeColValue(key, sys, effectiveValues, partCtx = null) {
                 ?? sys.cyberSecurityTotal ?? sys.cyberSecurity ?? 0;
             const analog = effectiveValues?.analogSecurity
                 ?? sys.analogSecurityTotal ?? sys.analogSecurity ?? 0;
-            return `${cyber}／${analog}`;
+            const label = (key, value) => sys[`${key}Mode`] === "none" ? "-"
+                : sys[`${key}Mode`] === "reference" ? "解説参照" : String(value);
+            return `${label("cyberSecurity", cyber)}／${label("analogSecurity", analog)}`;
         }
         case "part": {
             // 部位キーの逆引き＋AE 追加行の併記(フェーズ12)

@@ -547,18 +547,32 @@
                         </div>
                         <div class="form-group">
                             <label>電脳セキュリティ</label>
+                            <div class="form-fields {{#if (eq system.cyberSecurityMode "value")}}split-fields{{/if}}">
+                                <select name="system.cyberSecurityMode">
+                                    {{selectOptions options.buyMode selected=system.cyberSecurityMode}}
+                                </select>
+                                {{#if (eq system.cyberSecurityMode "value")}}
                             <div class="number-input-spinner skill-sheet-spinner">
                                 <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.cyberSecurity">-</button>
                                 <input type="number" name="system.cyberSecurity" value="{{system.cyberSecurity}}">
                                 <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.cyberSecurity">+</button>
                             </div>
+                                {{/if}}
+                            </div>
                         </div>
                         <div class="form-group">
                             <label>アナログセキュリティ</label>
+                            <div class="form-fields {{#if (eq system.analogSecurityMode "value")}}split-fields{{/if}}">
+                                <select name="system.analogSecurityMode">
+                                    {{selectOptions options.buyMode selected=system.analogSecurityMode}}
+                                </select>
+                                {{#if (eq system.analogSecurityMode "value")}}
                             <div class="number-input-spinner skill-sheet-spinner">
                                 <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.analogSecurity">-</button>
                                 <input type="number" name="system.analogSecurity" value="{{system.analogSecurity}}">
                                 <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.analogSecurity">+</button>
+                            </div>
+                                {{/if}}
                             </div>
                         </div>
                     </div>
