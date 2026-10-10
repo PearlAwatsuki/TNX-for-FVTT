@@ -17,7 +17,7 @@ import { BiographyTemplate } from "./biography.mjs";
 import { AttributesTemplate } from "./attributes.mjs";
 import { ActorBaseTemplate } from "./actor-base.mjs";
 import { computeAttributeFinal, computeOutfitAggregates, resolveCombatSpeedDisplayTotal, isActorInStartedCombat } from "../../helpers.mjs";
-import { ATTACK_DAMAGE_TYPES, parseEffectTargetKey, resolveItemTotalPath, evalEffectConditions, effectAutoApplies, itemChangeTargets, isOutfitItem, AE_FLAG_TOTAL_PATHS, parseBooleanFlagValue } from "../../item/helpers.mjs";
+import { ATTACK_DAMAGE_TYPES, parseEffectTargetKey, resolveItemTotalPath, evalEffectConditions, effectAutoApplies, normalEffectSourceIsAvailable, itemChangeTargets, isOutfitItem, AE_FLAG_TOTAL_PATHS, parseBooleanFlagValue } from "../../item/helpers.mjs";
 import { buildEffectivePartSlots } from "../../item/part-helpers.mjs";
 import { computeUsesMaxTotalForActor, clampUsesMaxTotalForActor } from "../../item/uses.mjs";
 import { getEffectiveConditions, gatherConditionControlPenalty, gatherPartSlotMods } from "../../../rules/conditions.mjs";
@@ -231,6 +231,7 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
       for (const effect of (effects ?? [])) {
         if (!effect.active) continue;
         if (!effectAutoApplies(effect)) continue;
+        if (!normalEffectSourceIsAvailable(effect, bearer)) continue;
         if (!enchantmentAppliesToSelf(effect, bearer)) continue;
         // 準備先(親アイテム)に適用: 供給元の素のキーは準備先ホスト上の転送コピーが適用する
         if (effect.flags?.[SYSTEM_ID]?.applyToParent === true && bearer?.documentName === "Item") continue;
@@ -252,14 +253,6 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
     const nameApps = [];     // 名前装飾(フェーズ12・キー name)
     const partAddApps = [];  // 部位行の追加(フェーズ12・system.part.<部位キー>)
     for (const { effect, change, parsed, bearer } of entries) {
-      // cs.base(CSベースへの常時修正)・ar.max(付与ARへの常時修正)・partSlot(部位スロット増減)のみ:
-      // 保持アイテムが未準備なら読み飛ばす(2026-07-02 裁定・携帯/準備の一般原則「準備で常時効果解禁」を
-      // 常時系の AE 着地に適用)。isPrepared を持たない保持元(styleSkill・アクター自身)はゲート対象外。
-      // 部位「-」等の準備不要品(noPrepareRequired)は未準備でも常時効果を適用する(2026-07-09)
-      if (((parsed.scope === "cs" && parsed.path === "base") || parsed.scope === "ar"
-          || parsed.scope === "partSlot")
-          && bearer?.documentName === "Item" && bearer.system?.isPrepared === false
-          && !(bearer.system?.noPrepareRequiredTotal ?? bearer.system?.noPrepareRequired)) continue;
       const identity  = effect.flags?.[SYSTEM_ID]?.effectId || effect.id;
       const stackable = effect.flags?.[SYSTEM_ID]?.stackable === true;
       // 名前装飾: 効果が乗るアイテム自身の名前を実行時に飾る(in-memory・source 不変)。

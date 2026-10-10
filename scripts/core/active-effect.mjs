@@ -13,22 +13,25 @@
  * v14 では標準適用が静的 applyChange に移ったため、shouldApplyChange で TNX のキーを
  * 除外する。独自適用からの apply は新しい静的 API へ橋渡しする。
  */
-import { parseEffectTargetKey } from "../data/item/helpers.mjs";
+import { parseEffectTargetKey, normalEffectSourceIsAvailable } from "../data/item/helpers.mjs";
 import { SYSTEM_ID } from "../constants.mjs";
-import { isEnchantment, normalizeEffectKindData, ENCHANTMENT_STATUS_FLAGS } from "../rules/ae-kind.mjs";
+import { isEnchantment, normalizeEffectKindData, validateEffectTargetOutfit, ENCHANTMENT_STATUS_FLAGS } from "../rules/ae-kind.mjs";
 import { OUTFIT_TYPES } from "../data/item/outfit-categories.mjs";
 import { normalizeEnchantmentChanges } from "../rules/enchantment-attributes.mjs";
 import { forcedDeletion } from "./forced-deletion.mjs";
 
 export class TokyoNovaActiveEffect extends ActiveEffect {
   get modifiesActor() {
-    return !isEnchantment(this) && super.modifiesActor;
+    if (isEnchantment(this)) return false;
+    if (!normalEffectSourceIsAvailable(this, this.parent)) return false;
+    return super.modifiesActor;
   }
 
   async _preCreate(data, options, user) {
     if (options.tnxAEMigration) return super._preCreate(data, options, user);
     if (isEnchantment(this)) {
       const next = normalizeEffectKindData(this.toObject());
+      validateEffectTargetOutfit(next, this.parent);
       this.updateSource({ statuses: [], flags: next.flags });
       const path = next.system?.changes ? "system.changes" : "changes";
       this.updateSource({ [path]: normalizeEnchantmentChanges(next.system?.changes ?? next.changes ?? []) });
@@ -45,6 +48,7 @@ export class TokyoNovaActiveEffect extends ActiveEffect {
     const next = foundry.utils.mergeObject(this.toObject(), foundry.utils.expandObject(data), { inplace: false });
     if (isEnchantment(next)) {
       const normalized = normalizeEffectKindData(next);
+      validateEffectTargetOutfit(normalized, this.parent);
       const path = next.system?.changes ? "system.changes" : "changes";
       const changes = normalizeEnchantmentChanges(next.system?.changes ?? next.changes ?? []);
       if (data.system?.changes) delete data.system.changes;
@@ -52,7 +56,7 @@ export class TokyoNovaActiveEffect extends ActiveEffect {
       for (const key of Object.keys(data)) if (key.startsWith(`${path}.`)) delete data[key];
       data[path] = changes;
       data.statuses = [];
-      for (const key of ["applyToParent", "applyToSelf"]) data[`flags.${SYSTEM_ID}.${key}`] = normalized.flags[SYSTEM_ID][key];
+      for (const key of ["applyToParent", "applyToTarget", "applyToSelf", "targetItemId"]) data[`flags.${SYSTEM_ID}.${key}`] = normalized.flags[SYSTEM_ID][key];
       for (const key of ENCHANTMENT_STATUS_FLAGS) {
         if (data.flags?.[SYSTEM_ID]) delete data.flags[SYSTEM_ID][key];
         for (const path of Object.keys(data)) {
@@ -81,6 +85,7 @@ export class TokyoNovaActiveEffect extends ActiveEffect {
    */
   shouldApplyChange(change, options) {
     if (isEnchantment(this)) return false;
+    if (!normalEffectSourceIsAvailable(this, this.parent)) return false;
     if (parseEffectTargetKey(change?.key)) return false;
     return super.shouldApplyChange(change, options);
   }

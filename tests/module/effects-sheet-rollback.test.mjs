@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { EffectsSheetMixin } from "../../scripts/ui/effects-sheet-mixin.mjs";
+import { EffectsSheetMixin, buildNewEffectData } from "../../scripts/ui/effects-sheet-mixin.mjs";
 import { MIGRATIONS } from "../../scripts/core/migrations.mjs";
 import { SYSTEM_ID } from "../../scripts/constants.mjs";
 
@@ -23,14 +23,19 @@ describe("AE 型分離撤回後の既存データ", () => {
         expect(document).toEqual(before);
     });
 
-    it("新規 AE はエンチャント型を指定せず作成する", async () => {
-        const render = vi.fn();
-        const document = { uuid: "Item.i", createEmbeddedDocuments: vi.fn(async () => [{ sheet: { render } }]) };
-        await EffectsSheetMixin.ACTIONS.createEffect.call({ document });
-        const [kind, [data]] = document.createEmbeddedDocuments.mock.calls[0];
-        expect(kind).toBe("ActiveEffect");
+    it("通常AEの作成データは型を指定しない", () => {
+        const data = buildNewEffectData({ uuid: "Item.i" }, "normal");
+        expect(data.name).toBe("新規効果");
         expect(data).not.toHaveProperty("type");
-        expect(render).toHaveBeenCalled();
+        expect(data).not.toHaveProperty("system");
+    });
+
+    it("付与AEは作成時点で type と system を同時に指定する", () => {
+        const data = buildNewEffectData({ uuid: "Item.i" }, "enchantment");
+        expect(data.type).toBe("enchantment");
+        expect(data.system).toEqual({});
+        expect(data.transfer).toBe(true);
+        expect(data.flags[SYSTEM_ID]).toEqual({ applyToParent: false, applyToSelf: true });
     });
 
     it("移行 v6 はワールドデータに触れず、版番号の枠だけ保持する", async () => {

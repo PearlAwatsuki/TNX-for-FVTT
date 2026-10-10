@@ -40,14 +40,14 @@ async function materializeItemTransfers(actor, effect, bearer) {
         const p = parseEffectTargetKey(c.key);
         return p && ["skill", "category"].includes(p.scope);
     });
-    // 転送先は**モノ(アウトフィット)に限る**(2026-09-02 ユーザー確定)。技能・神業のように
-    // キャラクターの一部を表すアイテムのパラメータは、キャラクターに乗った効果から遠隔で
-    // 適用する(_applyEffectBuffs)ため、実体コピーを作らない
-    // applyToTarget(2026-09-24): 選択アイテムへの明示転送。applyToParent と同様だが対象を選んで指定
+    // 明示転送は既存の「準備先に適用」と同じ同期経路を使い、転送先IDの決め方だけを分ける。
+    const explicitTargetId = isAuto
+        ? (toParent ? String(bearer.system?.parentItemId ?? "")
+            : toTarget ? String(flags.targetItemId ?? "") : "")
+        : "";
+    const explicitTarget = explicitTargetId ? actor.items.get(explicitTargetId) : null;
     const targets = (item) => isOutfitItem(item) && (
-        (isAuto && toParent) ? bearer.system?.parentItemId === item.id
-        : (isAuto && toTarget) ? item.id === flags.targetItemId
-        : hasItemTarget
+        explicitTargetId ? item === explicitTarget : hasItemTarget
     );
     // アクター単位で直列化する(KI-049): 「コピーを探す→無ければ作る」は原子的でないため、
     // 複数アイテムの一括追加でフックが同時多発すると、どの発火も「まだ無い」と判断して
@@ -217,13 +217,13 @@ export function registerItemTransferHooks() {
         if (actor) await materializeItemTransfers(actor, effect, parent);
     });
 
-    on("updateActiveEffect", async (effect, changed, _options, userId) => {
+    on("updateActiveEffect", async (effect, _changed, _options, userId) => {
         if (game.user.id !== userId) return;
-        // transfer(自動適用ゲート)・flags(準備先チェック等)の切替でも転送を再評価する(2026-07-13 再設計)
-        if (!["changes", "system", "type", "disabled", "name", "img", "transfer", "flags"].some(k => k in (changed ?? {}))) return;
         const parent = effect.parent;
         const actor = parent?.documentName === "Actor" ? parent : parent?.actor;
-        if (actor) await materializeItemTransfers(actor, effect, parent);
+        if (!actor) return;
+        // アイテム上の効果は、準備先・選択先・変更行のどれが変わっても同じ既存同期へ流す。
+        if (parent?.documentName === "Item") await materializeItemTransfers(actor, effect, parent);
     });
 
     // 供給元の効果が削除されたら転送コピーも除去する(供給元が正・2026-07-12)

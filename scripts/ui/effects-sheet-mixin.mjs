@@ -6,6 +6,64 @@
 import { SYSTEM_ID } from "../constants.mjs";
 import { durationLabelOf } from "../rules/time-boundary.mjs";
 
+/** AE作成時に選べるモード。type は作成後に変更せず、生成データへ最初から含める。 */
+export const EFFECT_CREATE_MODES = Object.freeze({
+    normal: { label: "通常AE" },
+    enchantment: { label: "付与AE（アウトフィット）" },
+});
+
+/**
+ * 選択されたモードに対応する新規AEデータを作る。付与AEは type と system を同時に作成データへ
+ * 含め、作成後の type 変更による ForcedReplacement エラーを避ける。
+ * @param {Document} document 親ドキュメント
+ * @param {"normal"|"enchantment"} mode
+ */
+export function buildNewEffectData(document, mode = "normal") {
+    const data = {
+        name: mode === "enchantment" ? "新規付与効果" : "新規効果",
+        img: "icons/svg/aura.svg",
+        origin: document.uuid,
+    };
+    if (mode === "enchantment") {
+        data.type = "enchantment";
+        data.system = {};
+        data.transfer = true;
+        data.flags = {
+            [SYSTEM_ID]: { applyToParent: true, applyToTarget: false, applyToSelf: false, targetItemId: "" },
+        };
+    }
+    return data;
+}
+
+/** Item上では通常AE/付与AEを選択させる。閉じた場合は作成しない。 */
+export async function promptEffectCreateMode(document) {
+    if (document?.documentName !== "Item") return "normal";
+    return foundry.applications.api.DialogV2.prompt({
+        window: { title: "効果の作成" },
+        classes: ["tokyo-nova", "tnx-dialog"],
+        content: `<div class="form-group"><label>作成モード</label><div class="form-fields"><select name="effectMode">
+            <option value="normal">${EFFECT_CREATE_MODES.normal.label}</option>
+            <option value="enchantment">${EFFECT_CREATE_MODES.enchantment.label}</option>
+        </select></div></div>`,
+        ok: {
+            label: "作成",
+            icon: "fas fa-plus",
+            callback: (_event, button) => button.form.elements.effectMode.value,
+        },
+        modal: true,
+        rejectClose: false,
+    });
+}
+
+/** モード選択から作成、設定シート表示までを一本化する。 */
+export async function createEffectWithMode(document, { force = true } = {}) {
+    const mode = await promptEffectCreateMode(document);
+    if (!mode || !EFFECT_CREATE_MODES[mode]) return null;
+    const [effect] = await document.createEmbeddedDocuments("ActiveEffect", [buildNewEffectData(document, mode)]);
+    effect?.sheet.render({ force });
+    return effect ?? null;
+}
+
 export const EffectsSheetMixin = {
 
     /**
@@ -87,13 +145,7 @@ export const EffectsSheetMixin = {
      */
     ACTIONS: {
         async createEffect(_event, _target) {
-            const doc = this.document;
-            const [effect] = await doc.createEmbeddedDocuments("ActiveEffect", [{
-                name: "新規効果",
-                img: "icons/svg/aura.svg",
-                origin: doc.uuid,
-            }]);
-            effect?.sheet.render({ force: true });
+            await createEffectWithMode(this.document);
         },
 
         async editEffect(_event, target) {
@@ -125,14 +177,8 @@ export const EffectsSheetMixin = {
             const action = a.dataset.action;
 
             switch (action) {
-                case "createEffect": {
-                    const newEffects = await document.createEmbeddedDocuments("ActiveEffect", [{
-                        name: "新規効果",
-                        img: "icons/svg/aura.svg",
-                        origin: document.uuid,
-                    }]);
-                    return newEffects[0]?.sheet.render(true);
-                }
+                case "createEffect":
+                    return createEffectWithMode(document, { force: true });
                 case "editEffect":
                     return effect?.sheet.render(true);
                 case "deleteEffect":
@@ -147,12 +193,7 @@ export const EffectsSheetMixin = {
     async _onCreateEffect(event) {
         event.preventDefault();
         const doc = this.actor || this.document;
-        const [effect] = await doc.createEmbeddedDocuments("ActiveEffect", [{
-            name: "新規効果",
-            img: "icons/svg/aura.svg",
-            origin: doc.uuid,
-        }]);
-        effect?.sheet.render(true);
+        await createEffectWithMode(doc, { force: true });
     },
 
     /** @deprecated V1 only。 */

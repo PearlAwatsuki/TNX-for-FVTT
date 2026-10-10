@@ -8,13 +8,14 @@
  */
 
 import { SYSTEM_ID } from "../constants.mjs";
+import { forcedDeletion } from "./forced-deletion.mjs";
 import { getSessionState } from "../session/session-state.mjs";
 import { TNX_DURATIONS } from "../rules/time-boundary.mjs";
 import { CONDITION_KINDS, CONDITION_GROUP_LABELS, getConditionKinds } from "../rules/conditions.mjs";
 import { parseEffectTargetKey, AE_FLAG_PARAMS } from "../data/item/helpers.mjs";
 import { getPartSlotPreset } from "../app/part-slot-preset-app.mjs";
 import { enhanceComboboxes } from "../ui/combobox.mjs";
-import { OUTFIT_CATEGORIES } from "../data/item/outfit-categories.mjs";
+import { OUTFIT_CATEGORIES, OUTFIT_TYPES } from "../data/item/outfit-categories.mjs";
 import { actorEffectKeySuggestions, toPublicEffectKey, toRuntimeEffectKey } from "../rules/ae-public-keys.mjs";
 import { isEnchantment } from "../rules/ae-kind.mjs";
 import { ENCHANTMENT_ATTRIBUTES, enchantmentAttributeKey, parseEnchantmentAttribute } from "../rules/enchantment-attributes.mjs";
@@ -98,7 +99,7 @@ export function registerEffectConfigInjection() {
                 const owner = app.document?.parent;
                 const actor = owner?.documentName === "Actor" ? owner : owner?.actor;
                 syncEnchantmentRowEditor(root.querySelector(`[name="${CSS.escape(valueName)}"]`), key, {
-                    actor, partSlots: actor?.system?.partSlotsEffective ?? actor?.system?.partSlots ?? getPartSlotPreset(),
+                    actor, item: owner?.documentName === "Item" ? owner : null, partSlots: actor?.system?.partSlotsEffective ?? actor?.system?.partSlots ?? getPartSlotPreset(),
                 });
             }
         };
@@ -142,7 +143,7 @@ export function registerEffectConfigInjection() {
                 "check.society.industry", "check.society.organization",
                 // 攻撃系・タイミング系の固定判定補正(2026-09-24)
                 "check.physicalAttack", "check.mentalAttack", "check.socialAttack",
-                "check.melee", "check.ranged",
+                "check.meleeAttack", "check.rangedAttack",
                 "check.dodge", "check.parry", "check.reaction",
                 "check.all.appearance", "check.all.information",
             ];
@@ -170,7 +171,7 @@ export function registerEffectConfigInjection() {
                 ...condKinds.map(k => `damage.replaceTag.${k}`),
                 ...condKinds.map(k => `damage.addTag.${k}`),
                 // 攻撃手段別ダメージ加算(2026-09-24)
-                "damage.dealt.melee", "damage.dealt.ranged",
+                "damage.dealt.meleeAttack", "damage.dealt.rangedAttack",
             ];
             // 無視ゲート(§2.11): all / 全BS / 個別BS(全数) / ダメージ由来(全・系統別)
             const ignoreKeys = [
@@ -350,7 +351,7 @@ export function registerEffectConfigInjection() {
             parentGroup = document.createElement("div");
             parentGroup.classList.add("form-group", "tnx-apply-parent-field");
             parentGroup.innerHTML = `
-                <label>準備先（親アイテム）に適用</label>
+                <label>準備先に適用</label>
                 <div class="form-fields">
                     <input type="checkbox" name="flags.${SYSTEM_ID}.applyToParent" ${cur ? "checked" : ""}>
                 </div>`;
@@ -358,7 +359,7 @@ export function registerEffectConfigInjection() {
             selfGroup = document.createElement("div");
             selfGroup.classList.add("form-group", "tnx-apply-self-field");
             const own = app.document.getFlag?.(SYSTEM_ID, "applyToSelf");
-            const self = own === true || (own === undefined && isEnchantment(app.document) && !cur && app.document.transfer !== false);
+            const self = own === true;
             selfGroup.innerHTML = `<label>このアイテム自身に適用</label><div class="form-fields">
                 <input type="checkbox" name="flags.${SYSTEM_ID}.applyToSelf" ${self ? "checked" : ""}></div>`;
             parentGroup.after(selfGroup);
@@ -370,11 +371,7 @@ export function registerEffectConfigInjection() {
             // 同一アクター内のアウトフィット一覧(enchantment の親アクターから取得)
             const ownerItem = app.document?.parent;
             const ownerActor = ownerItem?.actor;
-            const OUTFIT_TYPES = new Set(["weapon", "armorGear", "cyberware", "psychoApp", "tron",
-                "style", "vehicle", "facility"]);
-            const outfitItems = ownerActor ? [...(ownerActor.items ?? [])].filter(i => {
-                return OUTFIT_TYPES.has(i.type) && i.id !== ownerItem?.id;
-            }) : [];
+            const outfitItems = ownerActor ? [...(ownerActor.items ?? [])].filter(i => OUTFIT_TYPES.has(i.type) && i.id !== ownerItem?.id) : [];
             const outfitOpts = `<option value=""${!targetItemId ? " selected" : ""}>（選択してください）</option>`
                 + outfitItems.map(i => `<option value="${i.id}"${i.id === targetItemId ? " selected" : ""}>${foundry.utils.escapeHTML(i.name)}</option>`).join("");
             targetGroup.innerHTML = `
@@ -420,14 +417,21 @@ export function registerEffectConfigInjection() {
         const syncModeFields = () => {
             filterKeySuggestions();
             const enchantment = isEnchmnt;
-            for (const group of [parentGroup, selfGroup, targetGroup]) {
+            const auto = transferInput?.checked === true;
+            for (const group of [parentGroup, targetGroup]) {
                 if (!group) continue;
                 group.hidden = !enchantment;
                 group.querySelectorAll("input, select").forEach(el => { el.disabled = !enchantment; });
             }
-            if (targetCheckbox) targetSelect.disabled = !targetCheckbox.checked || !enchantment;
-            const needsTarget = enchantment && transferInput?.checked && !parentInput?.checked && !selfInput?.checked;
-            parentInput?.setCustomValidity(needsTarget ? "自動適用する付与先を選択してください。" : "");
+            if (selfGroup) {
+                selfGroup.hidden = !enchantment || auto;
+                selfGroup.querySelectorAll("input, select").forEach(el => { el.disabled = !enchantment || auto; });
+            }
+            if (auto && selfInput) selfInput.checked = false;
+            if (targetCheckbox && targetSelect) targetSelect.disabled = !targetCheckbox.checked || !enchantment;
+            const invalidAutoDestination = enchantment && auto && (parentInput?.checked === targetCheckbox?.checked);
+            parentInput?.setCustomValidity(invalidAutoDestination ? "自動適用する付与AEは、準備先または対象アウトフィットのどちらか一方を選択してください。" : "");
+            if (targetSelect) targetSelect.setCustomValidity(enchantment && targetCheckbox?.checked && !targetSelect.value ? "対象アウトフィットを選択してください。" : "");
             const status = root.querySelector('[name="statuses"]');
             if (status) {
                 const group = status.closest(".form-group");
@@ -439,22 +443,12 @@ export function registerEffectConfigInjection() {
                 group.querySelectorAll("input, select, button").forEach(el => { el.disabled = enchantment; });
             }
         };
-        for (const [input, other] of [[parentInput, selfInput], [selfInput, parentInput]]) {
-            input?.addEventListener("change", () => {
-                if (input.checked) {
-                    other.checked = false;
-                    if (targetCheckbox) targetCheckbox.checked = false;
-                } else if (transferInput?.checked && !other.checked) input.checked = true;
-                syncModeFields();
-            });
-        }
-        targetCheckbox?.addEventListener("change", () => {
-            if (targetCheckbox.checked) {
-                if (parentInput) parentInput.checked = false;
-                if (selfInput) selfInput.checked = false;
-            }
+        const destinationInputs = [parentInput, targetCheckbox, selfInput].filter(Boolean);
+        for (const input of destinationInputs) input.addEventListener("change", () => {
+            if (input.checked) for (const other of destinationInputs) if (other !== input) other.checked = false;
             syncModeFields();
         });
+        targetSelect?.addEventListener("change", syncModeFields);
         syncModeFields();
         transferInput?.addEventListener("change", syncModeFields);
         // typeInput は削除済み(種類は作成時固定)
@@ -570,7 +564,12 @@ export function registerEffectConfigInjection() {
         if (!perKind) return;
         const next = new Set(changes.statuses ?? []);
         for (const kind of Object.keys(perKind)) {
-            if (!next.has(kind)) changes[`flags.${SYSTEM_ID}.conditions.-=${kind}`] = null;
+            if (!next.has(kind)) {
+                changes.flags ??= {};
+                changes.flags[SYSTEM_ID] ??= {};
+                changes.flags[SYSTEM_ID].conditions ??= {};
+                changes.flags[SYSTEM_ID].conditions[kind] = forcedDeletion();
+            }
         }
     });
 

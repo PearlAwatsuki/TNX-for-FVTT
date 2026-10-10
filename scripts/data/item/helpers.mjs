@@ -842,6 +842,22 @@ export function planTransferCopySync(copies, wanted) {
  * @param {string} [scope]
  * @returns {boolean} 一致していれば true(書き込み不要)
  */
+const LEGACY_CHANGE_TYPES = Object.freeze({
+  0: "custom", 1: "multiply", 2: "add", 3: "downgrade", 4: "upgrade", 5: "override",
+});
+
+/**
+ * AE change の適用方式を v14 の文字列 type で読む。
+ * DataModel の change.mode は v14 で非推奨 getter のため、type があるオブジェクトでは絶対に触れない。
+ * 辞典などに残る単純な旧データだけは own property の数値 mode を互換変換する。
+ */
+export function activeEffectChangeType(change) {
+  if (typeof change?.type === "string") return change.type;
+  if (!change || Object.getPrototypeOf(change) !== Object.prototype
+      || !Object.prototype.hasOwnProperty.call(change, "mode")) return null;
+  return LEGACY_CHANGE_TYPES[change.mode] ?? null;
+}
+
 export function transferCopyIsCurrent(copy, data, scope = SYSTEM_ID) {
   if (!copy || !data) return false;
   if ((copy.type ?? "base") !== (data.type ?? "base")) return false;
@@ -856,8 +872,7 @@ export function transferCopyIsCurrent(copy, data, scope = SYSTEM_ID) {
   for (let i = 0; i < a.length; i++) {
     if ((a[i]?.key ?? "") !== (b[i]?.key ?? "")) return false;
     if (String(a[i]?.value ?? "") !== String(b[i]?.value ?? "")) return false;
-    if ((a[i]?.mode ?? null) !== (b[i]?.mode ?? null)) return false;
-    if ((a[i]?.type ?? null) !== (b[i]?.type ?? null)) return false;
+    if (activeEffectChangeType(a[i]) !== activeEffectChangeType(b[i])) return false;
     if ((a[i]?.phase ?? null) !== (b[i]?.phase ?? null)) return false;
     if ((a[i]?.priority ?? null) !== (b[i]?.priority ?? null)) return false;
   }
@@ -953,6 +968,18 @@ export function effectAutoApplies(effect, scope = SYSTEM_ID) {
   return effect.transfer !== false;
 }
 
+/** アウトフィット由来のパッシブ通常AEは、準備済みまたは準備不要の場合だけ有効。 */
+export function normalEffectSourceIsAvailable(effect, bearer, scope = SYSTEM_ID) {
+  if (isEnchantment(effect)) return true;
+  if (!isOutfitItem(bearer)) return true;
+  const f = effect?.flags?.[scope] ?? {};
+  if (f.transferredFrom !== undefined || f.grantedFrom !== undefined || f.grantInstanceId) return true;
+  const system = bearer?.system ?? {};
+  const prepared = system.isPreparedEffective ?? system.isPrepared;
+  return prepared === true
+    || (system.noPrepareRequiredTotal ?? system.noPrepareRequired) === true;
+}
+
 export function collectActorEffectBuffs(actor, scope = SYSTEM_ID) {
   const out = [];
   const push = (e, bearer) => out.push({
@@ -971,6 +998,7 @@ export function collectActorEffectBuffs(actor, scope = SYSTEM_ID) {
       // 準備先への付与はアイテム間で完結する。元効果を判定・ダメージ等へ混ぜない。
       if (e.flags?.[scope]?.applyToParent === true) continue;
       if (!effectAutoApplies(e, scope)) continue; // ペイロードは自動収集しない
+      if (!normalEffectSourceIsAvailable(e, item, scope)) continue;
       push(e, item);
     }
   }

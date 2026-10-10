@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { MockNumberField, MockSchemaField, MockStringField } from "../../setup.mjs";
 
-const { defenceField, attackField, modeValueField, computeItemEffectiveValues, parseEffectTargetKey, parseEffectConditions, evalEffectConditions, resolveItemTotalPath, checkChangeMatches, computeCheckBonus, gatherCheckBonusSources, damageVsChangeMatches, gatherDamageVsSources, damageDealtChangeMatches, gatherDamageDealtSources, damageTakenChangeMatches, gatherDamageTakenSources, collectActorEffectBuffs, targetStyleWorksKeys, actorCardValueOverride, itemChangeTargets, buildTransferredEffectData, planTransferCopySync, transferCopyIsCurrent, isOutfitItem, planCapabilityTransferCleanup, effectAutoApplies, analyzeGrantLanding, itemGrantCandidates, rewriteGrantChangesForItem, AE_FLAG_PARAMS, flagTotalPath, readFlag, computeFlagEffectiveValues, parseBooleanFlagValue, isOutfitServiceImmune, isOutfitMalfunctioning, planOutfitFlagToggle, isOutfitDestroyed, isOutfitUnusable, itemKindLabel } = await import("../../../scripts/data/item/helpers.mjs");
+const { defenceField, attackField, modeValueField, computeItemEffectiveValues, parseEffectTargetKey, parseEffectConditions, evalEffectConditions, resolveItemTotalPath, checkChangeMatches, computeCheckBonus, gatherCheckBonusSources, damageVsChangeMatches, gatherDamageVsSources, damageDealtChangeMatches, gatherDamageDealtSources, damageTakenChangeMatches, gatherDamageTakenSources, collectActorEffectBuffs, targetStyleWorksKeys, actorCardValueOverride, itemChangeTargets, buildTransferredEffectData, planTransferCopySync, transferCopyIsCurrent, activeEffectChangeType, isOutfitItem, planCapabilityTransferCleanup, effectAutoApplies, analyzeGrantLanding, itemGrantCandidates, rewriteGrantChangesForItem, AE_FLAG_PARAMS, flagTotalPath, readFlag, computeFlagEffectiveValues, parseBooleanFlagValue, isOutfitServiceImmune, isOutfitMalfunctioning, planOutfitFlagToggle, isOutfitDestroyed, isOutfitUnusable, itemKindLabel } = await import("../../../scripts/data/item/helpers.mjs");
 
 describe("defenceField()", () => {
   it("呼び出せる", () => {
@@ -517,6 +517,19 @@ describe("物理転送（itemChangeTargets / buildTransferredEffectData・2026-0
     expect(buildTransferredEffectData(e, weapon, { documentName: "Item", id: "x", system: { parentItemId: "" } })).toBeNull();
   });
 
+  it("対象を選択して適用（applyToTarget）: 選択したアウトフィットへ素のキーを転送", () => {
+    const flags = { "tokyo-nova-axleration": { applyToTarget: true, targetItemId: weapon.id } };
+    const e = effect([{ key: "system.attack.value", mode: 2, value: "2" }], flags);
+    const data = buildTransferredEffectData(e, weapon, optionBearer);
+    expect(data.changes.map(c => c.key)).toEqual(["system.attack.value"]);
+    expect(data.flags["tokyo-nova-axleration"]).toMatchObject({
+      transferredFrom: e.uuid,
+      applyToSelf: true,
+      applyToParent: false,
+    });
+    expect(buildTransferredEffectData(e, genSkill, optionBearer)).toBeNull();
+  });
+
   it("同一性と重複可を供給元から引き継ぐ（effectId / stackable）", () => {
     const flags = { "tokyo-nova-axleration": { effectId: "dic-001", stackable: true } };
     const e = effect([{ key: "item.buki.system.attack.value", mode: 2, value: "2" }], flags);
@@ -958,8 +971,19 @@ describe("planTransferCopySync()（供給元×アイテムごとの転送コピ�
 describe("transferCopyIsCurrent()（同じ内容なら書かない・2026-09-07）", () => {
   const data = () => ({
     name: "強化", img: "icons/a.webp", disabled: false, transfer: false, origin: "Item.s.ActiveEffect.e",
-    changes: [{ key: "system.attack.value", value: "2", mode: 2, priority: null }],
+    changes: [{ key: "system.attack.value", value: "2", type: "add", priority: null }],
     flags: { "tokyo-nova-axleration": { transferredFrom: "Item.s.ActiveEffect.e", transferredSourceName: "オプション" } },
+  });
+
+  it("v14 の change.type を比較し、非推奨の mode getter には触れない", () => {
+    const change = { key: "system.attack.value", value: "2", type: "add" };
+    Object.defineProperty(change, "mode", { get: () => { throw new Error("mode accessed"); } });
+    expect(activeEffectChangeType(change)).toBe("add");
+  });
+
+  it("単純な旧データの数値 mode は文字列 type へ互換変換する", () => {
+    expect(activeEffectChangeType({ mode: 2 })).toBe("add");
+    expect(activeEffectChangeType({ mode: 5 })).toBe("override");
   });
 
   it("同じ内容なら現在値と見なす", () => {
@@ -979,11 +1003,11 @@ describe("transferCopyIsCurrent()（同じ内容なら書かない・2026-09-07�
 
   it("changes の件数が違えば書き直す", () => {
     const copy = data();
-    copy.changes.push({ key: "system.guard.value", value: "1", mode: 2, priority: null });
+    copy.changes.push({ key: "system.guard.value", value: "1", type: "add", priority: null });
     expect(transferCopyIsCurrent(copy, data())).toBe(false);
   });
 
-  it.each([["key", "system.guard.value"], ["value", "3"], ["mode", 5]])(
+  it.each([["key", "system.guard.value"], ["value", "3"], ["type", "override"]])(
     "changes の %s が違えば書き直す", (field, next) => {
       const copy = data();
       copy.changes[0][field] = next;
