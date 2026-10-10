@@ -29,7 +29,7 @@ describe("computeColValue()（アウトフィット行の列の値）", () => {
 
   it("mode が value でなければ数値を出さない（なし・解説参照・制御値）", () => {
     for (const mode of ["none", "reference", "control"]) {
-      expect(computeColValue("guard", { guardValue: { mode, value: 9, total: 9 } })).toBe("-");
+      expect(computeColValue("guard", { guardValue: { mode, value: 9, total: 9 } })).toBe(({ none: "-", reference: "解説参照", control: "制御値" })[mode]);
     }
     expect(computeColValue("guard", {})).toBe("-");
   });

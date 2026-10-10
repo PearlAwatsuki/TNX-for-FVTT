@@ -29,27 +29,6 @@ import { prepareCombinePreview, deactivateCombine, setupCombineSourceMenu }
 const HOUSING_AREA_PACK = "tokyo-nova-axleration.housing-areas";
 
 /**
- * 大分類・小分類の両方が一意に確定している Item type → { major, minor } のマップ。
- * 該当型ではドロップダウンを非表示にし、データが異なれば自動補正する。
- */
-const BOTH_FIXED_CATEGORIES = Object.freeze({
-    combiner:  { major: "service",   minor: "combiner" },
-    residence: { major: "housing",   minor: "residence" },
-    ianus:     { major: "cyberware", minor: "ianus" },
-    cyborg:    { major: "cyberware", minor: "fullCyborg" },
-});
-
-/**
- * 大分類のみ確定しており、小分類は選択できる Item type → 大分類キーのマップ。
- * 該当型では大分類をラベル表示にし、小分類だけドロップダウンで選択する。
- */
-const MAJOR_FIXED_CATEGORIES = Object.freeze({
-    tron:    "tron",
-    tap:     "tron",
-    vehicle: "vehicle",
-});
-
-/**
  * アウトフィット(装備品)共通シート。
  * general / weapon / armor / cyborg に登録し、型ごとの差分は context のフラグと
  * サマリ(view.summary)の組み立てで吸収する(フェーズ6-2)。
@@ -110,17 +89,17 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
 
     /** 電脳制御値の 2 状態(なし/数値) */
     static get hackModes() {
-        return { none: "なし", value: "数値" };
+        return { none: "なし", value: "数値", reference: "解説参照" };
     }
 
     /** 危険値の 2 状態(なし/数値) */
     static get appearancePenaltyModes() {
-        return { none: "なし", value: "数値" };
+        return { none: "なし", value: "数値", reference: "解説参照" };
     }
 
     /** 汎用 なし/数値 の 2 状態(preserveExp / guardValue / controlMod / cycle / combatSpeedMod / speedFactor / passenger / slots / defence) */
     static get noneValueModes() {
-        return { none: "なし", value: "数値" };
+        return { none: "なし", value: "数値", reference: "解説参照" };
     }
 
     /** 空の部位行(フェーズ10: 種別ベース。新規行の既定種別は身体部位。任意は part 全体フラグ) */
@@ -288,36 +267,16 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         // slots は既定プール構成に正規化して表示する
         if (context.hasSlots) system.slots = this._normalizedSlots();
 
-        // カテゴリ固定型: データが不整合なら自動補正し、テンプレート用フラグをセットする
-        const fixedBoth = BOTH_FIXED_CATEGORIES[type];
-        const fixedMajorName = MAJOR_FIXED_CATEGORIES[type];
-        if (fixedBoth) {
-            if (system.majorCategory !== fixedBoth.major || system.minorCategory !== fixedBoth.minor) {
-                this.item.update({ "system.majorCategory": fixedBoth.major, "system.minorCategory": fixedBoth.minor });
-                system.majorCategory = fixedBoth.major;
-                system.minorCategory = fixedBoth.minor;
-            }
-            context.isBothCategoryFixed = true;
-            // 固定分類は disabled プルダウンで表示する(2026-08-31 ユーザー指示=文字列表示は
-            // 2行目以降と縦位置・幅が揃わない)。ラベルは disabled select の単一 option に入れる
-            context.fixedMajorLabel = getMajorCategoryLabel(fixedBoth.major);
-            context.fixedMinorLabel = getMinorCategoryLabel(fixedBoth.minor);
-        } else if (fixedMajorName) {
-            if (system.majorCategory !== fixedMajorName) {
-                this.item.update({ "system.majorCategory": fixedMajorName });
-                system.majorCategory = fixedMajorName;
-            }
-            context.isMajorCategoryFixed = true;
-            context.fixedMajorLabel = getMajorCategoryLabel(fixedMajorName);
-        }
-
         const skillOptions = TnxSkillUtils.getSkillOptions();
-        const categories = this._categoriesForType();
+        const categories = Object.fromEntries(Object.entries(OUTFIT_CATEGORIES).map(([key, group]) => [key, Object.keys(group.minors)]));
 
         const majorChoices = { "": "-" };
         for (const majorKey of Object.keys(categories)) majorChoices[majorKey] = getMajorCategoryLabel(majorKey);
         const minorChoices = { "": "-" };
         for (const minorKey of categories[system.majorCategory] ?? []) minorChoices[minorKey] = getMinorCategoryLabel(minorKey);
+
+        Object.assign(majorChoices, { reference: "解説参照", other: "その他" });
+        Object.assign(minorChoices, { reference: "解説参照", other: "その他" });
 
         // isOption のとき: **宣言したホスト記述子**(hostMajor/hostMinor/除外/特徴/hostKey)に一致する
         // 非オプションのアウトフィットを装備先候補にする(2026-07-23 統合)。自身の大分類では絞らない
@@ -368,6 +327,7 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
             noneValueMode:          this.constructor.noneValueModes,
             majorCategory: majorChoices,
             minorCategory: minorChoices,
+            outfitDamageType: { "": "-", ...ATTACK_DAMAGE_TYPES },
             damageTypes:   ATTACK_DAMAGE_TYPES,
             weaponRangeMin: WEAPON_RANGE_MIN_OPTIONS,
             weaponRangeMax: WEAPON_RANGE_MAX_OPTIONS,
@@ -415,12 +375,14 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
             for (const minorKey of Object.keys(OUTFIT_CATEGORIES[row.major]?.minors ?? {})) {
                 minors[minorKey] = getMinorCategoryLabel(minorKey);
             }
-            return { index, major: row.major ?? "", minor: row.minor ?? "", minorChoices: minors, isFirst: index === 0 };
+            Object.assign(minors, { reference: "解説参照", other: "その他" });
+            return { index, major: row.major ?? "", minor: row.minor ?? "", majorOther: row.majorOther ?? "", minorOther: row.minorOther ?? "", minorChoices: minors, isFirst: index === 0 };
         });
+        Object.assign(allMajorChoices, { reference: "解説参照", other: "その他" });
         context.options.additionalMajorCategory = allMajorChoices;
         context.enchantmentWarnings = this.item._tnxEnchantmentWarnings ?? [];
 
-        // コンバイナー: カテゴリ自動補正は BOTH_FIXED_CATEGORIES で処理済み
+        // コンバイナーのプレビュー（分類の自動上書きはしない）
         if (context.isCombiner) {
             context.combine = await prepareCombinePreview(this, system);
             context.combine.isActive = system.isCombineActive;
@@ -493,16 +455,16 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
             return { index, text, note: r?.note ?? "" };
         });
 
-        const fmtCategory = (major, minor) => {
-            const M = getMajorCategoryLabel(major);
-            const m = getMinorCategoryLabel(minor);
+        const fmtCategory = (major, minor, majorOther = "", minorOther = "") => {
+            const M = getMajorCategoryLabel(major, majorOther);
+            const m = getMinorCategoryLabel(minor, minorOther);
             return M && m ? `${M}／${m}` : (M || m || "");
         };
         // primaryCategory=主分類のみ(編集モードの固定ラベル用・副分類は編集行が別にあるため重複させない)。
         // category=閲覧モードの分類表示(副分類を「＋」で列挙=複数分類が見えるように・フェーズ16-1)
-        view.primaryCategory = fmtCategory(system.majorCategory, system.minorCategory) || "-";
+        view.primaryCategory = fmtCategory(system.majorCategory, system.minorCategory, system.majorCategoryOther, system.minorCategoryOther) || "-";
         const extraLabels = (system.additionalCategories ?? [])
-            .map((r) => fmtCategory(r?.major, r?.minor)).filter(Boolean);
+            .map((r) => fmtCategory(r?.major, r?.minor, r?.majorOther, r?.minorOther)).filter(Boolean);
         view.category = extraLabels.length
             ? `${view.primaryCategory} ＋ ${extraLabels.join(" ＋ ")}`
             : view.primaryCategory;

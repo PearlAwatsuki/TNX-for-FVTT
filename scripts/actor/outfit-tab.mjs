@@ -81,7 +81,7 @@ export const OUTFIT_GROUP_CONFIG = [
 
 /** OUTFIT_GROUP_CONFIG の key に対応する表示グループキーを返す。 */
 export function displayGroupKey(major) {
-    if (!major || major === "item" || major === "service") return "other";
+    if (!major || major === "item" || major === "service" || major === "reference" || major === "other") return "other";
     return major;
 }
 
@@ -102,7 +102,7 @@ export function optionConsumption(sys) {
 /** 1 列分の表示値を計算する。表示は AE 込み実効値(total)。編集入力は base のまま(フェーズ9-3)。 */
 export function computeColValue(key, sys, effectiveValues, partCtx = null) {
     // {mode,value,effectMod} の実効値。mode=value 以外は null
-    const mvT = (f) => f?.mode === "value" ? (f.total ?? f.value) : null;
+    const mvT = (f) => f?.mode === "reference" ? "解説参照" : f?.mode === "control" ? "制御値" : f?.mode === "value" ? (f.total ?? f.value) : null;
     switch (key) {
         case "hide": {
             const h = mvT(sys.hide) ?? "-";
@@ -110,9 +110,7 @@ export function computeColValue(key, sys, effectiveValues, partCtx = null) {
             return (h === "-" && d === "-") ? "-" : `${h}／${d}`;
         }
         case "attack": {
-            // 表示は実効値(AE 込み・2026-07-13): 種別=damageTypeTotal・値=total
-            const dt = sys.attack?.damageTypeTotal || sys.attack?.damageType;
-            return dt ? `${dt}+${sys.attack.total ?? sys.attack.value ?? 0}` : "-";
+            return (sys.attack?.damageTypeTotal || sys.attack?.damageType) ? attackLabel(sys.attack) : "-";
         }
         case "guard":
             return mvT(sys.guardValue) !== null ? String(mvT(sys.guardValue)) : "-";
@@ -122,6 +120,7 @@ export function computeColValue(key, sys, effectiveValues, partCtx = null) {
         case "hack":
             return mvT(sys.hack) !== null ? String(mvT(sys.hack)) : "-";
         case "defence":
+            if (sys.defence?.mode === "reference") return "解説参照";
             return sys.defence?.mode === "value"
                 ? `${sys.defence.S_total ?? sys.defence.S_defence}／${sys.defence.P_total ?? sys.defence.P_defence}／${sys.defence.I_total ?? sys.defence.I_defence}` : "-";
         case "control":
@@ -197,7 +196,7 @@ export function computeCombinedColValue(key, combinerItem, srcItem1, srcItem2, p
     // {mode,value,effectMod} の実効値。_computeColValue と同じ規約
     // (表示は AE 込み実効値・編集入力は base のまま)。以前はここだけ素値 .value を読んでおり、
     // コンバイン行にだけ AE が乗らなかった(KI-039 と同種・attack だけ先に是正済みだった)
-    const mvT = (f) => f?.mode === "value" ? (f.total ?? f.value) : null;
+    const mvT = (f) => f?.mode === "reference" ? "解説参照" : f?.mode === "control" ? "制御値" : f?.mode === "value" ? (f.total ?? f.value) : null;
     const num = (v) => (Number.isFinite(v) ? v : 0);
     const slotVal = (sys, kind) => {
         const slot = (sys.slots ?? []).find(s => s.kind === kind);
@@ -216,8 +215,7 @@ export function computeCombinedColValue(key, combinerItem, srcItem1, srcItem2, p
         case "attack": {
             const s = chosenSys("attack");
             // 表示は実効値(AE 込み・2026-07-13)
-            const dt = s.attack?.damageTypeTotal || s.attack?.damageType;
-            return dt ? `${dt}+${s.attack.total ?? s.attack.value ?? 0}` : "-";
+            return (s.attack?.damageTypeTotal || s.attack?.damageType) ? attackLabel(s.attack) : "-";
         }
         case "guard": {
             const v = mvT(chosenSys("guardValue").guardValue);
@@ -229,13 +227,14 @@ export function computeCombinedColValue(key, combinerItem, srcItem1, srcItem2, p
                 ? formatWeaponRangeLabel(s.range) : "-";
         }
         case "hack": {
+            if ([s1sys.hack, s2sys.hack].some(f => f?.mode === "reference")) return "解説参照";
             const vals = [mvT(s1sys.hack), mvT(s2sys.hack)]
                 .filter(v => v !== null).map(num);
             return vals.length ? String(Math.max(...vals)) : "-";
         }
         case "defence": {
             const d = chosenSys("defence").defence;
-            return d?.mode === "value"
+            return d?.mode === "reference" ? "解説参照" : d?.mode === "value"
                 ? `${d.S_total ?? d.S_defence}／${d.P_total ?? d.P_defence}／${d.I_total ?? d.I_defence}` : "-";
         }
         case "control": {
@@ -259,14 +258,17 @@ export function computeCombinedColValue(key, combinerItem, srcItem1, srcItem2, p
             return v !== null ? String(v) : "-";
         }
         case "slot": {
+            if ([s1sys, s2sys].some(s => s.slots?.some(slot => slot.kind === "normal" && slot.count?.mode === "reference"))) return "解説参照";
             const total = slotVal(s1sys, "normal") + slotVal(s2sys, "normal");
             return total > 0 ? String(total) : "-";
         }
         case "soft": {
+            if ([s1sys, s2sys].some(s => s.slots?.some(slot => slot.kind === "software" && slot.count?.mode === "reference"))) return "解説参照";
             const total = slotVal(s1sys, "software") + slotVal(s2sys, "software");
             return total > 0 ? String(total) : "-";
         }
         case "hard": {
+            if ([s1sys, s2sys].some(s => s.slots?.some(slot => slot.kind === "hardware" && slot.count?.mode === "reference"))) return "解説参照";
             const total = slotVal(s1sys, "hardware") + slotVal(s2sys, "hardware");
             return total > 0 ? String(total) : "-";
         }
@@ -321,7 +323,8 @@ export async function prepareOutfitRow(actor, item, optionsByParent) {
         const values = await residenceEffectiveValues(sys);
         effectiveValues = values;
         if (values.hasArea) {
-            housingAreaRank = { key: values.area, label: HOUSING_AREA_RANKS[values.area] ?? values.area };
+            const housingArea = await fromUuid(sys.housingArea);
+            housingAreaRank = { key: values.area, label: housingArea?.name ?? HOUSING_AREA_RANKS[values.area] ?? values.area };
         }
     }
 
@@ -549,8 +552,8 @@ export function preparePartOccupancy(actor) {
             : (r.kind && r.kind !== "normal")
                 ? (SLOT_KINDS[r.kind] ?? r.kind)
                 : (isMajorLevelSlotMajor(sys?.majorCategory)
-                    ? getMajorCategoryLabel(sys?.majorCategory)
-                    : (getMinorCategoryLabel(sys?.minorCategory) || getMajorCategoryLabel(sys?.majorCategory)));
+                    ? getMajorCategoryLabel(sys?.majorCategory, sys?.majorCategoryOther)
+                    : (getMinorCategoryLabel(sys?.minorCategory, sys?.minorCategoryOther) || getMajorCategoryLabel(sys?.majorCategory, sys?.majorCategoryOther)));
         return { slotName, hostName: r.hostName, used: r.used, capacity: r.capacity, over: r.over };
     });
     const slotNameCount = new Map();

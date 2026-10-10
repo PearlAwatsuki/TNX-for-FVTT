@@ -109,6 +109,11 @@ export async function useAttack(item, usage) {
             ui.notifications.warn("準備している武器が無いため、射撃攻撃を行えません。");
             return;
         }
+        const referenceWeapon = usedWeapons.find(w => (w.system.attack?.damageTypeTotal || w.system.attack?.damageType) === "reference");
+        if (referenceWeapon) {
+            ui.notifications.warn(`「${referenceWeapon.name}」の攻撃力は解説参照です。解説に従って攻撃属性と数値を設定してください。`);
+            return;
+        }
         // 数値は実効値(total=AE込み)を読む(UI 表示と同じ値・素値 value は編集用ベース。
         // 素値読みで表示と食い違っていたのをユーザー指摘で修正=2026-07-14)
         const weapons = usedWeapons

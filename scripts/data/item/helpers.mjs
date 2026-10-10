@@ -49,7 +49,7 @@ export function migrateUsesValueToSpent(source) {
 export function modeValueField(choices) {
   const fields = foundry.data.fields;
   return new fields.SchemaField({
-    mode:  new fields.StringField({ required: true, blank: false, initial: "none", choices }),
+    mode:  new fields.StringField({ required: true, blank: false, initial: "none", choices: [...new Set([...choices, "reference"])] }),
     value: new fields.NumberField({ initial: 0 }),
     total: new fields.NumberField({ required: false, nullable: true }), // V14: スキーマ外への代入が弾かれるため明示
   });
@@ -65,7 +65,7 @@ export function modeValueField(choices) {
 export function defenceField() {
   const fields = foundry.data.fields;
   return new fields.SchemaField({
-    mode:      new fields.StringField({ required: true, blank: false, initial: "none", choices: ["none", "value"] }),
+    mode:      new fields.StringField({ required: true, blank: false, initial: "none", choices: ["none", "value", "reference"] }),
     S_defence: new fields.NumberField({ initial: 0 }),
     P_defence: new fields.NumberField({ initial: 0 }),
     I_defence: new fields.NumberField({ initial: 0 }),
@@ -84,6 +84,7 @@ export function defenceField() {
  * @type {Readonly<Record<string, string>>}
  */
 export const ATTACK_DAMAGE_TYPES = Object.freeze({
+  reference: "解説参照",
   S: "S",
   P: "P",
   I: "I",
@@ -728,8 +729,8 @@ export function isOutfitItem(item) {
 export function itemKindLabel(item) {
   if (!item?.type) return "";
   if (OUTFIT_TYPES.has(item.type)) {
-    return getMinorCategoryLabel(item.system?.minorCategory)
-      || getMajorCategoryLabel(item.system?.majorCategory)
+    return getMinorCategoryLabel(item.system?.minorCategory, item.system?.minorCategoryOther)
+      || getMajorCategoryLabel(item.system?.majorCategory, item.system?.majorCategoryOther)
       || "";
   }
   return game.i18n?.localize?.(`TYPES.Item.${item.type}`) ?? "";

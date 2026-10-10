@@ -43,7 +43,7 @@ describe("ArmorDataModel.defineSchema()", () => {
     it("defence.mode は StringField で initial が none、choices は none/value", () => {
       expect(schema.defence.fields.mode).toBeInstanceOf(MockStringField);
       expect(schema.defence.fields.mode.options.initial).toBe("none");
-      expect(schema.defence.fields.mode.options.choices).toEqual(["none", "value"]);
+      expect(schema.defence.fields.mode.options.choices).toEqual(["none", "value", "reference"]);
     });
 
     it("defence の各フィールドは NumberField で initial が 0", () => {
@@ -58,7 +58,7 @@ describe("ArmorDataModel.defineSchema()", () => {
     expect(schema.controlMod).toBeInstanceOf(MockSchemaField);
     expect(schema.controlMod.fields.mode).toBeInstanceOf(MockStringField);
     expect(schema.controlMod.fields.mode.options.initial).toBe("none");
-    expect(schema.controlMod.fields.mode.options.choices).toEqual(["none", "value"]);
+    expect(schema.controlMod.fields.mode.options.choices).toEqual(["none", "value", "reference"]);
     expect(schema.controlMod.fields.value).toBeInstanceOf(MockNumberField);
     expect(schema.controlMod.fields.value.options.initial).toBe(0);
   });

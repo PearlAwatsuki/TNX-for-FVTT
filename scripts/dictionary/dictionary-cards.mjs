@@ -42,13 +42,13 @@ export function cardKindOf(item) {
 
 /** 分類ラベル(大分類／小分類・副分類は「＋」で列挙)。 */
 function categoryLabel(system) {
-    const fmt = (major, minor) => {
-        const M = getMajorCategoryLabel(major);
-        const m = getMinorCategoryLabel(minor);
+    const fmt = (major, minor, majorOther, minorOther) => {
+        const M = getMajorCategoryLabel(major, majorOther);
+        const m = getMinorCategoryLabel(minor, minorOther);
         return M && m ? `${M}／${m}` : (M || m || "");
     };
-    const primary = fmt(system.majorCategory, system.minorCategory) || "-";
-    const extras = (system.additionalCategories ?? []).map((r) => fmt(r?.major, r?.minor)).filter(Boolean);
+    const primary = fmt(system.majorCategory, system.minorCategory, system.majorCategoryOther, system.minorCategoryOther) || "-";
+    const extras = (system.additionalCategories ?? []).map((r) => fmt(r?.major, r?.minor, r?.majorOther, r?.minorOther)).filter(Boolean);
     return extras.length ? `${primary} ＋ ${extras.join(" ＋ ")}` : primary;
 }
 

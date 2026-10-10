@@ -50,7 +50,7 @@ describe("WeaponDataModel.defineSchema()", () => {
 
     it("attack.damageType は choices 付き StringField (単一選択)", () => {
       expect(schema.attack.fields.damageType).toBeInstanceOf(MockStringField);
-      expect(Object.keys(schema.attack.fields.damageType.options.choices)).toEqual(["S", "P", "I", "X"]);
+      expect(Object.keys(schema.attack.fields.damageType.options.choices)).toEqual(["reference", "S", "P", "I", "X"]);
     });
 
     it("attack.value は NumberField で initial が 0", () => {
@@ -71,7 +71,7 @@ describe("WeaponDataModel.defineSchema()", () => {
     expect(schema.guardValue).toBeInstanceOf(MockSchemaField);
     expect(schema.guardValue.fields.mode).toBeInstanceOf(MockStringField);
     expect(schema.guardValue.fields.mode.options.initial).toBe("none");
-    expect(schema.guardValue.fields.mode.options.choices).toEqual(["none", "value"]);
+    expect(schema.guardValue.fields.mode.options.choices).toEqual(["none", "value", "reference"]);
     expect(schema.guardValue.fields.value).toBeInstanceOf(MockNumberField);
     expect(schema.guardValue.fields.value.options.initial).toBe(0);
   });
@@ -87,14 +87,14 @@ describe("WeaponDataModel.defineSchema()", () => {
       const f = schema.range.fields.min;
       expect(f).toBeInstanceOf(MockStringField);
       expect(f.options.initial).toBe("none");
-      expect(Object.keys(f.options.choices)).toEqual(["none", "close", "short", "middle", "long", "superLong"]);
+      expect(Object.keys(f.options.choices)).toEqual(["reference", "none", "close", "short", "middle", "long", "superLong"]);
     });
 
     it("max は choices 付き StringField で initial が none、選択肢は none+4 種(至近除く 5 種)", () => {
       const f = schema.range.fields.max;
       expect(f).toBeInstanceOf(MockStringField);
       expect(f.options.initial).toBe("none");
-      expect(Object.keys(f.options.choices)).toEqual(["none", "short", "middle", "long", "superLong"]);
+      expect(Object.keys(f.options.choices)).toEqual(["reference", "none", "short", "middle", "long", "superLong"]);
     });
   });
 
@@ -154,7 +154,7 @@ describe("WeaponDataModel.defineSchema()", () => {
     expect(schema.attackArea).toBeInstanceOf(MockStringField);
     expect(schema.attackArea.options.initial).toBe("none");
     expect(Object.keys(schema.attackArea.options.choices)).toEqual(
-      ["none", "area", "areaSelect", "scene", "sceneSelect"]
+      ["reference", "none", "area", "areaSelect", "scene", "sceneSelect"]
     );
   });
 

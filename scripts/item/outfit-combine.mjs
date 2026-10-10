@@ -159,8 +159,8 @@ export async function prepareCombinePreview(sheet, system) {
         const appearSys = appearSrc.system;
 
         // 分類: 大分類が同じ場合は短縮形(2026-06-13 ユーザー確定)。表示は label を引く
-        const maj1 = getMajorCategoryLabel(s1.system.majorCategory) || "-", min1 = getMinorCategoryLabel(s1.system.minorCategory) || "-";
-        const maj2 = getMajorCategoryLabel(s2.system.majorCategory) || "-", min2 = getMinorCategoryLabel(s2.system.minorCategory) || "-";
+        const maj1 = getMajorCategoryLabel(s1.system.majorCategory, s1.system.majorCategoryOther) || "-", min1 = getMinorCategoryLabel(s1.system.minorCategory, s1.system.minorCategoryOther) || "-";
+        const maj2 = getMajorCategoryLabel(s2.system.majorCategory, s2.system.majorCategoryOther) || "-", min2 = getMinorCategoryLabel(s2.system.minorCategory, s2.system.minorCategoryOther) || "-";
         const category = s1.system.majorCategory === s2.system.majorCategory
             ? `${maj1}／${min1}、${min2}`
             : `${maj1}／${min1}、${maj2}／${min2}`;

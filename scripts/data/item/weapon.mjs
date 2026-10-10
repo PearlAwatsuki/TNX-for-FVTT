@@ -54,6 +54,7 @@ export const WEAPON_RANGES = Object.freeze({
  * @type {Readonly<Record<string, string>>}
  */
 export const WEAPON_RANGE_MIN_OPTIONS = Object.freeze({
+  reference: "解説参照",
   none:      "なし",
   close:     "至近",
   short:     "近",
@@ -67,6 +68,7 @@ export const WEAPON_RANGE_MIN_OPTIONS = Object.freeze({
  * @type {Readonly<Record<string, string>>}
  */
 export const WEAPON_RANGE_MAX_OPTIONS = Object.freeze({
+  reference: "解説参照",
   none:      "なし",
   short:     "近",
   middle:    "中",
@@ -80,6 +82,7 @@ export const WEAPON_RANGE_MAX_OPTIONS = Object.freeze({
  * @type {Readonly<Record<string, string>>}
  */
 export const WEAPON_ATTACK_AREAS = Object.freeze({
+  reference: "解説参照",
   none:        "-",
   area:        "範囲",
   areaSelect:  "範囲（選択）",

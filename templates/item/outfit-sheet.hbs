@@ -24,22 +24,17 @@
             </div>
             <div class="outfit-category">
                 {{#if isEditMode}}
-                    {{!-- 固定分類は disabled プルダウン(2026-08-31): 2行目以降と同じ select+select 構造に
-                         して縦位置・幅を揃える。文字列ラベル表示は廃止 --}}
-                    {{#if isBothCategoryFixed}}
-                        <select disabled><option selected>{{fixedMajorLabel}}</option></select>
-                        <select disabled><option selected>{{fixedMinorLabel}}</option></select>
-                    {{else}}
-                        {{#if isMajorCategoryFixed}}
-                            <select disabled><option selected>{{fixedMajorLabel}}</option></select>
-                        {{else}}
-                            <select name="system.majorCategory">
-                                {{selectOptions options.majorCategory selected=system.majorCategory}}
-                            </select>
-                        {{/if}}
-                        <select name="system.minorCategory">
-                            {{selectOptions options.minorCategory selected=system.minorCategory}}
-                        </select>
+                    <select name="system.majorCategory">
+                        {{selectOptions options.majorCategory selected=system.majorCategory}}
+                    </select>
+                    {{#if (eq system.majorCategory "other")}}
+                    <input type="text" name="system.majorCategoryOther" value="{{system.majorCategoryOther}}" aria-label="大分類（その他）" placeholder="大分類を入力">
+                    {{/if}}
+                    <select name="system.minorCategory">
+                        {{selectOptions options.minorCategory selected=system.minorCategory}}
+                    </select>
+                    {{#if (eq system.minorCategory "other")}}
+                    <input type="text" name="system.minorCategoryOther" value="{{system.minorCategoryOther}}" aria-label="小分類（その他）" placeholder="小分類を入力">
                     {{/if}}
                     {{!-- 複数分類(フェーズ16-1): チェックで副分類行を展開。状態は副分類の有無から導出 --}}
                     <label class="outfit-category-multi-toggle" data-tooltip="複数の分類を持つアウトフィット">
@@ -61,6 +56,12 @@
                 <select data-additional-category-field="minor" data-index="{{row.index}}">
                     {{selectOptions row.minorChoices selected=row.minor}}
                 </select>
+                {{#if (eq row.major "other")}}
+                <input type="text" data-additional-category-field="majorOther" data-index="{{row.index}}" value="{{row.majorOther}}" aria-label="副分類の大分類（その他）">
+                {{/if}}
+                {{#if (eq row.minor "other")}}
+                <input type="text" data-additional-category-field="minorOther" data-index="{{row.index}}" value="{{row.minorOther}}" aria-label="副分類の小分類（その他）">
+                {{/if}}
                 {{#if row.isFirst}}
                 <a class="outfit-category-row-btn" data-additional-category-add title="分類を追加"><i class="fas fa-plus"></i></a>
                 {{else}}
@@ -257,12 +258,14 @@
                             <label>攻撃力</label>
                             <div class="form-fields split-fields">
                                 <select name="system.attack.damageType">
-                                    {{selectOptions options.damageType selected=system.attack.damageType}}
+                                    {{selectOptions options.outfitDamageType selected=system.attack.damageType}}
                                 </select>
                                 <div class="number-input-spinner skill-sheet-spinner">
+                                    {{#unless (eq system.attack.damageType "reference")}}
                                     <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.attack.value">-</button>
                                     <input type="number" name="system.attack.value" value="{{system.attack.value}}">
                                     <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.attack.value">+</button>
+                                    {{/unless}}
                                 </div>
                             </div>
                         </div>

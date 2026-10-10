@@ -12,7 +12,7 @@ import { ensureOutfitRowIds } from "../../../rules/outfit-row-operations.mjs";
  * フィールド型の判断(フェーズ6-0 で刷新):
  * - buy(購入値)は「なし / 数値 / 解説参照」の 3 状態、hide(隠匿値)は「なし / 数値 / 解説参照 / 制御値」の 4 状態を持つため
  *   { mode, value } の SchemaField。mode が "value" のときのみ value を使う。
- * - preserveExp(常備化経験点)は必ず数値が入るため NumberField。
+ * - preserveExp(常備化経験点)などの数値パラメータは {mode, value}。解説参照は mode=reference。
  * - appearancePenalty(危険値)は「なし / 数値」の 2 状態。buy / hide / hack と同様の {mode, value} 構造
  *   (mode は none / value のみ)(フェーズ6-4 にて変更)。
  * - majorCategory / minorCategory は choices 付き StringField(outfit-categories.mjs が正本)。
@@ -65,6 +65,7 @@ import { migrateUsesMaxToString, computeUsesMaxTotal } from "../uses.mjs";
 
 /** 式神装備(isShiki)のタイプ(フェーズ10-2)。式神＝しきそうび。 */
 export const SHIKI_TYPES = Object.freeze({
+  reference: "解説参照",
   attack:      "攻撃",
   defense:     "防御",
   drive:       "操縦",
@@ -152,6 +153,8 @@ export class OutfitBaseTemplate extends SystemDataModel {
         initial: "",
         choices: getMinorCategoryChoices,
       }),
+      majorCategoryOther: new fields.StringField({ initial: "" }),
+      minorCategoryOther: new fields.StringField({ initial: "" }),
       // 副分類(フェーズ16-1・2026-08-30 裁定): 「複数の分類を持つアウトフィット」の追加分類。
       // 主分類は置き場所(シートのグループ表示・部位/スロット)の権威のまま、ルール挙動の照合は
       // outfitClassifications(主分類＋副分類の集合)を経由する。minor 空=大分類のみの横断
@@ -161,6 +164,8 @@ export class OutfitBaseTemplate extends SystemDataModel {
           rowId: new fields.StringField({ initial: "" }),
           major: new fields.StringField({ initial: "" }),
           minor: new fields.StringField({ initial: "" }),
+          majorOther: new fields.StringField({ initial: "" }),
+          minorOther: new fields.StringField({ initial: "" }),
         })
       ),
       buy:               modeValueField(["none", "value", "reference"]),

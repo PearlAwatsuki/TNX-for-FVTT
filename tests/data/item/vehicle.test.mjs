@@ -41,7 +41,7 @@ describe("VehicleDataModel.defineSchema()", () => {
         expect(schema[key]).toBeInstanceOf(MockSchemaField);
         expect(schema[key].fields.mode).toBeInstanceOf(MockStringField);
         expect(schema[key].fields.mode.options.initial).toBe("none");
-        expect(schema[key].fields.mode.options.choices).toEqual(["none", "value"]);
+        expect(schema[key].fields.mode.options.choices).toEqual(["none", "value", "reference"]);
         expect(schema[key].fields.value).toBeInstanceOf(MockNumberField);
         expect(schema[key].fields.value.options.initial).toBe(0);
       });

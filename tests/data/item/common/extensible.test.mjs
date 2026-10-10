@@ -38,7 +38,7 @@ describe("ExtensibleTemplate.defineSchema() (フェーズ6-2 プール方式)", 
     expect(count).toBeInstanceOf(MockSchemaField);
     expect(count.fields.mode).toBeInstanceOf(MockStringField);
     expect(count.fields.mode.options.initial).toBe("none");
-    expect(count.fields.mode.options.choices).toEqual(["none", "value"]);
+    expect(count.fields.mode.options.choices).toEqual(["none", "value", "reference"]);
     expect(count.fields.value).toBeInstanceOf(MockNumberField);
     expect(count.fields.value.options.initial).toBe(0);
   });

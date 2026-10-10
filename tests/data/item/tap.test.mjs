@@ -38,7 +38,7 @@ describe("TapDataModel.defineSchema()", () => {
     expect(schema.cycle).toBeInstanceOf(MockSchemaField);
     expect(schema.cycle.fields.mode).toBeInstanceOf(MockStringField);
     expect(schema.cycle.fields.mode.options.initial).toBe("none");
-    expect(schema.cycle.fields.mode.options.choices).toEqual(["none", "value"]);
+    expect(schema.cycle.fields.mode.options.choices).toEqual(["none", "value", "reference"]);
     expect(schema.cycle.fields.value).toBeInstanceOf(MockNumberField);
     expect(schema.cycle.fields.value.options.initial).toBe(0);
   });

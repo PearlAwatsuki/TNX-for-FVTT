@@ -38,7 +38,7 @@ describe("IanusDataModel.defineSchema()", () => {
     expect(schema.controlMod).toBeInstanceOf(MockSchemaField);
     expect(schema.controlMod.fields.mode).toBeInstanceOf(MockStringField);
     expect(schema.controlMod.fields.mode.options.initial).toBe("none");
-    expect(schema.controlMod.fields.mode.options.choices).toEqual(["none", "value"]);
+    expect(schema.controlMod.fields.mode.options.choices).toEqual(["none", "value", "reference"]);
     expect(schema.controlMod.fields.value).toBeInstanceOf(MockNumberField);
     expect(schema.controlMod.fields.value.options.initial).toBe(0);
   });

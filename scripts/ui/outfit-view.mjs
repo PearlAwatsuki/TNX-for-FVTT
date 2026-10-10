@@ -26,6 +26,7 @@ import { formatPartDesignation, resolvePartRowsForDisplay, resolvePartAdditions 
  * @returns {string}
  */
 export function formatWeaponRangeLabel(range) {
+    if (range?.min === "reference" || range?.max === "reference") return "解説参照";
     if (!range || typeof range !== "object") return range ?? "-";
     if (!range.min || range.min === "none") return "-";
     const min = WEAPON_RANGES[range.min] ?? "-";
@@ -62,6 +63,7 @@ export function hideLabel(hide, isDisguised = false) {
 
 export function attackLabel(attack) {
     const type = attack?.damageTypeTotal || attack?.damageType || "";
+    if (type === "reference") return "解説参照";
     const value = attack?.total ?? attack?.value ?? 0;
     if (!type && !value) return "-";
     const sign = value >= 0 ? `+${value}` : String(value);
@@ -84,7 +86,7 @@ export function buildOutfitSummaryRows(system, type, { areaMods = null, resolveH
     // 住宅エリアの修正値を加算するヘルパー(住宅施設のみ。エリア未設定時は加算 0)
     const am = (key) => (areaMods?.[key] ?? 0);
     // {mode,value} フィールドを文字列に変換。mode が "none" なら "-"
-    const mv = (field) => field?.mode === "value" ? num(field.total ?? field.value) : "-";
+    const mv = (field) => field?.mode === "reference" ? "解説参照" : field?.mode === "value" ? num(field.total ?? field.value) : "-";
 
     // オプション時: 正の数値に + を付ける
     const isOption = system.isOption === true;
@@ -93,6 +95,7 @@ export function buildOutfitSummaryRows(system, type, { areaMods = null, resolveH
         return v > 0 ? `+${v}` : String(v);
     };
     const mvOpt = (field) => {
+        if (field?.mode === "reference") return "解説参照";
         if (field?.mode !== "value") return "-";
         const v = field.total ?? field.value;
         return isOption ? numSigned(v) : num(v);
@@ -122,12 +125,14 @@ export function buildOutfitSummaryRows(system, type, { areaMods = null, resolveH
         resolvePartAdditions(partAdded, partSlotsCtx));
     const defence = () => {
         const d = system.defence;
+        if (d?.mode === "reference") return "解説参照";
         if (d?.mode !== "value") return "-";
         return `${fmtNum(d.S_total ?? d.S_defence)}／${fmtNum(d.P_total ?? d.P_defence)}／${fmtNum(d.I_total ?? d.I_defence)}`;
     };
     const slots = Array.isArray(system.slots) ? system.slots : [];
     const countOf = (kind) => {
         const slot = slots.find((s) => s.kind === kind);
+        if (slot?.count?.mode === "reference") return "解説参照";
         if (!slot?.count || slot.count.mode !== "value") return "-";
         return fmtNum(slot.count.total ?? slot.count.value);
     };
@@ -205,7 +210,7 @@ export function buildOutfitSummaryRows(system, type, { areaMods = null, resolveH
         case "residence": {
             // 危険値・電制なし。隠は隠匿値のみ。住宅エリアの修正値を合算して表示する
             const expBase = system.preserveExp?.mode === "value" ? (system.preserveExp.total ?? system.preserveExp.value ?? 0) : null;
-            const preserveR = expBase !== null ? String(expBase + am("preserveExpMod")) : "-";
+            const preserveR = system.preserveExp?.mode === "reference" ? "解説参照" : expBase !== null ? String(expBase + am("preserveExpMod")) : "-";
             let buyR;
             if (system.buy.mode === "reference") buyR = "解説参照";
             else if (system.buy.mode === "value") buyR = `${(system.buy.total ?? system.buy.value ?? 0) + am("buyRatingMod")}／${preserveR}`;
@@ -219,7 +224,7 @@ export function buildOutfitSummaryRows(system, type, { areaMods = null, resolveH
             push("セ(電／ア)", `${security("cyberSecurity")}／${security("analogSecurity")}`, "full");
             const slotBase = slots.find((s) => s.kind === "normal");
             const slotCount = slotBase?.count?.mode === "value" ? (slotBase.count.total ?? slotBase.count.value ?? 0) : 0;
-            push("ス", fmtNum(slotCount + am("slotMod")));
+            push("ス", slotBase?.count?.mode === "reference" ? "解説参照" : fmtNum(slotCount + am("slotMod")));
             push("部位", part);
             break;
         }

@@ -24,7 +24,7 @@ describe("defenceField()", () => {
     const field = defenceField();
     expect(field.fields.mode).toBeInstanceOf(MockStringField);
     expect(field.fields.mode.options.initial).toBe("none");
-    expect(field.fields.mode.options.choices).toEqual(["none", "value"]);
+    expect(field.fields.mode.options.choices).toEqual(["none", "value", "reference"]);
   });
 
   it("各フィールドは NumberField で initial が 0", () => {
@@ -83,7 +83,7 @@ describe("attackField()", () => {
     const field = attackField();
     expect(field.fields.damageType).toBeInstanceOf(MockStringField);
     expect(field.fields.damageType.options.initial).toBe("");
-    expect(Object.keys(field.fields.damageType.options.choices)).toEqual(["S", "P", "I", "X"]);
+    expect(Object.keys(field.fields.damageType.options.choices)).toEqual(["reference", "S", "P", "I", "X"]);
   });
 
   it("value は NumberField で initial が 0", () => {

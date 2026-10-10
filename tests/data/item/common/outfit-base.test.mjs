@@ -91,7 +91,7 @@ describe("OutfitBaseTemplate.defineSchema()", () => {
       expect(schema.hack).toBeInstanceOf(MockSchemaField);
       expect(schema.hack.fields.mode).toBeInstanceOf(MockStringField);
       expect(schema.hack.fields.mode.options.initial).toBe("none");
-      expect(schema.hack.fields.mode.options.choices).toEqual(["none", "value"]);
+      expect(schema.hack.fields.mode.options.choices).toEqual(["none", "value", "reference"]);
       expect(schema.hack.fields.value).toBeInstanceOf(MockNumberField);
       expect(schema.hack.fields.value.options.initial).toBe(0);
     });
@@ -155,7 +155,7 @@ describe("OutfitBaseTemplate.defineSchema()", () => {
       expect(schema.preserveExp).toBeInstanceOf(MockSchemaField);
       expect(schema.preserveExp.fields.mode).toBeInstanceOf(MockStringField);
       expect(schema.preserveExp.fields.mode.options.initial).toBe("none");
-      expect(schema.preserveExp.fields.mode.options.choices).toEqual(["none", "value"]);
+      expect(schema.preserveExp.fields.mode.options.choices).toEqual(["none", "value", "reference"]);
       expect(schema.preserveExp.fields.value).toBeInstanceOf(MockNumberField);
       expect(schema.preserveExp.fields.value.options.initial).toBe(0);
     });

@@ -153,7 +153,7 @@ describe("buildCategoryKeyGroups(修理対応分類・製作技能対応分類�
   it("各グループは（大分類全体）＋小分類の option を持つ", () => {
     const groups = buildCategoryKeyGroups();
     const weapon = groups.find((g) => g.label === "武器");
-    expect(weapon.minors[0]).toEqual({ value: "weapon", label: "（大分類全体）" });
+    expect(weapon.minors[0]).toEqual({ value: "weapon", label: "武器（大分類全体）" });
     expect(weapon.minors.map((o) => o.value)).toContain("melee");
   });
 

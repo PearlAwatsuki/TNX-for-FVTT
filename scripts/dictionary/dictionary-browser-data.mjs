@@ -288,7 +288,7 @@ export function groupOutfitEntries(entries) {
     const unclassified = [];
     for (const e of entries) {
         const minor = e.system?.minorCategory ?? "";
-        if (!minor) { unclassified.push(e); continue; }
+        if (!minor || !Object.values(OUTFIT_CATEGORIES).some(group => Object.hasOwn(group.minors, minor))) { unclassified.push(e); continue; }
         if (!byMinor.has(minor)) byMinor.set(minor, []);
         byMinor.get(minor).push(e);
     }

@@ -62,6 +62,7 @@ export const OUTFIT_CATEGORIES = Object.freeze({
   item: { label: "アイテム", minors: Object.freeze({
     tool:      { label: "ツール",         types: ["general"] },
     magicItem: { label: "マジックアイテム", types: ["general"] },
+    mysticalAppearance: { label: "妖的外姿", types: ["general"] },
     biotech:   { label: "生体装備",       types: ["general", "weapon", "armor"] },
     drug:      { label: "ドラッグ",       types: ["general"] },
     food:      { label: "フーズ",         types: ["general"] },
@@ -92,7 +93,7 @@ export const OUTFIT_TYPES = Object.freeze(new Set(
 export function getMajorCategoryChoices() {
   const out = {};
   for (const [key, major] of Object.entries(OUTFIT_CATEGORIES)) out[key] = major.label;
-  return out;
+  return { ...out, reference: "解説参照", other: "その他" };
 }
 
 /**
@@ -104,7 +105,7 @@ export function getMinorCategoryChoices() {
   for (const major of Object.values(OUTFIT_CATEGORIES)) {
     for (const [key, minor] of Object.entries(major.minors)) out[key] = minor.label;
   }
-  return out;
+  return { ...out, reference: "解説参照", other: "その他" };
 }
 
 /**
@@ -112,7 +113,9 @@ export function getMinorCategoryChoices() {
  * @param {string} key
  * @returns {string}
  */
-export function getMajorCategoryLabel(key) {
+export function getMajorCategoryLabel(key, other = "") {
+  if (key === "reference") return "解説参照";
+  if (key === "other") return other || "その他";
   return OUTFIT_CATEGORIES[key]?.label ?? "";
 }
 
@@ -121,7 +124,9 @@ export function getMajorCategoryLabel(key) {
  * @param {string} key
  * @returns {string}
  */
-export function getMinorCategoryLabel(key) {
+export function getMinorCategoryLabel(key, other = "") {
+  if (key === "reference") return "解説参照";
+  if (key === "other") return other || "その他";
   for (const major of Object.values(OUTFIT_CATEGORIES)) {
     if (major.minors[key]) return major.minors[key].label;
   }
@@ -227,7 +232,7 @@ export function buildCategoryKeyGroups({ excludeService = true, excludeKeys } = 
     .map(([majorKey, major]) => ({
       label: major.label,
       minors: [
-        ...(excluded.has(majorKey) ? [] : [{ value: majorKey, label: "（大分類全体）" }]),
+        ...(excluded.has(majorKey) ? [] : [{ value: majorKey, label: `${major.label}（大分類全体）` }]),
         ...Object.entries(major.minors)
           .filter(([minorKey]) => !excluded.has(minorKey))
           .map(([minorKey, minor]) => ({ value: minorKey, label: minor.label })),

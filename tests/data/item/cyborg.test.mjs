@@ -41,7 +41,7 @@ describe("CyborgDataModel.defineSchema()", () => {
     it("defence.mode は StringField で initial が none、choices は none/value", () => {
       expect(schema.defence.fields.mode).toBeInstanceOf(MockStringField);
       expect(schema.defence.fields.mode.options.initial).toBe("none");
-      expect(schema.defence.fields.mode.options.choices).toEqual(["none", "value"]);
+      expect(schema.defence.fields.mode.options.choices).toEqual(["none", "value", "reference"]);
     });
 
     it("defence の各フィールドは NumberField で initial が 0", () => {
@@ -59,7 +59,7 @@ describe("CyborgDataModel.defineSchema()", () => {
 
     it("attack.damageType は choices 付き StringField (単一選択)", () => {
       expect(schema.attack.fields.damageType).toBeInstanceOf(MockStringField);
-      expect(Object.keys(schema.attack.fields.damageType.options.choices)).toEqual(["S", "P", "I", "X"]);
+      expect(Object.keys(schema.attack.fields.damageType.options.choices)).toEqual(["reference", "S", "P", "I", "X"]);
     });
 
     it("attack.value は NumberField で initial が 0", () => {
@@ -80,7 +80,7 @@ describe("CyborgDataModel.defineSchema()", () => {
     expect(schema.guardValue).toBeInstanceOf(MockSchemaField);
     expect(schema.guardValue.fields.mode).toBeInstanceOf(MockStringField);
     expect(schema.guardValue.fields.mode.options.initial).toBe("none");
-    expect(schema.guardValue.fields.mode.options.choices).toEqual(["none", "value"]);
+    expect(schema.guardValue.fields.mode.options.choices).toEqual(["none", "value", "reference"]);
     expect(schema.guardValue.fields.value).toBeInstanceOf(MockNumberField);
     expect(schema.guardValue.fields.value.options.initial).toBe(0);
   });
