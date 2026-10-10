@@ -7,6 +7,7 @@
 
 import { refreshSheetsSoon } from "./sheet-refresh.mjs";
 import { SYSTEM_ID } from "../constants.mjs";
+import { actorForEffect, queueTemporarySkillSuitReconcile } from "./temporary-skill-suits.mjs";
 import { usesMaxBaseOf } from "../data/item/uses.mjs";
 import { miracleRemovalUpdate } from "../rules/miracle.mjs";
 import { SKILL_PACKS } from "../dictionary/skill-dictionary.mjs";
@@ -395,6 +396,8 @@ export function registerDocumentHooks() {
             if (effect.parent?.id && game.users.some(u => u.character?.id === effect.parent.id)) {
                 foundry.applications.instances.get("tnx-hud")?.render(false);
             }
+            // AEの削除・無効化・失効・供給元解除を含む全変更後に、一時レベル由来スートだけを整理する。
+            queueTemporarySkillSuitReconcile(actorForEffect(effect));
         });
     }
 

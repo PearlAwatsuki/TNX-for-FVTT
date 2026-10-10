@@ -20,6 +20,7 @@ import { OUTFIT_CATEGORIES, getMinorCategoryLabel } from '../data/item/outfit-ca
 import { getPartSlotPreset, PartSlotPresetApp } from '../app/part-slot-preset-app.mjs';
 import { findDepartmentSkillName } from '../data/helpers.mjs';
 import { applyOutfitFlagToggle } from '../core/outfit-flags.mjs';
+import { setForcedDeletion } from "../core/forced-deletion.mjs";
 import { TnxCheckFlow } from '../flow/tnx-check-flow.mjs';
 import { ALL_SUITS } from '../rules/tnx-check-engine.mjs';
 import { loadSkillChoices, SKILL_PACKS } from '../dictionary/skill-dictionary.mjs';
@@ -33,6 +34,7 @@ import { resolveHousingAreaMods } from '../core/residence-area.mjs';
 import { asOtherCopyUpdate } from "../flow/miracle-flow.mjs";
 import { TargetSelectionDialog } from "../ui/tnx-dialog.mjs";
 import { buildCombatSpeedInit } from "../rules/session.mjs";
+import { baseLevelFromEffectiveInput, baseLevelAfterSuitChange, temporarySuitStateAfterChange } from "../rules/skill-level-edit.mjs";
 // 用途の起動は唯一の起動関数(flow/item-activation.mjs)。シートは入口を提供するだけ
 import { activateItemCheck } from "../flow/item-activation.mjs";
 import { prepareOutfitGroups, preparePartOccupancy } from "./outfit-tab.mjs";
@@ -858,26 +860,55 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         // スートは手動だがレベル・経験点には触れない(レベルは参照先で確定・二重計上しない)。
         if (item.type === 'styleSkill' && item.system.levelRef?.enabled) {
             if (target === "suit") {
-                await item.update({ [`system.suits.${input.dataset.suit}`]: input.checked });
+                const suitKey = input.dataset.suit;
+                const baseLevel = Number(item.system.level) || 0;
+                const effectiveLevel = Number(item.system.levelTotal) || baseLevel;
+                const updateData = { [`system.suits.${suitKey}`]: input.checked };
+                const temporaryState = temporarySuitStateAfterChange({
+                    state: item.getFlag(SYSTEM_ID, "temporaryLevelSuits"),
+                    suits: item.system.suits, suitKey, checked: input.checked,
+                    baseLevel, effectiveLevel, nextBaseLevel: baseLevel,
+                });
+                if (temporaryState) updateData[`flags.${SYSTEM_ID}.temporaryLevelSuits`] = temporaryState;
+                else if (item.getFlag(SYSTEM_ID, "temporaryLevelSuits")) {
+                    setForcedDeletion(updateData, `flags.${SYSTEM_ID}.temporaryLevelSuits`);
+                }
+                await item.update(updateData);
             }
             return; // level 入力は無効化済み
         }
 
-        let newLevel  = item.system.level;
+        const baseLevel = Number(item.system.level) || 0;
+        const effectiveLevel = Number(item.system.levelTotal) || baseLevel;
         const updateData = {};
 
         if (target === "level") {
-            newLevel = parseInt(input.value, 10);
-            updateData["system.level"] = newLevel;
+            // 編集欄は実効レベルを表示する。入力値からAE等の一時修正分を差し引き、素のレベルだけを保存する。
+            updateData["system.level"] = baseLevelFromEffectiveInput(
+                input.value, baseLevel, effectiveLevel
+            );
         } else if (target === "suit") {
             const suitKey = input.dataset.suit;
             updateData[`system.suits.${suitKey}`] = input.checked;
             const currentSuits = item.system.suits;
-            newLevel = 0;
+            let selectedSuitCount = 0;
             for (const key of ["spade", "club", "heart", "diamond"]) {
-                if ((key === suitKey ? input.checked : currentSuits[key])) newLevel++;
+                if ((key === suitKey ? input.checked : currentSuits[key])) selectedSuitCount++;
             }
-            updateData["system.level"] = newLevel;
+            // 一時的に増えたレベルへスートを割り当てても、その分を素のレベルへ焼き込まない。
+            const nextBaseLevel = baseLevelAfterSuitChange({
+                baseLevel, effectiveLevel, selectedSuitCount, checked: input.checked,
+            });
+            updateData["system.level"] = nextBaseLevel;
+            const temporaryState = temporarySuitStateAfterChange({
+                state: item.getFlag(SYSTEM_ID, "temporaryLevelSuits"),
+                suits: currentSuits, suitKey, checked: input.checked,
+                baseLevel, effectiveLevel, nextBaseLevel,
+            });
+            if (temporaryState) updateData[`flags.${SYSTEM_ID}.temporaryLevelSuits`] = temporaryState;
+            else if (item.getFlag(SYSTEM_ID, "temporaryLevelSuits")) {
+                setForcedDeletion(updateData, `flags.${SYSTEM_ID}.temporaryLevelSuits`);
+            }
         }
 
         // 経験点はレベルを書いた結果を消費集計(updateCastExp)が全量再計算するため、ここは

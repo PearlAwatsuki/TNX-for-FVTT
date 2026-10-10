@@ -101,7 +101,7 @@
                                                 </div>
                                                 <div class="skill-meta-data">
                                                     <div class="skill-level-container">
-                                                        <input type="number" class="skill-property-change" data-target="level" value="{{item.system.level}}" placeholder="Lv" />
+                                                        <input type="number" class="skill-property-change" data-target="level" value="{{item.system.levelTotal}}" placeholder="Lv" />
                                                         <div class="skill-suits-row">
                                                             {{#each ../../TNX.SUITS as |suitData key|}}
                                                                 <label class="suit-checkbox-tiny" title="{{suitData.label}}">
@@ -156,7 +156,7 @@
                                                     </div>
                                                     <div class="cell cell-level">
                                                         <div class="skill-level-container">
-                                                            <input type="number" class="skill-property-change" data-target="level" value="{{item.system.level}}" placeholder="Lv" {{#if item.system.levelRef.enabled}}disabled{{/if}} />
+                                                            <input type="number" class="skill-property-change" data-target="level" value="{{item.system.levelTotal}}" placeholder="Lv" {{#if item.system.levelRef.enabled}}disabled{{/if}} />
                                                             <div class="skill-suits-row">
                                                                 {{#each ../../TNX.SUITS as |suitData key|}}
                                                                     <label class="suit-checkbox-tiny" title="{{suitData.label}}">
