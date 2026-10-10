@@ -319,7 +319,7 @@ describe("deleteUserFlagHistoryEntry()", () => {
 
     expect(user.update).toHaveBeenCalledOnce();
     const arg = user.update.mock.calls[0][0];
-    expect(arg[`flags.${SYSTEM_ID}.history.-=a1`]).toBeNull();
+    expect(arg.flags[SYSTEM_ID].history.a1).toBeInstanceOf(foundry.data.operators.ForcedDeletion);
     expect(arg[`flags.${SYSTEM_ID}.exp.total`]).toBe(7);
   });
 
@@ -341,7 +341,7 @@ describe("deleteUserFlagHistoryEntry()", () => {
     await deleteUserFlagHistoryEntry(user, "a1");
 
     const arg = user.update.mock.calls[0][0];
-    expect(arg[`flags.${SYSTEM_ID}.history.-=a1`]).toBeNull();
+    expect(arg.flags[SYSTEM_ID].history.a1).toBeInstanceOf(foundry.data.operators.ForcedDeletion);
     expect(arg[`flags.${SYSTEM_ID}.exp.total`]).toBe(0);
   });
 

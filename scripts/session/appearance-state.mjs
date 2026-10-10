@@ -13,6 +13,7 @@
  */
 
 import { SYSTEM_ID } from "../constants.mjs";
+import { forcedDeletion } from "../core/forced-deletion.mjs";
 import { pickTokenDropPosition, pickDisembarkPosition, tokenDeletionImpliesExit } from "../rules/appearance.mjs";
 import { teamLinkedExitTargets } from "../rules/session.mjs";
 import { TNX_HOOKS } from "../rules/combat-events.mjs";
@@ -391,7 +392,7 @@ async function syncGhostVisibility(actor) {
         if (shouldHide && (!saved || !token.hidden)) updates.push({ _id: token.id, hidden: true,
             [`flags.${SYSTEM_ID}.boardingHidden`]: saved ?? { previous: !!token.hidden } });
         else if (!shouldHide && saved) updates.push({ _id: token.id, hidden: saved.previous === true,
-            [`flags.${SYSTEM_ID}.-=boardingHidden`]: null });
+            flags: { [SYSTEM_ID]: { boardingHidden: forcedDeletion() } } });
     }
     if (updates.length) await scene.updateEmbeddedDocuments("Token", updates);
 }

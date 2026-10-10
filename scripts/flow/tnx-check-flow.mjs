@@ -16,6 +16,7 @@
  */
 
 import { SYSTEM_ID } from "../constants.mjs";
+import { forcedDeletion } from "../core/forced-deletion.mjs";
 import { ghostCanInteract } from "../session/vehicle-state.mjs";
 import { getCardCheckValue, calcSkillCheck, calcControlCheck, normalizeSuit, ALL_SUITS, SUIT_TO_ABILITY } from '../rules/tnx-check-engine.mjs';
 import { gatherCheckBonusSources, collectActorEffectBuffs, actorHasSuitChangeBuff, actorCardValueOverride, readFlag } from '../data/item/helpers.mjs';
@@ -962,7 +963,7 @@ export class TnxCheckFlow {
 
         const patch = {
             [`flags.${SYSTEM_ID}.checkRecheck.rechecked`]: true,
-            [`flags.${SYSTEM_ID}.-=checkMods`]: null,
+            flags: { [SYSTEM_ID]: { checkMods: forcedDeletion() } },
             [`flags.${SYSTEM_ID}.checkResult`]: { actorId: ctx.actorId, result },
         };
 

@@ -6,6 +6,7 @@
  */
 
 import { SYSTEM_ID } from "../constants.mjs";
+import { setForcedDeletion } from "./forced-deletion.mjs";
 import { TokyoNovaCastSheet } from "../actor/tnx-cast-sheet.mjs";
 import { getUserFlagData, calcHistoryExpTotal } from "./user-flag-schema.mjs";
 import { calcSharedSpent, buildCastHistorySyncUpdate, mergeHistories, separateHistoryByOrigin } from "../rules/exp-sync.mjs";
@@ -83,7 +84,7 @@ export async function performUnsyncSeparation(castActor, ownerUser) {
     const { ownedByOther: castForeignEntries } = separateHistoryByOrigin(castHistory, castUuid);
     const castUpdate = {};
     for (const id of Object.keys(castForeignEntries)) {
-        castUpdate[`system.history.-=${id}`] = null;
+        setForcedDeletion(castUpdate, `system.history.${id}`);
     }
     if (!foundry.utils.isEmpty(castUpdate)) {
         await castActor.update(castUpdate, { calcExp: false, syncing: true });
@@ -95,7 +96,7 @@ export async function performUnsyncSeparation(castActor, ownerUser) {
     const newTotal = calcHistoryExpTotal(remainingUserHistory);
     const flagUpdate = { [`flags.${SYSTEM_ID}.exp.total`]: newTotal };
     for (const id of Object.keys(castEntriesInUser)) {
-        flagUpdate[`flags.${SYSTEM_ID}.history.-=${id}`] = null;
+        setForcedDeletion(flagUpdate, `flags.${SYSTEM_ID}.history.${id}`);
     }
     await ownerUser.update(flagUpdate, { syncing: true });
 

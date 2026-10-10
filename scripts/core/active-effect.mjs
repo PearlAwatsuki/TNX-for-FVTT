@@ -18,6 +18,7 @@ import { SYSTEM_ID } from "../constants.mjs";
 import { isEnchantment, normalizeEffectKindData, ENCHANTMENT_STATUS_FLAGS } from "../rules/ae-kind.mjs";
 import { OUTFIT_TYPES } from "../data/item/outfit-categories.mjs";
 import { normalizeEnchantmentChanges } from "../rules/enchantment-attributes.mjs";
+import { forcedDeletion } from "./forced-deletion.mjs";
 
 export class TokyoNovaActiveEffect extends ActiveEffect {
   get modifiesActor() {
@@ -32,7 +33,9 @@ export class TokyoNovaActiveEffect extends ActiveEffect {
       const path = next.system?.changes ? "system.changes" : "changes";
       this.updateSource({ [path]: normalizeEnchantmentChanges(next.system?.changes ?? next.changes ?? []) });
       // updateSourceのマージでは削除されない既存キーも除去する。
-      this.updateSource(Object.fromEntries(ENCHANTMENT_STATUS_FLAGS.map(k => [`flags.${SYSTEM_ID}.-=${k}`, null])));
+      this.updateSource({ flags: { [SYSTEM_ID]: Object.fromEntries(
+        ENCHANTMENT_STATUS_FLAGS.map(k => [k, forcedDeletion()])
+      ) } });
     }
     return super._preCreate(data, options, user);
   }
@@ -55,11 +58,19 @@ export class TokyoNovaActiveEffect extends ActiveEffect {
         for (const path of Object.keys(data)) {
           if (path === `flags.${SYSTEM_ID}.${key}` || path.startsWith(`flags.${SYSTEM_ID}.${key}.`)) delete data[path];
         }
-        data[`flags.${SYSTEM_ID}.-=${key}`] = null;
+        data.flags ??= {};
+        data.flags[SYSTEM_ID] ??= {};
+        data.flags[SYSTEM_ID][key] = forcedDeletion();
       }
     } else if (data.type !== undefined) {
-      data[`flags.${SYSTEM_ID}.-=applyToParent`] = null;
-      data[`flags.${SYSTEM_ID}.-=applyToSelf`] = null;
+      data.flags ??= {};
+      data.flags[SYSTEM_ID] = {
+        ...(data.flags[SYSTEM_ID] ?? {}),
+        applyToParent: forcedDeletion(),
+        applyToTarget: forcedDeletion(),
+        applyToSelf: forcedDeletion(),
+        targetItemId: forcedDeletion(),
+      };
     }
     return super._preUpdate(data, options, user);
   }

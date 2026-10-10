@@ -1,3 +1,4 @@
+import { setForcedDeletion } from "../core/forced-deletion.mjs";
 export const TnxHistoryMixin = {
 
     /**
@@ -40,7 +41,8 @@ export const TnxHistoryMixin = {
 
             const newTotal = TnxHistoryMixin._calculateTotalExp(historyMap);
 
-            const updateData = { [`system.history.-=${targetId}`]: null };
+            const updateData = {};
+            setForcedDeletion(updateData, `system.history.${targetId}`);
 
             if (!this.document.system.exp) {
                 updateData["system.exp"] = { value: 0, total: newTotal, spent: 0 };

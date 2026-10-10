@@ -36,6 +36,9 @@ export class MockHTMLField {
 export class MockObjectField {
   constructor(options = {}) { this.options = options; }
 }
+export class MockForcedDeletion {
+  static create() { return new MockForcedDeletion(); }
+}
 export class MockTypeDataModel {
   static defineSchema() { return {}; }
   static migrateData(source) { return source; }
@@ -56,6 +59,7 @@ globalThis.foundry = {
     TypeDataModel: MockTypeDataModel,
   },
   data: {
+    operators: { ForcedDeletion: MockForcedDeletion },
     fields: {
       NumberField:  MockNumberField,
       StringField:  MockStringField,

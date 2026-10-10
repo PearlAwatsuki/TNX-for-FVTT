@@ -76,31 +76,27 @@ describe("buildCastHistorySyncUpdate()", () => {
     expect(result).toEqual({ "system.history.id1": { exp: 20 } });
   });
 
-  it("旧にあって新にないエントリは -= 構文で削除される", () => {
+  it("旧にあって新にないエントリは ForcedDeletion で削除される", () => {
     const old = { "id1": { exp: 10 }, "id2": { exp: 5 } };
     const newMap = { "id1": { exp: 10 } };
     const result = buildCastHistorySyncUpdate(old, newMap);
-    expect(result).toEqual({
-      "system.history.-=id2": null,
-      "system.history.id1": { exp: 10 },
-    });
+    expect(result["system.history.id1"]).toEqual({ exp: 10 });
+    expect(result.system.history.id2).toBeInstanceOf(foundry.data.operators.ForcedDeletion);
   });
 
-  it("全エントリ削除の場合は全て -= キーになる", () => {
+  it("全エントリ削除の場合は全て ForcedDeletion になる", () => {
     const old = { "id1": { exp: 10 } };
     const result = buildCastHistorySyncUpdate(old, {});
-    expect(result).toEqual({ "system.history.-=id1": null });
+    expect(result.system.history.id1).toBeInstanceOf(foundry.data.operators.ForcedDeletion);
   });
 
   it("追加・削除・上書きが混在する場合を正しく処理する", () => {
     const old = { "keep": { exp: 5 }, "del": { exp: 3 } };
     const newMap = { "keep": { exp: 99 }, "add": { exp: 1 } };
     const result = buildCastHistorySyncUpdate(old, newMap);
-    expect(result).toEqual({
-      "system.history.-=del": null,
-      "system.history.keep": { exp: 99 },
-      "system.history.add": { exp: 1 },
-    });
+    expect(result.system.history.del).toBeInstanceOf(foundry.data.operators.ForcedDeletion);
+    expect(result["system.history.keep"]).toEqual({ exp: 99 });
+    expect(result["system.history.add"]).toEqual({ exp: 1 });
   });
 });
 

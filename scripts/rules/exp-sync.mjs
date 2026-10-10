@@ -1,3 +1,4 @@
+import { setForcedDeletion } from "../core/forced-deletion.mjs";
 /**
  * @fileoverview EXP 同期の純粋関数群(フェーズ2-2)
  *
@@ -69,7 +70,7 @@ export function separateHistoryByOrigin(historyMap, originId) {
  * 最小変更で同期するための updateData を生成する(純粋関数)。
  *
  * User flag の history を権威とし、cast ローカルの system.history をそれに合わせる。
- * Foundry の mergeObject はキーを保持するため、削除は `-=` 構文で明示的に行う。
+ * Foundry の mergeObject はキーを保持するため、削除は ForcedDeletion 演算子で明示的に行う。
  *
  * @param {object} oldMap  現在の cast.system.history
  * @param {object} newMap  User flag から取得した最新 history
@@ -81,7 +82,7 @@ export function buildCastHistorySyncUpdate(oldMap, newMap) {
   const update = {};
   // 旧にあって新にないエントリは削除
   for (const id of Object.keys(old_)) {
-    if (!(id in new_)) update[`system.history.-=${id}`] = null;
+    if (!(id in new_)) setForcedDeletion(update, `system.history.${id}`);
   }
   // 新のエントリを追加・上書き
   for (const [id, entry] of Object.entries(new_)) {
