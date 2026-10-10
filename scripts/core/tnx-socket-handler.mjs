@@ -38,7 +38,7 @@
 import { SYSTEM_ID, SOCKET_CHANNEL } from "../constants.mjs";
 import { getUserFlagData } from "./user-flag-schema.mjs";
 import { applyTreatmentDelegated } from "../flow/treatment-flow.mjs";
-import { setCurrentSceneCard } from "../session/session-state.mjs";
+import { setCurrentSceneCard, markAppearanceCheckUsed } from "../session/session-state.mjs";
 import { applyManualExit } from "../session/appearance-state.mjs";
 
 
@@ -110,6 +110,9 @@ export class TnxSocketHandler {
                 break;
             case "sessionSceneCard":
                 TnxSocketHandler._onSessionSceneCard(data);
+                break;
+            case "appearanceCheckUsed":
+                TnxSocketHandler._onAppearanceCheckUsed(data);
                 break;
             case "sessionTeam":
                 TnxSocketHandler._onSessionTeam(data);
@@ -430,6 +433,14 @@ export class TnxSocketHandler {
     static async _onSessionSceneCard(data) {
         if (game.users.activeGM?.id !== game.user.id) return;
         await setCurrentSceneCard(data?.cardId ?? "");
+    }
+
+    /** 登場判定の消費を、要求者本人の担当キャラクターについてのみ記録する。 */
+    static async _onAppearanceCheckUsed(data) {
+        if (game.users.activeGM?.id !== game.user.id) return;
+        const requester = game.users.get(data?.userId);
+        if (!requester || requester.character?.id !== data?.actorId) return;
+        await markAppearanceCheckUsed(data.actorId, data.sceneId);
     }
 
     // ─── sessionTeam（チーム宣言の委譲・フェーズ14-5） ────────────────────────

@@ -5,13 +5,14 @@
  * アイテムと状態を読むだけで、シートの状態(編集モード・DOM)には触れない。
  */
 
+import { attackLabel } from "../ui/outfit-view.mjs";
 import { TnxSkillUtils } from "../core/tnx-skill-utils.mjs";
 import { OUTFIT_ITEM_TYPES } from "../data/helpers.mjs";
 import { readFlag } from "../data/item/helpers.mjs";
 import { effectiveUsageTiming } from "../data/item/modification-params.mjs";
 import { usesMaxTotalOf, usesMaxBaseOf } from "../data/item/uses.mjs";
 import { aggregateDefence } from "../rules/damage.mjs";
-import { vehicleDefenceItems, crewVehicle } from "../session/vehicle-state.mjs";
+import { vehicleDefenceItems, crewVehicle, isGhostAppearing, preparedDrone } from "../session/vehicle-state.mjs";
 import { usageDisplayName } from "../rules/usage-types.mjs";
 
 /**
@@ -57,19 +58,29 @@ export function prepareCombatData(actor, context) {
     const fleshGuard = () => String((sys.baseGuard?.value ?? 0) + (sys.baseGuard?.mod ?? 0));
     const attackSrc = refs.attackItemId ? candidates.find(i => i.id === refs.attackItemId) : null;
     const parrySrc  = refs.parryItemId  ? candidates.find(i => i.id === refs.parryItemId)  : null;
-    context.combatAttackRef = attackSrc ? {
+    const ghostAppearance = isGhostAppearing(actor);
+    const remoteDronePrepared = ghostAppearance && !!preparedDrone(actor);
+    context.combatAttackRef = remoteDronePrepared ? { _id: null, name: "ー", attack: "ー" } : attackSrc ? {
         _id: attackSrc.id, name: displayName(attackSrc),
-        attack: (attackSrc.system.attack?.damageTypeTotal || attackSrc.system.attack?.damageType)
-            ? `${attackSrc.system.attack.damageTypeTotal || attackSrc.system.attack.damageType}+${attackSrc.system.attack.total ?? attackSrc.system.attack.value ?? 0}` : "-",
+        attack: attackLabel(attackSrc.system.attack),
     } : { _id: null, name: "生身", attack: fleshAttack() };
-    context.combatParryRef = parrySrc ? {
+    context.combatParryRef = remoteDronePrepared ? { _id: null, name: "ー", guard: "ー" } : parrySrc ? {
         _id: parrySrc.id, name: displayName(parrySrc),
-        guard: mvT(parrySrc.system.guardValue) !== null ? String(mvT(parrySrc.system.guardValue)) : "-",
+        guard: parrySrc.system.guardValue?.mode === "reference" ? "解説参照" : mvT(parrySrc.system.guardValue) !== null ? String(mvT(parrySrc.system.guardValue)) : "-",
     } : { _id: null, name: "生身", guard: fleshGuard() };
-    // 編集モードの選択肢(空=未変更の生身が既定)
-    const choices = { "": "生身" };
-    for (const c of candidates) choices[c.id] = displayName(c);
-    context.combatWeaponChoices = choices;
+    // ゴースト登場中は保存済み選択を消さず、表示と編集だけを無効化する。
+    // 攻撃用とパリー用の候補は分ける。パリー側は受け値が数値として成立する候補だけを出し、
+    // 表示が「-」になる guardValue.mode !== "value" の装備は選択肢から除外する。受け値0は有効。
+    const attackChoices = remoteDronePrepared ? { "": "ー" } : { "": "生身" };
+    const parryChoices = remoteDronePrepared ? { "": "ー" } : { "": "生身" };
+    if (!remoteDronePrepared) {
+        for (const c of candidates) {
+            attackChoices[c.id] = displayName(c);
+            if (mvT(c.system.guardValue) !== null) parryChoices[c.id] = displayName(c);
+        }
+    }
+    context.combatAttackWeaponChoices = attackChoices;
+    context.combatParryWeaponChoices = parryChoices;
 
     // 防御力: 種別ごとの合計(準備済みの armor/cyborg/vehicle。防具・義体は合算適用・搭乗中
     // ヴィークルの防御力も加算する・2026-07-09 ユーザー確定)。ダメージ算出でも同じ値を使うため、

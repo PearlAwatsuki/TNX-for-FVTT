@@ -88,6 +88,12 @@ export const OUTFIT_ITEM_TYPES = new Set([
  */
 export const CHARACTER_ACTOR_TYPES = Object.freeze(["cast", "guest", "troop", "extra"]);
 
+/** mode/value 型パラメータの実効値。判定・集計では AE 込み total を優先する。 */
+export function modeValueTotal(field) {
+  if (field?.mode !== "value") return null;
+  return Number(field.total ?? field.value) || 0;
+}
+
 /**
  * 携帯中アウトフィットから outfitMod(制御値修正・CS修正)と appearanceModifier(危険値合計)を
  * 集計する純粋関数(フェーズ9-2、B-2 派生化。CS はフェーズ10-5 でフラグ駆動化)。
@@ -115,13 +121,16 @@ export function computeOutfitAggregates(items) {
     //   noPrepareRequired の反転はまだ乗っていない(フェーズ12・順序境界)。実行時ゲート
     //   (ダメージ/判定/戦闘表示)は AE 後に走るため実効(readFlag)を読む。
     const applies = !!(s.isPrepared || s.noPrepareRequired);
-    if (applies && s.controlMod?.mode === "value")            control     += Number(s.controlMod.value) || 0;
-    if (s.combatSpeedMod?.mode === "value") {
-      const v = Number(s.combatSpeedMod.value) || 0;
+    const controlValue = modeValueTotal(s.controlMod);
+    if (applies && controlValue !== null)                       control     += controlValue;
+    const combatSpeedValue = modeValueTotal(s.combatSpeedMod);
+    if (combatSpeedValue !== null) {
+      const v = combatSpeedValue;
       if (s.combatSpeedModGhostIgnore)  combatSpeedGhostIgnorable += v;
       else if (applies)                 combatSpeed               += v;
     }
-    if (s.appearancePenalty?.mode === "value")                appearance  += Number(s.appearancePenalty.value) || 0;
+    const appearanceValue = modeValueTotal(s.appearancePenalty);
+    if (appearanceValue !== null)                               appearance  += appearanceValue;
   }
   return { control, combatSpeed, combatSpeedGhostIgnorable, appearance };
 }
@@ -149,6 +158,8 @@ export function combatSpeedField() {
     base:    new fields.NumberField({ initial: 0 }),
     current: new fields.NumberField({ initial: 0 }),
     freeMod: new fields.NumberField({ initial: 0 }),
+    // CS決定時点で確定した「ゴースト登場時は無視する」修正項。
+    ghostIgnorableSnapshot: new fields.NumberField({ initial: 0 }),
   });
 }
 

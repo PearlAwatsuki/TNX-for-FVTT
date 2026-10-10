@@ -584,10 +584,13 @@ export function buildCombatSpeedInit(system) {
     const s = system ?? {};
     const newBase = Math.floor(
         ((s.reason?.total ?? 0) + (s.passion?.total ?? 0) + (s.life?.total ?? 0)) / 2);
+    // baseTotal は通常登場用の全修正を含む。条件付きで除外する項は同時に
+    // スナップショットし、以後の携帯品変更では再計算しない。
     const overlays = (s.combatSpeed?.baseTotal ?? 0) - (s.combatSpeed?.base ?? 0);
     return {
         "system.combatSpeed.base":  newBase,
         "system.combatSpeed.value": newBase + overlays,
+        "system.combatSpeed.ghostIgnorableSnapshot": s.combatSpeed?.ghostIgnorable ?? 0,
     };
 }
 

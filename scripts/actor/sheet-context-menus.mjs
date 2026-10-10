@@ -12,6 +12,8 @@ import { usesMaxBaseOf } from "../data/item/uses.mjs";
 import { CONDITION_KINDS, getConditionKind } from "../rules/conditions.mjs";
 import { openConditionEditDialog } from "../flow/condition-edit.mjs";
 import { startTreatment } from "../flow/treatment-flow.mjs";
+import { isVehicleBody } from "../rules/vehicle.mjs";
+import { editVehicleToken } from "../session/vehicle-state.mjs";
 
 export function activateContextMenus(sheet, el) {
     const getItemFromHeader = header => {
@@ -234,6 +236,17 @@ export function activateContextMenus(sheet, el) {
                 if (!item) return;
                 item.sheet._isEditMode = true;
                 item.sheet.render({ force: true });
+            }
+        },
+        {
+            label:     "ヴィークルコマを編集",
+            icon:      '<i class="fas fa-car"></i>',
+            visible:   header => isVehicleBody(getItemFromHeader(header)),
+            onClick:   async header => {
+                const item = getItemFromHeader(header);
+                if (!item) return;
+                try { await editVehicleToken(item); }
+                catch (error) { ui.notifications.warn(error.message); }
             }
         },
         {

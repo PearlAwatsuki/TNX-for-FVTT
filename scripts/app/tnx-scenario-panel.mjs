@@ -47,7 +47,7 @@ import {
     loadGeneralSkillNameByKey, loadSkillChoices, formatGroupedSkillNames, STYLE_PACK,
 } from "../dictionary/skill-dictionary.mjs";
 import {
-    appearanceCheckParams, formatAppearanceSummary, groupCharacterChoices,
+    appearanceCheckParams, formatAppearanceSummary, groupCharacterChoices, canStartAppearanceCheck,
 } from "../rules/appearance.mjs";
 import { presetLabel } from "../session/request-presets.mjs";
 
@@ -302,7 +302,10 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
             : [];
         const myCharacter = game.user.character ?? null;
         context.canAppearanceCheck = st.phase !== "ending" && !game.user.isGM && st.actStarted
-            && !!myCharacter && !isAppearing(myCharacter);
+            && !!myCharacter && canStartAppearanceCheck({
+                actorId: myCharacter.id,
+                checkedActorIds: st.appearanceCheckActorIds,
+            });
 
         context.canFreeAppearance = st.phase === "ending" && !game.user.isGM && st.actStarted
             && !!myCharacter && !isAppearing(myCharacter);

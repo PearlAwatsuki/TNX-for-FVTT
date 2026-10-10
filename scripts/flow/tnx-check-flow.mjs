@@ -131,7 +131,9 @@ export class TnxCheckFlow {
     static _activationBlockReason(context) {
         const actor = game.actors.get(context?.actorId);
         if (!actor) return null;
-        if (!context.appearance && !ghostCanInteract(actor)) return "ゴーストが判定するにはドローンで登場してください。";
+        if (!context.appearance && !context.infoGathering && !ghostCanInteract(actor)) {
+            return "ゴーストが判定するにはドローンで登場してください。";
+        }
         const conds = TnxCheckFlow._gatherConditions(actor);
 
         if (context?.skillIds?.length) {

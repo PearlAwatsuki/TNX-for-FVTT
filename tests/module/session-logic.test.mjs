@@ -312,14 +312,17 @@ describe("buildPreActInit()（アクト開始の自動設定・報酬点＋CS）
     const patch = buildPreActInit({});
     expect(patch["system.combatSpeed.base"]).toBe(0);
     expect(patch["system.combatSpeed.value"]).toBe(0);
+    expect(patch["system.combatSpeed.ghostIgnorableSnapshot"]).toBe(0);
     expect(patch["system.bountyBase"]).toBe(0);
     expect(patch["system.bounty"]).toBe(0);
   });
 
-  it("buildCombatSpeedInit: CS 2キーのみ（シートの「プレアクト初期化」ボタンが共用する部分）", () => {
-    expect(buildCombatSpeedInit(system)).toEqual({
+  it("buildCombatSpeedInit: 通常CSとゴースト時に除外する確定項を同時に保存する", () => {
+    const withGhostTerm = { ...system, combatSpeed: { ...system.combatSpeed, ghostIgnorable: -2 } };
+    expect(buildCombatSpeedInit(withGhostTerm)).toEqual({
       "system.combatSpeed.base":  7,
       "system.combatSpeed.value": 10,
+      "system.combatSpeed.ghostIgnorableSnapshot": -2,
     });
   });
 });

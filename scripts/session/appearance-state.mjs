@@ -18,7 +18,7 @@ import { pickTokenDropPosition, pickDisembarkPosition, tokenDeletionImpliesExit 
 import { teamLinkedExitTargets } from "../rules/session.mjs";
 import { TNX_HOOKS } from "../rules/combat-events.mjs";
 import { registerVehicleTargetHUD } from "./vehicle-target-hud.mjs";
-import { prepareVehicleAppearance, syncVehicleTokens, crewVehicle, droneVehicle, registerVehicleHooks, vehicles, disembarkPositions, requestVehicleOperation } from "./vehicle-state.mjs";
+import { prepareVehicleAppearance, syncVehicleTokens, crewVehicle, droneVehicle, registerVehicleHooks, vehicles, disembarkPositions, requestVehicleOperation, normalizeGhostOutfitPreparation } from "./vehicle-state.mjs";
 
 
 /** 名前を伏せて登場しているキャラクターの、卓に見せる表示名(2026-08-09 ユーザー指示)。 */
@@ -50,14 +50,16 @@ export function displayActorName(actor) {
  * 登場状態を切り替える(所有者または GM。盤面のトークン反映=存在同期は下記)。
  * @param {Actor} actor
  * @param {boolean} appearing
- * @param {{hideName?: boolean}} [opts] hideName 省略時は現在の非公開指定を保つ
- *        (トークン配置からの再登場が RL の指定を落とさないため)
+ * @param {{hideName?: boolean, ghost?: boolean}} [opts] hideName 省略時は現在の非公開指定を保つ。
+ * ghost は登場方法であり、未登場時は入力にかかわらず必ず false になる。
  */
-export async function setAppearing(actor, appearing, { hideName } = {}) {
+export async function setAppearing(actor, appearing, { hideName, ghost = false } = {}) {
     if (!actor) return;
     if (actor.type === "vehicle") return; // 車両は登場記帳の主体ではない。
     if (!appearing) {
         const wasAppearing = isAppearing(actor);
+        // droneVehicle は登場フラグとゴースト状態を参照するため、両方を落とす前に盤面から消す。
+        if (actor.system?.isGhost) await requestVehicleOperation("endDrone", { actorUuid: actor.uuid });
         await actor.unsetFlag(SYSTEM_ID, "appearing");
         if (crewVehicle(actor)) await requestVehicleOperation("exit", { actorUuid: actor.uuid });
         await setNameHidden(actor, false);
@@ -69,10 +71,20 @@ export async function setAppearing(actor, appearing, { hideName } = {}) {
         if (wasAppearing) Hooks.callAll(TNX_HOOKS.actorExit, actor);
         return;
     }
-    await prepareVehicleAppearance(actor);
+    // 登場方法を先に確定する。ドローン配置側もこの一体化された状態を参照する。
     await actor.setFlag(SYSTEM_ID, "appearing", true);
-    if (hideName === undefined) return;
-    return setNameHidden(actor, hideName);
+    await setGhost(actor, ghost === true);
+    try {
+        if (ghost === true) await normalizeGhostOutfitPreparation(actor);
+        await prepareVehicleAppearance(actor);
+        if (hideName === undefined) return;
+        return setNameHidden(actor, hideName);
+    } catch (error) {
+        // ヴィークル配置に失敗した登場を半端な状態で残さない。
+        await actor.unsetFlag(SYSTEM_ID, "appearing");
+        await setGhost(actor, false);
+        throw error;
+    }
 }
 
 /**
@@ -83,8 +95,10 @@ export async function setAppearing(actor, appearing, { hideName } = {}) {
  */
 export async function setGhost(actor, ghost) {
     if (!actor || actor.system?.isGhost === undefined) return;
-    if (actor.system.isGhost === (ghost === true)) return;
-    await actor.update({ "system.isGhost": ghost === true });
+    // 未登場のキャラクターにゴースト状態だけを立てることはできない。
+    const next = ghost === true && isAppearing(actor);
+    if (actor.system.isGhost === next) return;
+    await actor.update({ "system.isGhost": next });
 }
 
 /**

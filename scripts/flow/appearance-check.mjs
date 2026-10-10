@@ -16,18 +16,26 @@
  * 危険値装備携帯でも判定は行え、結果が必ず失敗になる(ctx.forcedFailure)。
  */
 
-import { appearanceCheckParams, hasNegativeDangerOutfit, isAppearanceSkillKey } from "../rules/appearance.mjs";
+import { appearanceCheckParams, hasNegativeDangerOutfit, isAppearanceSkillKey, canStartAppearanceCheck } from "../rules/appearance.mjs";
 import { appearanceBlockOf } from "../rules/time-boundary.mjs";
 import { loadSkillClassByKey } from "../dictionary/skill-dictionary.mjs";
 import { standInMatchesKey } from "../rules/designation-response.mjs";
-import { getSessionState, getCurrentSceneAppearance } from "../session/session-state.mjs";
-import { isAppearing, setAppearing, setGhost } from "../session/appearance-state.mjs";
+import { getSessionState, getCurrentSceneAppearance, requestAppearanceCheckUsed } from "../session/session-state.mjs";
+import { isAppearing, setAppearing } from "../session/appearance-state.mjs";
 import { preparedVehicle } from "../session/vehicle-state.mjs";
 import { isDrone, isDroneOnly } from "../rules/vehicle.mjs";
 import { SCENE_AREA_OPTIONS } from "../rules/session.mjs";
 import { formatSkillName } from "../core/identification.mjs";
+import { computeOutfitAggregates } from "../data/helpers.mjs";
 
 const { DialogV2 } = foundry.applications.api;
+
+/** 登場判定時点のアイテム実効値から危険値合計を再計算する。 */
+export function currentAppearanceModifier(actor) {
+    return computeOutfitAggregates(
+        actor?.items?.map?.(item => ({ type: item.type, system: item.system })) ?? []
+    ).appearance;
+}
 
 /** エンディングの自由登場。操作するのは自分の担当キャラクターだけ。 */
 export async function startFreeAppearance() {
@@ -35,8 +43,7 @@ export async function startFreeAppearance() {
     if (!st.actStarted || st.phase !== "ending") return;
     const actor = game.user.character;
     if (!actor || isAppearing(actor)) return;
-    await setGhost(actor, false);
-    await setAppearing(actor, true);
+    await setAppearing(actor, true, { ghost: false });
 }
 
 /** パネルの「登場判定」ボタンから起動する。 */
@@ -46,7 +53,9 @@ export async function startAppearanceCheck() {
     if (!st.actStarted) return void ui.notifications.warn("アクトが開始されていません。");
     const actor = game.user.character;
     if (!actor) return void ui.notifications.warn("担当キャラクターが設定されていません。");
-    if (isAppearing(actor)) return void ui.notifications.info("既にシーンに登場しています。");
+    if (!canStartAppearanceCheck({ actorId: actor.id, checkedActorIds: st.appearanceCheckActorIds })) {
+        return void ui.notifications.info("このシーンでは既に登場判定を行っています。");
+    }
 
     // シーンの登場設定は行＋実行時の上書き(14-8 シーン開始ダイアログ)の合成を通して読む。
     // 巡回シーンや「未設定」の行では、その場で決めたエリア・目標値・指定技能がここに乗る
@@ -55,7 +64,7 @@ export async function startAppearanceCheck() {
         area:       scene.area,
         mode:       scene.mode,
         fixedValue: scene.fixedValue,
-        appearanceModifier: actor.system.appearanceModifier ?? 0,
+        appearanceModifier: currentAppearanceModifier(actor),
         hasNegativeDangerItem: hasNegativeDangerOutfit(
             actor.items.map(i => ({ type: i.type, system: i.system }))),
         // キャラクター側の登場不可(行動不可・逮捕令状)は登場判定が自動失敗になる(15-5/15-7)
@@ -76,6 +85,7 @@ export async function startAppearanceCheck() {
     if (!skill) return;
 
     const areaLabel = SCENE_AREA_OPTIONS.find(o => o.value === scene.area && o.value !== "")?.label ?? "";
+    requestAppearanceCheckUsed(actor.id, st.sceneId);
     const { activateItemCheck } = await import("./item-activation.mjs");
     await activateItemCheck(actor, skill, {
         targetValue: params.targetValue,
@@ -179,7 +189,6 @@ export async function resolveAppearanceFromCheck(cc, result) {
     if (result?.success !== true) return;
     const actor = game.actors.get(cc?.actorId);
     if (!actor) return;
-    if (cc.ghost) await setGhost(actor, true);
-    await setAppearing(actor, true);
+    await setAppearing(actor, true, { ghost: cc.ghost === true });
     ui.notifications.info(`${actor.name} はシーンに登場した${cc.ghost ? "（ゴースト）" : ""}。`);
 }

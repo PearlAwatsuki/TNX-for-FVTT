@@ -362,6 +362,18 @@ describe("computeOutfitAggregates()", () => {
     expect(computeOutfitAggregates(items).appearance).toBe(3);
   });
 
+  it("危険値・制御値・CS修正は AE 込み total を優先して集計する", () => {
+    const items = [outfit("weapon", {
+      isCarrying: true, isPrepared: true,
+      appearancePenalty: { mode: "value", value: 1, total: 4 },
+      controlMod: { mode: "value", value: 2, total: 5 },
+      combatSpeedMod: { mode: "value", value: 3, total: 6 },
+    })];
+    expect(computeOutfitAggregates(items)).toEqual({
+      control: 5, combatSpeed: 6, combatSpeedGhostIgnorable: 0, appearance: 4,
+    });
+  });
+
   it("mode が value でない修正は加算しない", () => {
     const items = [outfit("armor", {
       isCarrying: true, isPrepared: true,

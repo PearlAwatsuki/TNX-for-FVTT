@@ -95,14 +95,6 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
                 try { await requestVehicleOperation("leave", { actorUuid: this.actor.uuid }); }
                 catch (error) { ui.notifications.warn(error.message); }
             },
-            openVehicle: async function (_event, target) {
-                const item = this.actor.items.get(target.closest("[data-item-id]")?.dataset.itemId);
-                if (!item) return;
-                try {
-                    const uuid = await requestVehicleOperation("create", { itemUuid: item.uuid });
-                    (await fromUuid(uuid))?.sheet.render(true);
-                } catch (error) { ui.notifications.warn(error.message); }
-            },
             addOutfit:            TnxCharacterSheetBase._onAddOutfit,
             loadPartPreset:       TnxCharacterSheetBase._onLoadPartPreset,
             togglePartOccupancy:  TnxCharacterSheetBase._onTogglePartOccupancy,

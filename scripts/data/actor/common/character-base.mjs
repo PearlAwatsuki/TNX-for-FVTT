@@ -517,10 +517,13 @@ export class CharacterBaseDataModel extends SystemDataModel.mixin(
   _prepareCombatSpeedTotals() {
     const cs = this.combatSpeed;
     const ignorable = this.outfitMod.combatSpeedGhostIgnorable ?? 0;
-    cs.ghostIgnorable = ignorable; // 表示用(「X（Y）」の括弧部分)
-    cs.baseTotal = (cs.base ?? 0) + (cs.freeMod ?? 0) + (this.outfitMod.combatSpeed ?? 0)
-      + (this.isGhost ? 0 : ignorable);
-    cs.valueTotal   = cs.value   ?? 0;
+    cs.ghostIgnorable = ignorable; // 次回のCS決定で保存する現在の修正項
+    // CS決定は登場方法に依存させず、常に通常登場用の全修正を含める。
+    cs.baseTotal = (cs.base ?? 0) + (cs.freeMod ?? 0) + (this.outfitMod.combatSpeed ?? 0) + ignorable;
+    // isGhost は登場方法そのもの。古い不正データも未登場ならゴースト扱いしない。
+    const ghostAppearance = this.isGhost
+      && this.parent?.getFlag?.(SYSTEM_ID, "appearing") === true;
+    cs.valueTotal = (cs.value ?? 0) - (ghostAppearance ? (cs.ghostIgnorableSnapshot ?? 0) : 0);
     cs.currentTotal = cs.current ?? 0;
     cs.currentBuff  = 0; // CSカレントへのバフ(cs.current の AE)の蓄積先。currentTotal には足さない。
   }

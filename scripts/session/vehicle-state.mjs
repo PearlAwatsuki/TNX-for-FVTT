@@ -1,11 +1,13 @@
 import { SYSTEM_ID, SOCKET_CHANNEL } from "../constants.mjs";
 import { isVehicleBody, isDrone, isDroneOnly, validateCrew } from "../rules/vehicle.mjs";
-import { isOutfitUnusable } from "../data/item/helpers.mjs";
+import { isOutfitUnusable, readFlag } from "../data/item/helpers.mjs";
+import { OUTFIT_TYPES, hasClassification, outfitClassifications } from "../data/item/outfit-categories.mjs";
 
 // ドキュメント更新を直列化し、搭乗交代と登場時の重複生成を防ぐ。
 let operations = Promise.resolve();
 const pending = new Map();
 const tokenQueues = new Map();
+const vehicleTransitions = new Map();
 export const selectedCrew = new Map();
 // 降車更新のフックが本人コマを再配置するときに引き継ぐ位置。
 export const disembarkPositions = new Map();
@@ -13,6 +15,43 @@ const lookup = uuid => {
     try { return uuid ? globalThis.fromUuidSync?.(uuid) ?? null : null; } catch { return null; }
 };
 const appearing = actor => actor?.getFlag?.(SYSTEM_ID, "appearing") === true;
+/** ゴーストは現在のシーンでの登場方法。未登場なら常に false とみなす。 */
+export function isGhostAppearing(actor) {
+    return appearing(actor) && actor?.system?.isGhost === true;
+}
+const isFullCyborg = item => item?.type === "cyborg"
+    && outfitClassifications(item.system).some(c => c.minor === "fullCyborg");
+/** actorが現在準備している使用可能なドローン本体Item。盤面配置とは独立。 */
+export function preparedDrone(actor) {
+    return [...(actor?.items ?? [])].find(i => isDrone(i) && i.system.isCarrying
+        && i.system.isPrepared && !isOutfitUnusable(i.system)) ?? null;
+}
+
+/** 生身書き換えを含め、ドローン登場時の武器制限を受けるアウトフィットか。 */
+export function isWeaponForDronePreparation(item) {
+    return item?.type === "weapon" || item?.type === "cyborg"
+        || readFlag(item?.system, "isFleshChange");
+}
+
+/** ドローン登場中に準備解除するアウトフィットか。 */
+export function mustUnprepareForDroneAppearance(item) {
+    if (item?.type === "armor") return true;
+    if (!isWeaponForDronePreparation(item)) return false;
+    return !hasClassification(item.system, "mounted");
+}
+
+/** 搭載できない武器（生身を含む）と防具だけを準備解除する。 */
+export async function normalizeGhostOutfitPreparation(actor, droneItem = preparedDrone(actor)) {
+    const prepared = [...(actor?.items ?? [])].filter(item => OUTFIT_TYPES.has(item.type) && item.system.isPrepared);
+    const invalid = droneItem
+        ? prepared.filter(mustUnprepareForDroneAppearance)
+        : prepared.filter(item => item.type === "armor");
+    if (!invalid.length) return [];
+    await actor.updateEmbeddedDocuments("Item", invalid.map(item => ({
+        _id: item.id, "system.isPrepared": false,
+    })), { tnxVehicleTransition: true });
+    return invalid;
+}
 
 export function vehicleOutfit(vehicle) { return lookup(vehicle?.system?.outfitUuid); }
 export function vehicles() { return (globalThis.game?.actors?.contents ?? []).filter(a => a.type === "vehicle"); }
@@ -54,6 +93,14 @@ export function preparedVehicle(actor, refId = "") {
 /** 防御参照は同乗先を一度だけ加える。所持していても他者が操縦中の車両は適用しない。 */
 export function vehicleDefenceItems(actor) {
     const relation = activeVehicle(actor);
+    // ゴースト登場中は、準備中の全身義体と遠隔操縦中のドローンだけが防御力を提供する。
+    if (isGhostAppearing(actor)) {
+        const own = [...(actor?.items ?? [])].filter(i =>
+            isFullCyborg(i) && i.system.isCarrying && i.system.isPrepared && !isOutfitUnusable(i.system));
+        if (relation?.item && isDrone(relation.item) && relation.item.system.isCarrying
+            && relation.item.system.isPrepared && !isOutfitUnusable(relation.item.system)) own.push(relation.item);
+        return [...new Map(own.map(i => [i.uuid ?? i.id, i])).values()];
+    }
     const own = [...(actor?.items ?? [])].filter(i => {
         if (!isVehicleBody(i)) return true;
         if (isOutfitUnusable(i.system)) return false;
@@ -66,9 +113,8 @@ export function vehicleDefenceItems(actor) {
 
 /** ゴースト登場中のアクターが遠隔操縦しているドローンのVehicleアクターを返す。crewを参照しない。 */
 export function droneVehicle(actor) {
-    if (!actor?.system?.isGhost) return null;
-    const droneItem = [...(actor.items ?? [])].find(i =>
-        isDrone(i) && i.system.isPrepared && !isOutfitUnusable(i.system));
+    if (!isGhostAppearing(actor)) return null;
+    const droneItem = preparedDrone(actor);
     if (!droneItem) return null;
     return vehicleForItem(droneItem);
 }
@@ -78,7 +124,7 @@ export function dronePilot(vehicle) {
     const item = vehicleOutfit(vehicle);
     if (!item || !isDrone(item)) return null;
     const pilot = item.actor;
-    return pilot?.system?.isGhost ? pilot : null;
+    return isGhostAppearing(pilot) ? pilot : null;
 }
 
 /**
@@ -257,7 +303,7 @@ async function operate(action, data, user) {
         const droneCheck = isDrone(source);
         const droneOnlyCheck = isDroneOnly(source);
         // ドローン専門（ドローンのみ）または乗員数0の場合は、強制的にゴースト（遠隔操縦）にする
-        if ((droneOnlyCheck || capacityZero) && !isGhost) {
+        if ((droneOnlyCheck || capacityZero) && !isGhost && appearing(actor)) {
             isGhost = true;
             await actor.update({ "system.isGhost": true });
         }
@@ -367,7 +413,8 @@ async function leave(vehicle, actor) {
     });
     try {
         await vehicle.update({ "system.crew": before.filter(c => c.actorUuid !== actor.uuid) });
-        if (member.role === "driver" && item?.system.isPrepared) await item.update({ "system.isPrepared": false });
+        // 降車や退場は準備解除ではない。明示的な準備トグルだけを正本とする。
+        // 特にドローンは、操縦者の退場後も次回登場に備えて準備状態を維持する。
     } catch (error) {
         disembarkPositions.delete(actor.uuid);
         await vehicle.update({ "system.crew": before });
@@ -426,6 +473,36 @@ async function placeVehicleToken(vehicle, actor, scene) {
     }
 }
 
+/** 対応するヴィークル管理アクターを保証してシートを開く。 */
+export async function editVehicleToken(item) {
+    if (!isVehicleBody(item)) return null;
+    const uuid = await requestVehicleOperation("create", { itemUuid: item.uuid });
+    const vehicle = await fromUuid(uuid);
+    vehicle?.sheet?.render(true);
+    return vehicle;
+}
+
+/** 登場後に準備されたヴィークルを操縦状態から盤面配置まで同期する。 */
+export async function activatePreparedVehicle(actor, item) {
+    if (!actor || !item || !isVehicleBody(item) || !item.system.isPrepared || !appearing(actor)) return null;
+    const previous = vehicleTransitions.get(actor.uuid) ?? Promise.resolve();
+    const transition = previous.catch(() => {}).then(async () => {
+        if (!item.system.isPrepared || !appearing(actor)) return null;
+        if (actor.system.isGhost) {
+            if (!isDrone(item)) return null;
+            await normalizeGhostOutfitPreparation(actor, item);
+        }
+        const vehicleUuid = await requestVehicleOperation("appear", { actorUuid: actor.uuid });
+        if (!vehicleUuid) return null;
+        const scene = game.scenes?.active;
+        if (scene) await syncVehicleTokens(actor, scene);
+        return vehicleUuid;
+    });
+    vehicleTransitions.set(actor.uuid, transition);
+    try { return await transition; }
+    finally { if (vehicleTransitions.get(actor.uuid) === transition) vehicleTransitions.delete(actor.uuid); }
+}
+
 export function registerVehicleHooks() {
     Hooks.on("preUpdateToken", (token, changes, options) => {
         if (options.tnxVehicleMove || !["x", "y"].some(k => k in changes)) return;
@@ -455,9 +532,8 @@ export function registerVehicleHooks() {
         const actor = game.actors.get(tokenDoc.actorId);
         if (actor?.type !== "vehicle") return;
         
-        // ヴィークルコマが手動で削除された場合、乗員を降ろし準備を解除する（再ロードでの復活防止）
-        const item = vehicleOutfit(actor);
-        if (item?.system.isPrepared) item.update({ "system.isPrepared": false });
+        // 手動削除は盤面からの除去であり、アウトフィットの準備解除ではない。
+        // 準備状態はユーザーの明示操作だけで変更する。
         if (actor.system?.crew?.length) actor.update({ "system.crew": [] });
     });
     const refresh = () => {
@@ -465,18 +541,24 @@ export function registerVehicleHooks() {
         for (const app of foundry.applications.instances.values()) if (app.actor || app.id === "tnx-hud") app.render(false);
         for (const token of canvas.tokens?.placeables ?? []) token.renderFlags.set({ refreshState: true });
     };
-    Hooks.on("updateItem", (item) => {
+    Hooks.on("updateItem", (item, changes, options) => {
         refresh();
-        if (game.users.activeGM?.id !== game.user.id || !isVehicleBody(item)) return;
+        if (game.users.activeGM?.id !== game.user.id || options?.tnxVehicleTransition) return;
+        const preparedChange = changes.system?.isPrepared ?? changes["system.isPrepared"];
+        // ドローン登場中は、搭載できない武器（生身を含む）と防具を準備できない。
+        if (preparedChange === true && isGhostAppearing(item.actor) && preparedDrone(item.actor)
+            && mustUnprepareForDroneAppearance(item)) {
+            item.update({ "system.isPrepared": false }, { tnxVehicleTransition: true });
+            return;
+        }
+        if (!isVehicleBody(item) || preparedChange === undefined) return;
         const vehicle = vehicleForItem(item);
         const driver = vehicle?.system.crew.find(c => c.role === "driver");
-        
-        if (!item.system.isPrepared) {
+        if (preparedChange === false) {
             if (driver) queueOperation("leave", { actorUuid: driver.actorUuid }, game.user).catch(e => ui.notifications.warn(e.message));
-            // ドローンの準備解除時、以前に操縦者だったアクター（Item所持者）のトークンを削除
             if (item.actor?.system?.isGhost) queueOperation("endDrone", { actorUuid: item.actor.uuid }, game.user).catch(e => ui.notifications.warn(e.message));
-        } else if (item.system.isPrepared && appearing(item.actor) && !driver && !isOutfitUnusable(item.system)) {
-            queueOperation("appear", { actorUuid: item.actor.uuid }, game.user).catch(e => ui.notifications.warn(e.message));
+        } else if (!driver && !isOutfitUnusable(item.system)) {
+            activatePreparedVehicle(item.actor, item).catch(e => ui.notifications.warn(e.message));
         }
     });
     Hooks.on("deleteItem", refresh);

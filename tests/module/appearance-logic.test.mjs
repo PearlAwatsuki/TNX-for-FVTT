@@ -16,6 +16,16 @@ import {
   tokenDeletionImpliesExit,
 } from "../../scripts/rules/appearance.mjs";
 
+describe("canStartAppearanceCheck()（登場判定は1シーン1回）", () => {
+  it("未消費なら実行でき、消費済みなら実行できない", () => {
+    expect(canStartAppearanceCheck({ actorId: "a2", checkedActorIds: ["a1"] })).toBe(true);
+    expect(canStartAppearanceCheck({ actorId: "a1", checkedActorIds: ["a1"] })).toBe(false);
+  });
+  it("シーンプレイヤーは自動成功で消費済みとなる", () => {
+    expect(canStartAppearanceCheck({ actorId: "sp", checkedActorIds: ["sp"] })).toBe(false);
+  });
+});
+
 describe("appearanceCardInfo()（登場判定の専用チャットカード表示・2026-08-16）", () => {
   it("登場文脈が無ければ null（通常の判定カードは無改変）", () => {
     expect(appearanceCardInfo(null, { success: true })).toBeNull();
@@ -103,6 +113,15 @@ describe("hasNegativeDangerOutfit()（サンクチュアリの装備チェック
   it("携帯中の危険値マイナス装備が1つでもあれば true（合計が0以上でも）", () => {
     const items = [carriedWeapon(-2), carriedWeapon(3)];
     expect(hasNegativeDangerOutfit(items)).toBe(true);
+  });
+
+  it("危険値の正負判定は AE 込み total を参照する", () => {
+    expect(hasNegativeDangerOutfit([
+      { type: "weapon", system: { isCarrying: true, appearancePenalty: { mode: "value", value: 1, total: -2 } } },
+    ])).toBe(true);
+    expect(hasNegativeDangerOutfit([
+      { type: "weapon", system: { isCarrying: true, appearancePenalty: { mode: "value", value: -2, total: 1 } } },
+    ])).toBe(false);
   });
 
   it("携帯していない・危険値なし・非アウトフィットは数えない", () => {

@@ -11,7 +11,7 @@
  *   卓の裁定=候補の絞り込みは表示上の既定にとどめ、システムは制限しない。
  */
 
-import { OUTFIT_ITEM_TYPES, CHARACTER_ACTOR_TYPES } from "../data/helpers.mjs";
+import { OUTFIT_ITEM_TYPES, CHARACTER_ACTOR_TYPES, modeValueTotal } from "../data/helpers.mjs";
 
 /** エリア別の目標値と危険値係数(正本 Appearance_Check の表)。 */
 export const AREA_APPEARANCE = Object.freeze({
@@ -27,6 +27,11 @@ export const AREA_APPEARANCE = Object.freeze({
  * エリアを選ぶとそのエリアの固定値に置き換わる。
  */
 export const DEFAULT_APPEARANCE_TARGET = 10;
+
+/** そのシーンで登場判定をまだ消費していないキャラクターだけ実行できる。 */
+export function canStartAppearanceCheck({ actorId, checkedActorIds = [] }) {
+    return !!actorId && !checkedActorIds.includes(actorId);
+}
 
 /** エリアの固定目標値(未設定・未知のエリアは null)。 */
 export function areaTargetValue(area) {
@@ -143,8 +148,8 @@ export function hasNegativeDangerOutfit(items) {
         if (!OUTFIT_ITEM_TYPES.has(item.type)) return false;
         const s = item.system;
         if (!s?.isCarrying) return false;
-        if (s.appearancePenalty?.mode !== "value") return false;
-        return (Number(s.appearancePenalty.value) || 0) < 0;
+        const danger = modeValueTotal(s.appearancePenalty);
+        return danger !== null && danger < 0;
     });
 }
 

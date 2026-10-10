@@ -85,10 +85,11 @@ export function resolveTargetedOrSelf(actor) {
  * 用途の対象解決(決定表駆動・2026-07-18)。判定起動の全経路がここを通る。
  * @param {Actor} actor 使用者
  * @param {object} usage 用途エントリ(target / cannotTargetSelf / confrontation を読む)
+ * @param {{allowGhostWithoutDrone?:boolean}} [options]
  * @returns {Promise<Array<{uuid:string,name:string}>|null>} null=中止(通知済み)。[]=対象なし
  */
-export async function resolveUsageTargetRefs(actor, usage) {
-    if (!ghostCanInteract(actor)) {
+export async function resolveUsageTargetRefs(actor, usage, { allowGhostWithoutDrone = false } = {}) {
+    if (!allowGhostWithoutDrone && !ghostCanInteract(actor)) {
         ui.notifications.warn("ゴーストがシーンに干渉するには、ドローンで登場してください。");
         return null;
     }

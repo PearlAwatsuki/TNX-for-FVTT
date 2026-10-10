@@ -170,6 +170,7 @@ export function detectUsageDefect(item, usage, actor) {
 export async function buildUsageCheckContext(actor, item, usage, {
     effectTargetOverride = undefined,
     targetValueExtra = undefined,
+    allowGhostWithoutDrone = false,
 } = {}) {
     // 能力値を持たないアクター(extra)は通常判定を行えない(固定値判定のみ＝Check_Rules「固定値判定」。
     // 固定達成値の用途は呼び出し側の分岐で処理済み)。攻撃・NPC取得・回復の判定も通常判定の一種
@@ -188,7 +189,8 @@ export async function buildUsageCheckContext(actor, item, usage, {
     // 対象解決(2026-07-18 決定表駆動): 用途の「対象」×「対決」で解決する(自身/単体の自動セルフ・
     // 未ターゲット時ダイアログ)。攻撃/対決フローは呼び出し前に解決済み=レティクルが
     // 立っているためここでは素通りする。適用効果の対象はこの時点のレティクルが正
-    if (await resolveUsageTargetRefs(actor, usage) === null) return null;
+    const resolvedTargetRefs = await resolveUsageTargetRefs(actor, usage, { allowGhostWithoutDrone });
+    if (resolvedTargetRefs === null) return null;
 
     // 参加技能(ベース＋コンボ)の解決
     const { allSkillIds, allSkillSystems, validSuits } = resolveUsageSkillSet(item, usage, actor);
@@ -213,11 +215,15 @@ export async function buildUsageCheckContext(actor, item, usage, {
     // 用途の適用効果: 付与ペイロードを用意して結果カードに載せる(2026-07-10)。適用は
     // カードの効果セクション(トレイ)から対象所有者/GM が行う(2026-08-30 再設計)
     const usageEffects = await prepareUsageEffectPayload(actor, item, usage,
-        effectTargetOverride !== undefined ? { targetOverride: effectTargetOverride } : {});
+        effectTargetOverride !== undefined
+            ? { targetOverride: effectTargetOverride }
+            : { targetOverride: resolvedTargetRefs });
 
     // 割り込み許可(13-5): grantsInterrupt の用途は対象へ割り込み許可を立てる(適用効果と同じ対象)。
     await applyInterruptGrantForUsage(actor, usage,
-        effectTargetOverride !== undefined ? { targetOverride: effectTargetOverride } : {});
+        effectTargetOverride !== undefined
+            ? { targetOverride: effectTargetOverride }
+            : { targetOverride: resolvedTargetRefs });
 
     return {
         type:            "skillCheck",

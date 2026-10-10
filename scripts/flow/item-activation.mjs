@@ -146,7 +146,7 @@ export async function activateItemCheck(actor, item, extraOpen = {}) {
     }
 
     // 神業(17-1): 消費先が空の用途は自身の使用回数×1を既定消費する(使用＝回数消費が定義に
-    if (!openExtra.appearance && !ghostCanInteract(actor)) {
+    if (!openExtra.appearance && item.type !== "miracle" && !openExtra.infoGathering && !ghostCanInteract(actor)) {
         ui.notifications.warn("ゴーストが行動するにはドローンで登場してください。");
         return false;
     }
@@ -212,8 +212,7 @@ export async function activateItemCheck(actor, item, extraOpen = {}) {
         && (selectedUsage.grantRecheck === true || selectedUsage.modifyCheck === true
             || selectedUsage.modifyDamage === true)) {
         const kind = selectedUsage.grantRecheck === true ? "recheck"
-            : (selectedUsage.modifyCheck === true ? "modify"
-                : (selectedUsage.modifyDamage === true ? "modifyDamage" : "suitChange"));
+            : (selectedUsage.modifyCheck === true ? "modify" : "modifyDamage");
         const grantRows = resolveConsumeRowsForActor(actor, item, selectedUsage.consumeTargets);
         const grantPlan = await promptConsumption(actor, grantRows, { title: `使用回数の消費: ${item.name}` });
         if (grantPlan === null) return;
@@ -420,7 +419,11 @@ export async function activateItemCheck(actor, item, extraOpen = {}) {
 
     // 判定起動の共通前段(エキストラ制限・不備検知・参加技能・報酬点・消費・適用効果・目標値)。
     // 攻撃/NPC取得/回復の専用フローも同じ前段を通る(2026-07-16 一本化)
-    const base = await buildUsageCheckContext(actor, item, selectedUsage, { effectTargetOverride });
+    const base = await buildUsageCheckContext(actor, item, selectedUsage, {
+        effectTargetOverride,
+        // HUD情報収集はゴースト単独でも可能。対象解決層まで明示的に伝える。
+        allowGhostWithoutDrone: !!openExtra.infoGathering,
+    });
     if (!base) return;
 
     // リアクション用途の追加挙動(範囲攻撃へのリアクション/攻撃を失敗させる)を reaction 文脈へ載せる
@@ -456,7 +459,8 @@ export async function useDeclarationUsage(actor, item, usage, { asOther = null }
     // 対象解決(2026-08-30 是正): 宣言も判定系と同じ決定表駆動の対象解決を通す(自身/単体の
     // 自動セルフ等)。従来は素通りでレティクル頼み=対象=自身の宣言がノーターゲットで
     // 「対象なし」になる欠陥だった。キャンセルは中止(消費より前に置く)
-    if (await resolveUsageTargetRefs(actor, usage) === null) return;
+    const resolvedTargetRefs = await resolveUsageTargetRefs(actor, usage);
+    if (resolvedTargetRefs === null) return;
 
     // 分身は本体側カウンターへ差し替えて共有(Troops.md)。神業の既定消費は起動関数で用途に
     // 補われて届く(17-1)
@@ -478,7 +482,8 @@ export async function useDeclarationUsage(actor, item, usage, { asOther = null }
     // 解説の段(効果文と条件)は**具体的な効果を持たない宣言**のときだけ出す(2026-09-05 ユーザー指示)。
     // 宣言の効果(使用回数+1・神業を使わせる・入れ替え 等)を持つ用途は結果がカードに出る
     if (item.type === "miracle") { await postMiracleCard(item, { asOther }); return true; }
-    const usageEffects = await prepareUsageEffectPayload(actor, asOther?.source ?? item, usage);
+    const usageEffects = await prepareUsageEffectPayload(actor, asOther?.source ?? item, usage,
+        { targetOverride: resolvedTargetRefs });
     await item.postDescriptionCard({ usageEffects });
     return true; // 発動した(神業の要求カードが使用済みを記録する・17-4)
 }

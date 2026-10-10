@@ -78,6 +78,9 @@ const DEFAULTS = Object.freeze({
     // アクトの読み込みでリセット、シーン入場で後者だけクリアする
     appearanceCounts:  {},
     appearedThisScene: [],
+    // 現在シーンで登場判定を消費済みの Actor id。シーンプレイヤーはシーン開始時に
+    // 自動成功したものとして最初から含む。判定の成功/失敗にかかわらず1シーン1回。
+    appearanceCheckActorIds: [],
     // アクト内の神業使用ログ(17-5・《突然変異》の候補): 神業カード/神業版ダメージカードの投稿を
     // アクティブ RL のクライアントで拾って記帳する。行=miracle-logic.buildMiracleUseLogEntry。
     // アクトの読み込み・終了で初期化に乗って消える
@@ -724,6 +727,9 @@ async function _applySceneEntry({ phase, row }, entry = null) {
     const doneEvents = [...(st.doneEventSceneIds ?? [])];
     if (scene.kind === "event" && !doneEvents.includes(scene.id)) doneEvents.push(scene.id);
 
+    const scenePlayerActorId = playerUserId
+        ? (game.users.get(playerUserId)?.character?.id ?? "") : "";
+
     // 舞台裏・その場で決めた値はシーン単位(前シーンの状態を持ち越さない)。
     // シーン番号は入場のたびに +1（巡回シーンの再入場も1シーンとして数える）
     await setState({
@@ -737,13 +743,12 @@ async function _applySceneEntry({ phase, row }, entry = null) {
         // 登場の記帳はシーン単位の重複防止だけをクリアする(累積は持ち越す)。この後の
         // 自動登場(下記ループ)が新しいシーンの分として数えられる
         appearedThisScene: [],
+        appearanceCheckActorIds: scenePlayerActorId ? [scenePlayerActorId] : [],
     });
     await _setScenePlayerFlags(playerUserId);
     // シーンプレイヤーのキャラクターは判定なしで登場する(仕様確認ポイント2・承認済み)。
     // 台本の「登場キャラクター」事前設定(14-8)も同じ入場処理で登場させる——RL 側の指定なので
     // 登場判定・登場：不可のゲートは通らない。名前非公開の指定はここで一緒に立てる
-    const scenePlayerActorId = playerUserId
-        ? (game.users.get(playerUserId)?.character?.id ?? "") : "";
     for (const entry of sceneEntryAppearances(scene, { scenePlayerActorId })) {
         const actor = game.actors.get(entry.actorId);
         if (actor) await setAppearing(actor, true, { hideName: entry.hideName });
@@ -765,9 +770,7 @@ export async function appearActor(actorId, { hideName = false, ghost = false } =
     if (!getSessionState().actStarted) return void ui.notifications.warn("アクトが開始されていません。");
     const actor = game.actors.get(actorId);
     if (!actor) return;
-    // ゴーストを先に立てる=盤面反映のトークンが最初から不可視で作られる(2026-08-23)
-    if (ghost) await setGhost(actor, true);
-    await setAppearing(actor, true, { hideName });
+    await setAppearing(actor, true, { hideName, ghost });
 }
 
 // 旧 exitActor(RL の個別退場 API)は 2026-08-23 の手動退場一本化で撤去——退場の入口は
@@ -880,6 +883,27 @@ export async function removeBackstageActor(actorId) {
 }
 
 // ─── 現在のシーンカード ─────────────────────────────────────────────────────
+
+/** 現在シーンの登場判定を消費済みにする。 */
+export async function markAppearanceCheckUsed(actorId, sceneId = getSessionState().sceneId) {
+    if (!game.user.isGM || !actorId) return false;
+    const st = getSessionState();
+    if (!st.actStarted || !st.sceneId || sceneId !== st.sceneId) return false;
+    if (!game.actors.get(actorId)) return false;
+    const used = [...new Set(st.appearanceCheckActorIds ?? [])];
+    if (used.includes(actorId)) return false;
+    used.push(actorId);
+    await setState({ appearanceCheckActorIds: used });
+    return true;
+}
+
+/** PLから登場判定の消費記録をactiveGMへ委譲する。 */
+export function requestAppearanceCheckUsed(actorId, sceneId = getSessionState().sceneId) {
+    if (game.user.isGM) return void markAppearanceCheckUsed(actorId, sceneId);
+    game.socket.emit(SOCKET_CHANNEL, {
+        type: "appearanceCheckUsed", actorId, sceneId, userId: game.user.id,
+    });
+}
 
 /** 現在のシーンカードを記録する(GM)。シーン開始のドロー(14-3)と切り札のシーン消費化から。 */
 export async function setCurrentSceneCard(cardId) {
