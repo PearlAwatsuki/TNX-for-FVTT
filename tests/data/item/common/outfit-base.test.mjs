@@ -289,7 +289,7 @@ describe("副分類と旧 isCyber の完全統合(フェーズ16-1・2026-08-30 
 
   it("migrateData: isCyber=true(主分類≠サイバーウェア)は副分類サイバーウェアへ移行しフィールドを消す", () => {
     const src = OutfitBaseTemplate.migrateData({ isCyber: true, majorCategory: "weapon", minorCategory: "melee" });
-    expect(src.additionalCategories).toEqual([{ major: "cyberware", minor: "" }]);
+    expect(src.additionalCategories).toEqual([{ rowId: expect.any(String), major: "cyberware", minor: "" }]);
     expect(src.isCyber).toBeUndefined();
   });
 
@@ -304,7 +304,7 @@ describe("副分類と旧 isCyber の完全統合(フェーズ16-1・2026-08-30 
       isCyber: true, majorCategory: "weapon",
       additionalCategories: [{ major: "cyberware", minor: "" }],
     });
-    expect(src.additionalCategories).toEqual([{ major: "cyberware", minor: "" }]);
+    expect(src.additionalCategories).toEqual([{ rowId: expect.any(String), major: "cyberware", minor: "" }]);
   });
 
   it("migrateData: 旧日本語名の主分類でもキー変換後に比較される(サイバーウェア=移行不要)", () => {
@@ -342,5 +342,18 @@ describe("副分類と旧 isCyber の完全統合(フェーズ16-1・2026-08-30 
     });
     expect(sys.isPrepared).toBe(true);
     expect(sys.isCarrying).toBe(true);
+  });
+});
+
+describe("旧部位行のrequirement互換", () => {
+  it("旧partRelationを継承する空文字を明示的に許可する", async () => {
+    const field = OutfitBaseTemplate.defineSchema().part.element.fields.requirement;
+    expect(field.options.initial).toBe("");
+    expect(field.options.blank).toBe(true);
+    expect(field.options.choices).toEqual(["", "and", "or"]);
+    const {partRequirement} = await import("../../../../scripts/data/item/part-helpers.mjs");
+    expect(partRequirement({requirement:""}, "or")).toBe("or");
+    expect(partRequirement({}, "and")).toBe("and");
+    expect(partRequirement({requirement:"and"}, "or")).toBe("and");
   });
 });

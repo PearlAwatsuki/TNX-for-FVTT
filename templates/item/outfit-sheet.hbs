@@ -90,6 +90,9 @@
             {{/if}}
         </div>
     </header>
+    {{#each enchantmentWarnings}}
+    <p class="notification warning" role="status">{{effect}}：{{message}}</p>
+    {{/each}}
 
     {{!-- タブナビゲーション --}}
     <nav class="sheet-tabs tabs" data-group="primary">
@@ -927,17 +930,12 @@
                     </legend>
 
                     <div class="tnx-part-controls">
-                        <label class="tnx-part-optional">
-                            <input type="checkbox" name="system.partOptional" {{checked partOptional}}>
-                            任意
-                        </label>
-                        {{#if partMultiRow}}
-                        <span class="tnx-part-relation">
-                            <label>複数部位の扱い</label>
-                            <select name="system.partRelation">
-                                {{selectOptions partRelationChoices selected=partRelation}}
+                        {{#if hasPartChoices}}
+                        <label>使用する選択候補
+                            <select name="system.partOrChoice">
+                                {{selectOptions partChoiceOptions selected=selectedPartChoice}}
                             </select>
-                        </span>
+                        </label>
                         {{/if}}
                     </div>
 
@@ -946,6 +944,16 @@
                         {{#each partRows as |row|}}
                         <div class="tnx-part-card" data-part-row data-index="{{row.idx}}">
                             <div class="tnx-part-card-top">
+                                <label class="tnx-part-optional">
+                                    <input type="checkbox" data-part-field="optional" data-index="{{row.idx}}" {{checked row.optional}}>
+                                    任意
+                                </label>
+                                <div class="tnx-part-field">
+                                    <label>装備要件</label>
+                                    <select data-part-field="requirement" data-index="{{row.idx}}">
+                                        {{selectOptions ../partRequirementChoices selected=row.requirement}}
+                                    </select>
+                                </div>
                                 <div class="tnx-part-field tnx-part-kind">
                                     <label>種別</label>
                                     <select data-part-field="kind" data-index="{{row.idx}}">

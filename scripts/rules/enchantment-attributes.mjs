@@ -1,3 +1,4 @@
+import { ROW_OPERATION_KEYS, parseRowOperation, applyOutfitRowOperation, changeCategory } from "./outfit-row-operations.mjs";
 /** 付与AEの構造属性。入力UIと実効値の適用で同じ定義を使う。 */
 import { SYSTEM_ID } from "../constants.mjs";
 import { getMajorCategoryChoices, getMinorCategoryChoices, majorOfMinor, OUTFIT_TYPES } from "../data/item/outfit-categories.mjs";
@@ -10,22 +11,24 @@ const choice = (path, label, choices) => ({ path, label, kind: "choice", choices
 const bool = (path, label) => ({ ...choice(path, label, { true: "オン", false: "オフ" }), kind: "boolean" });
 const text = (path, label, append = false) => ({ path, label, kind: "text", modes: append ? ["add", "override"] : ["override"] });
 const rows = (path, label) => ({ path, label, kind: "rows", modes: ["add", "override"] });
-const mode = (path, label, keys) => choice(path, label, Object.fromEntries(keys.map(k => [k, ({ none: "なし", value: "数値", reference: "参照", control: "制御値" })[k]])));
+const mode = (path, label, keys) => choice(path, label, Object.fromEntries([...new Set([...keys, "reference"])].map(k => [k, ({ none: "なし", value: "数値", reference: "解説参照", control: "制御値" })[k]])));
 
 export const ENCHANTMENT_ATTRIBUTES = Object.freeze({
+    "system.outfitCategories": { path: "additionalCategories", label: "分類の行操作", kind: "rowOperation", modes: ["override"] },
+    "system.equip.rows": { path: "part", label: "装備部位の行操作", kind: "rowOperation", modes: ["override"] },
     "system.majorCategory": choice("majorCategory", "大分類", getMajorCategoryChoices()),
     "system.minorCategory": choice("minorCategory", "小分類", getMinorCategoryChoices()),
-    "system.additionalCategories": { ...choice("additionalCategories", "追加カテゴリ（小分類）", getMinorCategoryChoices()), kind: "category", modes: ["add", "override"] },
+    "system.additionalCategories": { ...choice("additionalCategories", "副分類（旧形式：加算／全体置換）", getMinorCategoryChoices()), kind: "category", modes: ["add", "override"] },
     "system.equip.parts": rows("part", "装備部位"),
-    "system.equip.relation": choice("partRelation", "装備部位の結合", { and: "かつ", or: "または" }),
-    "system.equip.optional": bool("partOptional", "任意部位"),
-    "system.range.min": choice("range.min", "最低射程", { none: "なし", close: "至近", short: "近", middle: "中", long: "遠", superLong: "超遠" }),
-    "system.range.max": choice("range.max", "最大射程", { none: "なし", short: "近", middle: "中", long: "遠", superLong: "超遠" }),
-    "system.attackArea": choice("attackArea", "攻撃範囲", { none: "なし", area: "範囲", areaSelect: "範囲（選択）", scene: "シーン", sceneSelect: "シーン（選択）" }),
+    "system.equip.relation": choice("partRelation", "全行の装備要件（旧形式）", { and: "かつ", or: "または" }),
+    "system.equip.optional": bool("partOptional", "全行の任意（旧形式）"),
+    "system.range.min": choice("range.min", "最低射程", { none: "なし", close: "至近", short: "近", middle: "中", long: "遠", superLong: "超遠", reference: "解説参照" }),
+    "system.range.max": choice("range.max", "最大射程", { none: "なし", short: "近", middle: "中", long: "遠", superLong: "超遠", reference: "解説参照" }),
+    "system.attackArea": choice("attackArea", "攻撃範囲", { none: "なし", area: "範囲", areaSelect: "範囲（選択）", scene: "シーン", sceneSelect: "シーン（選択）", reference: "解説参照" }),
     "system.isMeleeWeapon": bool("isMeleeWeapon", "白兵武器"),
     "system.isRangedWeapon": bool("isRangedWeapon", "射撃武器"),
     "system.canStun": bool("canStun", "スタン可能"),
-    "system.shikiType": choice("shikiType", "式神タイプ", { "": "なし", attack: "攻撃", defense: "防御", drive: "操縦", independent: "独立" }),
+    "system.shikiType": choice("shikiType", "式神タイプ", { "": "なし", attack: "攻撃", defense: "防御", drive: "操縦", independent: "独立", reference: "解説参照" }),
     "system.combatSpeedModGhostIgnore": bool("combatSpeedModGhostIgnore", "ゴースト時のCS修正無視"),
     "system.buy.mode": mode("buy.mode", "購入値の方式", ["none", "value", "reference"]),
     "system.hide.mode": mode("hide.mode", "隠匿値の方式", ["none", "value", "reference", "control"]),
@@ -62,6 +65,7 @@ export function parseEnchantmentAttribute(key, raw) {
     key = enchantmentAttributeKey(key);
     const def = ENCHANTMENT_ATTRIBUTES[key];
     if (!def) throw new Error("未定義の付与属性です。");
+    if (def.kind === "rowOperation") return parseRowOperation(raw, ROW_OPERATION_KEYS[key]);
     if (def.choices) {
         const value = String(raw);
         if (!Object.hasOwn(def.choices, value)) throw new Error("選択肢にない値です。");
@@ -82,9 +86,11 @@ export function parseEnchantmentAttribute(key, raw) {
             if (!["style", "organization"].includes(row.type) || typeof row.key !== "string" || !row.key.trim()) throw new Error("専用条件の種別と識別キーが必要です。");
         } else if (def.path === "part") {
             if (!Object.hasOwn(PART_KINDS, row.kind)) throw new Error("部位の種別が不正です。");
+            if (row.requirement !== undefined && !["and", "or", ""].includes(row.requirement)) throw new Error("装備要件が不正です。");
+            if (row.optional !== undefined && row.optional !== null && typeof row.optional !== "boolean") throw new Error("任意指定が不正です。");
             if (row.slots !== undefined && (!Number.isInteger(row.slots) || row.slots < 0)) throw new Error("部位の消費数は0以上の整数です。");
             if (row.refSubKind !== undefined && !Object.hasOwn(PART_REFERENCE_SUB_KINDS, row.refSubKind)) throw new Error("解説参照の部位が不正です。");
-            for (const field of ["value", "partKey", "hostMajor", "hostMinor", "hostFeature", "hostKey"]) {
+            for (const field of ["rowId", "value", "partKey", "hostMajor", "hostMinor", "hostFeature", "hostKey"]) {
                 if (row[field] !== undefined && typeof row[field] !== "string") throw new Error("部位の参照値が不正です。");
             }
             if (row.hostMinorExclude !== undefined && typeof row.hostMinorExclude !== "boolean") throw new Error("小分類の除外指定が不正です。");
@@ -97,8 +103,9 @@ export function parseEnchantmentAttribute(key, raw) {
 export function applyEnchantmentAttributes(item) {
     if (!item?.actor || !OUTFIT_TYPES.has(item.type)) return;
     // 同じDocumentの再準備でも加算を累積せず、削除・無効化で元の値に戻す。
-    for (const { path, document } of item._tnxEnchantmentPaths ?? []) {
-        const value = get(document ? item._source : item._source?.system, path);
+    for (const { path, document, original } of item._tnxEnchantmentPaths ?? []) {
+        const saved = get(document ? item._source : item._source?.system, path);
+        const value = saved === undefined ? original : saved;
         if (value !== undefined) set(document ? item : item.system, path, structuredClone(value));
     }
     const changes = [];
@@ -110,40 +117,61 @@ export function applyEnchantmentAttributes(item) {
             if (seen.has(identity)) continue;
             seen.add(identity);
         }
-        for (const change of effect.system?.changes ?? effect.changes ?? []) {
+        for (const [changeIndex, change] of (effect.system?.changes ?? effect.changes ?? []).entries()) {
             const key = enchantmentAttributeKey(change.key);
-            if (ENCHANTMENT_ATTRIBUTES[key] && evalEffectConditions(item.system, parseEffectTargetKey(change.key)?.conditions)) changes.push({ ...change, key });
+            if (ENCHANTMENT_ATTRIBUTES[key] && evalEffectConditions(item.system, parseEffectTargetKey(change.key)?.conditions)) changes.push({ ...change, key, identity: `${effect.id ?? identity}:${changeIndex}`, effectName: effect.name ?? effect.id });
         }
     }
     changes.sort((a, b) => (a.priority ?? (changeType(a) === "add" ? 20 : 50)) - (b.priority ?? (changeType(b) === "add" ? 20 : 50)));
     item._tnxEnchantmentPaths = [];
+    item._tnxEnchantmentWarnings = [];
+    const write = (path, value, document = false) => {
+        const target = document ? item : item.system;
+        if (!item._tnxEnchantmentPaths.some(p => p.path === path && p.document === document)) {
+            item._tnxEnchantmentPaths.push({ path, document, original: structuredClone(get(target, path)) });
+        }
+        set(target, path, value);
+    };
     for (const change of changes) {
         const def = ENCHANTMENT_ATTRIBUTES[change.key];
-        const target = def.document ? item : item.system;
-        const previous = get(target, def.path);
-        if (previous === undefined) continue; // 対象型に存在しない属性は作らない。
-        let value;
-        try { value = parseEnchantmentAttribute(change.key, change.value); } catch { continue; }
-        if (changeType(change) === "add" && def.modes.includes("add")) {
-            if (Array.isArray(value)) value = [...(Array.isArray(previous) ? previous : []), ...value];
-            else value = String(previous ?? "") + value;
-        }
-        if (def.kind === "category") value = value.filter((r, i, all) => all.findIndex(x => x.major === r.major && x.minor === r.minor) === i);
-        set(target, def.path, value);
-        item._tnxEnchantmentPaths.push({ path: def.path, document: !!def.document });
-        // 小分類と所属大分類の整合性を保持する。
-        if (def.path === "minorCategory") {
-            item.system.majorCategory = majorOfMinor(value);
-            item._tnxEnchantmentPaths.push({ path: "majorCategory", document: false });
+        try {
+            let value = parseEnchantmentAttribute(change.key, change.value);
+            if (def.kind === "rowOperation") {
+                const patch = applyOutfitRowOperation(item.system, value, ROW_OPERATION_KEYS[change.key], change.identity);
+                for (const [path, v] of Object.entries(patch)) write(path, v);
+                continue;
+            }
+            const target = def.document ? item : item.system;
+            const previous = get(target, def.path);
+            if (previous === undefined) continue;
+            if (changeType(change) === "add" && def.modes.includes("add")) {
+                if (Array.isArray(value)) value = [...(Array.isArray(previous) ? previous : []), ...value];
+                else value = String(previous ?? "") + value;
+            }
+            if (def.kind === "category") value = value.filter((r, i, all) => all.findIndex(x => x.major === r.major && x.minor === r.minor) === i);
+            if (["majorCategory", "minorCategory"].includes(def.path)) {
+                const row = changeCategory({ major: item.system.majorCategory, minor: item.system.minorCategory },
+                    { [def.path === "majorCategory" ? "major" : "minor"]: value });
+                write("majorCategory", row.major);
+                write("minorCategory", row.minor);
+            } else write(def.path, value, !!def.document);
+            // 旧全体指定も、明示的な新しい行属性へ反映する。
+            if (["partRelation", "partOptional"].includes(def.path)) {
+                const field = def.path === "partRelation" ? "requirement" : "optional";
+                write("part", (item.system.part ?? []).map(row => ({ ...row, [field]: value })));
+            }
+        } catch (e) {
+            item._tnxEnchantmentWarnings.push({ effect: change.effectName, key: change.key, message: e.message });
         }
     }
 }
 
 /** 編集用コピーへ素値を戻し、実効属性をフォームから焼き込まない。 */
 export function restoreEnchantmentEditValues(item, system) {
-    for (const { path, document } of item._tnxEnchantmentPaths ?? []) {
+    for (const { path, document, original } of item._tnxEnchantmentPaths ?? []) {
         if (document) continue;
-        const value = get(item._source?.system, path);
+        const saved = get(item._source?.system, path);
+        const value = saved === undefined ? original : saved;
         if (value !== undefined) set(system, path, structuredClone(value));
     }
 }

@@ -1,6 +1,6 @@
 /** 実効属性の変更で、個別の準備条件を失ったアウトフィットを抽出する。 */
 import { OUTFIT_TYPES, hasClassification } from "../data/item/outfit-categories.mjs";
-import { matchesHostDescriptor, computePartOccupancy, OUTFIT_NAME_SLOT_KIND } from "../data/item/part-helpers.mjs";
+import { matchesHostDescriptor, computePartOccupancy, OUTFIT_NAME_SLOT_KIND, selectedPartRows, partIsOptional } from "../data/item/part-helpers.mjs";
 import { readFlag } from "../data/item/helpers.mjs";
 
 export function planInvalidOutfitPreparation(actor) {
@@ -17,7 +17,7 @@ export function planInvalidOutfitPreparation(actor) {
             if (!host || host.system.isOption || !host.system.isPrepared) {
                 invalid.set(item.id, "準備先が未準備または存在しない"); continue;
             }
-            const spec = (sys.part ?? []).find(row => (row.kind === "reference" ? row.refSubKind : row.kind) === "option") ?? {};
+            const spec = selectedPartRows(sys).find(row => (row.kind === "reference" ? row.refSubKind : row.kind) === "option") ?? {};
             const hostData = { ...host.system, isLaser: readFlag(host.system, "isLaser"), isMutantOrgan: readFlag(host.system, "isMutantOrgan") };
             if (!matchesHostDescriptor(hostData, spec)) {
                 invalid.set(item.id, "準備先の分類・特徴が装備条件を満たさない"); continue;
@@ -28,7 +28,7 @@ export function planInvalidOutfitPreparation(actor) {
                 : !slots.length && sys.parentSlotKind === OUTFIT_NAME_SLOT_KIND ? 1 : null;
             if (capacity === null) { invalid.set(item.id, "選択した準備先スロットが存在しない"); continue; }
             const consumption = Number.isFinite(Number(spec.slots)) ? Math.max(0, Number(spec.slots)) : 1;
-            if (!sys.partOptional && !hasClassification(sys, "housingAccessory") && consumption > capacity) {
+            if (!partIsOptional(spec, sys.partOptional) && !hasClassification(sys, "housingAccessory") && consumption > capacity) {
                 invalid.set(item.id, "単体で準備先の容量を超過する"); continue;
             }
         }

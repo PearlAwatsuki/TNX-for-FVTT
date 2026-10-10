@@ -8,7 +8,8 @@
  */
 
 import { getMinorCategoryLabel, getMajorCategoryLabel, isMajorLevelSlotMajor } from "../data/item/outfit-categories.mjs";
-import { formatWeaponRangeLabel } from "../ui/outfit-view.mjs";
+import { formatWeaponRangeLabel, attackLabel } from "../ui/outfit-view.mjs";
+import { selectedPartRows, partIsOptional } from "../data/item/part-helpers.mjs";
 import { formatPartDesignation, joinPartDesignations, computePartOccupancy, computeHostOccupancy, resolvePartRowsForDisplay, resolvePartAdditions, OUTFIT_NAME_SLOT_KIND } from "../data/item/part-helpers.mjs";
 import { SLOT_KINDS } from "../data/item/common/extensible.mjs";
 import { OUTFIT_ITEM_TYPES } from "../data/helpers.mjs";
@@ -89,10 +90,11 @@ export function displayGroupKey(major) {
  * 既定 1(指定なし)。0 は非消費(武器0 等)。
  */
 export function optionConsumption(sys) {
-    const rows = Array.isArray(sys.part) ? sys.part : [];
+    const rows = selectedPartRows(sys);
     const optRow = rows.find(r =>
         r?.kind === "option" || (r?.kind === "reference" && r?.refSubKind === "option"));
     if (!optRow) return 1;
+    if (partIsOptional(optRow, sys.partOptional)) return 0;
     const n = Number(optRow.slots);
     return Number.isFinite(n) ? Math.max(0, n) : 1;
 }
@@ -509,6 +511,7 @@ export function preparePartOccupancy(actor) {
         minorCategory: i.system.minorCategory,
         part:         i.system.part,
         partRelation: i.system.partRelation,
+        partOrChoice: i.system.partOrChoice,
         partOptional: i.system.partOptional,
         partAdded:    i.system.partAdded,       // AE による追加部位行(フェーズ12)
         partAltChoice: i.system.partAltChoice,  // or 追加行を選んだ装備先(部位キー)

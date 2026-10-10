@@ -1,3 +1,4 @@
+import { ensureOutfitRowIds } from "../../../rules/outfit-row-operations.mjs";
 /**
  * @fileoverview OutfitBaseTemplate - 装備品共通フィールドを定義する template クラス
  *
@@ -24,7 +25,7 @@
  * - part(部位)は**配列**。フェーズ10(2026-06-26)で種別(kind)ベースへ拡張した。
  *   kind = none/bodyPart/option/reference/other の5択。value/slots は維持(後方互換)。
  *   旧 {value,slots} データは kind 既定 "other" で自由記入扱いへ移行する(§4.2)。
- *   結合は兄弟フィールド partRelation(and/or)、or 時の装備先は partOrChoice。
+ *   requirement(and=必須/or=選択候補)を行ごとに保存。候補は partOrChoice で1行選ぶ。
  *   表示・占有ルールの正本は Outfits.md「部位管理(フェーズ10)」。
  * - exclusive はスタイル/オーガニゼーション辞典参照の配列(`{type,key}[]`・複数可)。自動化なし(指定のみ)。
  * - uses.type は使用回数の種別(アクト/シーン/カット。スタイル技能の usesType と共通)。
@@ -41,7 +42,7 @@
 
 import { SystemDataModel } from "../../abstract.mjs";
 import { applyEnchantmentAttributes } from "../../../rules/enchantment-attributes.mjs";
-import { PART_KINDS, PART_REFERENCE_SUB_KINDS, PART_RELATIONS } from "../part-helpers.mjs";
+import { PART_KINDS, PART_REFERENCE_SUB_KINDS, PART_RELATIONS, selectedPartRows, partIsOptional } from "../part-helpers.mjs";
 export { PART_KINDS, PART_REFERENCE_SUB_KINDS, PART_RELATIONS } from "../part-helpers.mjs";
 import { getMajorCategoryChoices, getMinorCategoryChoices, LEGACY_CATEGORY_MAP, hasClassification, outfitClassifications } from "../outfit-categories.mjs";
 import { modeValueField, migrateUsesValueToSpent, computeItemEffectiveValues } from "../helpers.mjs";
@@ -157,6 +158,7 @@ export class OutfitBaseTemplate extends SystemDataModel {
       // (旧 isCyber の移行先)。choices を付けないのは blank 行(追加直後の未選択)を許すため。
       additionalCategories: new fields.ArrayField(
         new fields.SchemaField({
+          rowId: new fields.StringField({ initial: "" }),
           major: new fields.StringField({ initial: "" }),
           minor: new fields.StringField({ initial: "" }),
         })
@@ -173,7 +175,11 @@ export class OutfitBaseTemplate extends SystemDataModel {
       // 後方互換。表示はキーからの逆引きラベルを優先する。
       part: new fields.ArrayField(
         new fields.SchemaField({
+          rowId:            new fields.StringField({ initial: "" }),
           kind:             new fields.StringField({ initial: "other", choices: PART_KINDS }),
+          // 空文字は旧partRelationを継承する値。choicesへの追加だけでは空文字検証を通らない。
+          requirement:      new fields.StringField({ initial: "", blank: true, choices: ["", "and", "or"] }),
+          optional:         new fields.BooleanField({ nullable: true, initial: null }),
           value:            new fields.StringField({ initial: "" }),
           partKey:          new fields.StringField({ initial: "" }),
           slots:            new fields.NumberField({ initial: 1, min: 0, integer: true }),
@@ -188,8 +194,8 @@ export class OutfitBaseTemplate extends SystemDataModel {
           refSubKind:       new fields.StringField({ initial: "none", choices: PART_REFERENCE_SUB_KINDS }),
         })
       ),
-      // part 全体の結合(2行以上で意味を持つ)と、or 時の装備先(占有する行 index。表示には不影響)。
-      // partOptional=任意は**部位全体**に効く(重複可・占有非カウント。行ごとではない)。
+      // partRelationは旧データ互換。行のrequirement未設定時のみ使う。partOrChoiceは候補の行index。
+      // partOptionalは旧データ互換。行optionalがnull/未設定の場合にだけ任意を継承する。
       partRelation: new fields.StringField({ initial: "and", choices: PART_RELATIONS }),
       partOrChoice: new fields.NumberField({ initial: 0, min: 0, integer: true }),
       // AE の or 追加部位(system.part.<キー> 値=or)を選んだときの装備先(部位キー)。
@@ -260,6 +266,8 @@ export class OutfitBaseTemplate extends SystemDataModel {
     migrateUsesValueToSpent(source);
     // uses.max の NumberField → StringField(2026-08-09)。**spent 移行の後に**呼ぶ(前者が max を数値で読む)
     migrateUsesMaxToString(source);
+    if (Array.isArray(source.part)) source.part = ensureOutfitRowIds(source.part, "part");
+    if (Array.isArray(source.additionalCategories)) source.additionalCategories = ensureOutfitRowIds(source.additionalCategories, "category");
     return super.migrateData(source);
   }
 
@@ -284,7 +292,7 @@ export class OutfitBaseTemplate extends SystemDataModel {
     this.partAdded = [];
     // オプション判定は部位行から派生する(フェーズ10。旧 isOption チェックは廃止し kind=option へ吸収)。
     // 部位に kind=option(または解説参照の実部位 option)があれば、このアウトフィットはオプション。
-    const rows = Array.isArray(this.part) ? this.part : [];
+    const rows = selectedPartRows(this);
     this.isOption = rows.some((r) =>
       r?.kind === "option" || (r?.kind === "reference" && r?.refSubKind === "option"));
 
@@ -292,7 +300,7 @@ export class OutfitBaseTemplate extends SystemDataModel {
     // (2026-07-09 ユーザー・ルール反映)。※身体部位を選んで値が未選択なだけの状態は「-」ではないので
     // 対象外(kind で判定する。formatPartDesignation は空 bodyPart も「-」にするため使わない)。
     // 準備フラグはオフに強制(派生)しトグル非表示。未準備でもデータ/効果を適用するため noPrepareRequired。
-    this.isPartless = this.partOptional !== true && !rows.some(r => r?.kind && r.kind !== "none");
+    this.isPartless = !rows.some(r => partIsOptional(r, this.partOptional)) && !(this.partOptional && !rows.length) && !rows.some(r => r?.kind && r.kind !== "none");
     if (this.isPartless) {
       this.noPrepareRequired = true;
       this.noPrepareRequiredTotal = true; // 実効フラグも同期(computeItemEffectiveValues 後の強制のため)

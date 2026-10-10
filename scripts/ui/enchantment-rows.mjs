@@ -1,5 +1,6 @@
+import { syncOutfitRowOperationEditor } from "./outfit-row-operation-editor.mjs";
 /** 付与AEの部位・専用条件を、アウトフィットと同じ行操作で編集する。 */
-import { PART_KINDS, PART_REFERENCE_SUB_KINDS, PART_HOST_FEATURE_LABELS, matchesHostDescriptor } from "../data/item/part-helpers.mjs";
+import { PART_KINDS, PART_REFERENCE_SUB_KINDS, PART_HOST_FEATURE_LABELS, PART_REQUIREMENTS, matchesHostDescriptor } from "../data/item/part-helpers.mjs";
 import { getMajorCategoryChoices, getMinorCategoryChoices, OUTFIT_CATEGORIES, OUTFIT_TYPES } from "../data/item/outfit-categories.mjs";
 import { loadSkillChoices, STYLE_PACK, ORGANIZATION_PACK } from "../dictionary/skill-dictionary.mjs";
 import { loadOutfitHostChoices } from "../dictionary/outfit-dictionary.mjs";
@@ -20,11 +21,13 @@ function icon(label, iconName, action) {
 }
 
 /** hiddenの保存欄以外にnameは付けず、ネイティブAEフォームへ配列JSONだけ渡す。 */
-export function syncEnchantmentRowEditor(input, key, { actor = null, partSlots = [] } = {}) {
+export function syncEnchantmentRowEditor(input, key, { actor = null, item = null, partSlots = [] } = {}) {
+    if (!input) return;
+    if (syncOutfitRowOperationEditor(input, key, { actor, item, partSlots })) return;
     const existing = input.nextElementSibling?.classList.contains("tnx-enchantment-rows") ? input.nextElementSibling : null;
     if (!["system.equip.parts", "system.exclusive"].includes(key)) {
         existing?.remove();
-        if (input.dataset.tnxRows) { input.type = "text"; delete input.dataset.tnxRows; }
+        if (input.dataset.tnxRows) { input.type = "text"; delete input.dataset.tnxRows; input.setCustomValidity(""); }
         return;
     }
     if (existing?.dataset.key === key) return;
@@ -47,7 +50,7 @@ export function syncEnchantmentRowEditor(input, key, { actor = null, partSlots =
         box.replaceChildren();
         const legend = document.createElement("legend");
         legend.append(isPart ? "装備部位 " : "専用条件 ", icon("行を追加", "plus", () => {
-            rows.push(isPart ? { kind: "bodyPart", partKey: "", value: "", slots: 1 } : { type: "style", key: "" });
+            rows.push(isPart ? { kind: "bodyPart", partKey: "", value: "", slots: 1, requirement: "and", optional: false } : { type: "style", key: "" });
             render(); save();
         }));
         box.append(legend);
@@ -71,7 +74,7 @@ export function syncEnchantmentRowEditor(input, key, { actor = null, partSlots =
                     if (type === "number") { control.min = "0"; control.step = "1"; }
                 }
                 control.addEventListener("change", () => {
-                    row[name] = type === "checkbox" ? control.checked : type === "number" ? Number(control.value) : control.value;
+                    row[name] = name === "optional" ? (control.value === "" ? null : control.value === "true") : type === "checkbox" ? control.checked : type === "number" ? Number(control.value) : control.value;
                     if (name === "partKey") row.value = partSlots.find(s => s.key === row.partKey)?.value ?? "";
                     if (name === "hostMajor") row.hostMinor = "";
                     if (["hostMajor", "hostMinor", "hostMinorExclude", "hostFeature"].includes(name)) row.hostKey = "";
@@ -84,6 +87,8 @@ export function syncEnchantmentRowEditor(input, key, { actor = null, partSlots =
             };
             card.append(icon("この行を削除", "trash", () => { rows.splice(index, 1); render(); save(); }));
             if (isPart) {
+                field("requirement", "装備要件", { "": "旧全体指定を継承", ...PART_REQUIREMENTS });
+                field("optional", "任意", { "": "旧全体指定を継承", true: "オン", false: "オフ" });
                 field("kind", "種別", PART_KINDS, "text", true);
                 if (row.kind === "reference") field("refSubKind", "実部位", PART_REFERENCE_SUB_KINDS, "text", true);
                 const kind = row.kind === "reference" ? row.refSubKind : row.kind;

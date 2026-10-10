@@ -5,7 +5,7 @@ import { SYSTEM_ID } from "../../scripts/constants.mjs";
 function outfit(changes, flags = {}) {
     const source = { img: "base.webp", system: { majorCategory: "weapon", minorCategory: "melee", additionalCategories: [], part: [], partRelation: "and", partOptional: false, description: "元", hack: { mode: "value", value: 3 }, uses: { isLimit: false, type: "" } } };
     return { documentName: "Item", type: "weapon", actor: {}, ...structuredClone(source), _source: source,
-        effects: [{ id: "e1", type: "enchantment", transfer: true, flags: { [SYSTEM_ID]: flags }, system: { changes } }] };
+        effects: [{ id: "e1", type: "enchantment", transfer: false, flags: { [SYSTEM_ID]: { applyToSelf: !flags.applyToParent, ...flags } }, system: { changes } }] };
 }
 const change = (key, value, type = "override") => ({ key, value, type });
 

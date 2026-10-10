@@ -19,7 +19,7 @@ describe("付与AEの行編集", () => {
         syncEnchantmentRowEditor(field, "system.equip.parts", { partSlots: [{ key: "hand", value: "片手持ち" }] });
         document.querySelector('[aria-label="行を追加"]').click();
         edit(document.querySelector('[data-field="partKey"]'), "hand");
-        expect(JSON.parse(field.value)).toEqual([{ kind: "bodyPart", partKey: "hand", value: "片手持ち", slots: 1 }]);
+        expect(JSON.parse(field.value)).toEqual([{ kind: "bodyPart", partKey: "hand", value: "片手持ち", slots: 1, requirement: "and", optional: false }]);
         expect([...new FormData(field.form).keys()]).toEqual(["system.changes.0.value"]);
         document.querySelector('[aria-label="この行を削除"]').click();
         expect(field.value).toBe("[]");

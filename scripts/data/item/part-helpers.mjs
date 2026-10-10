@@ -31,6 +31,26 @@ export const PART_KINDS = Object.freeze({ none: "-", bodyPart: "身体部位", o
 export const PART_REFERENCE_SUB_KINDS = Object.freeze({ none: "-", bodyPart: "身体部位", option: "オプション", other: "その他" });
 export const PART_RELATIONS = Object.freeze({ and: "かつ", or: "または" });
 
+/** 行ごとの装備要件。空は旧データの全体指定へフォールバックする。 */
+export const PART_REQUIREMENTS = Object.freeze({ and: "必須", or: "選択候補" });
+export function partRequirement(row, legacy = "and") {
+  return row?.requirement === "and" || row?.requirement === "or" ? row.requirement : legacy;
+}
+
+/** 行の明示指定を優先し、未設定の旧行だけ全体の任意を引き継ぐ。 */
+export function partIsOptional(row, legacy = false) {
+  return typeof row?.optional === "boolean" ? row.optional : legacy === true;
+}
+
+/** 必須行すべてと選択候補1行。選択indexが無効なら最初の候補を使う。 */
+export function selectedPartRows(system) {
+  const rows = Array.isArray(system?.part) ? system.part : [];
+  const candidates = rows.map((row, index) => ({row, index}))
+    .filter(({row}) => row?.kind !== "none" && partRequirement(row, system.partRelation) === "or");
+  const chosen = candidates.find(r => r.index === Number(system.partOrChoice)) ?? candidates[0];
+  return rows.filter(row => partRequirement(row, system.partRelation) !== "or" || row === chosen?.row);
+}
+
 /**
  * オプションの「その他特徴」キー → 表示ラベル。ホスト側の特徴で絞り込む(「武器(サイバーウェア)」等)。
  * isCyber は旧フラグ廃止(フェーズ16-1)後も**保存済み記述子の互換キー**として残し、照合は
@@ -181,23 +201,32 @@ export function formatPartDesignation(part, partRelation = "and", partOptional =
     return out || "-";
   };
 
-  if (partOptional) {
+  if (rows.length ? rows.every(r => partIsOptional(r, partOptional)) : partOptional) {
     // 任意は部位全体に効く: 「任意(A、B…)」。その他を含めば「など」を内側末尾へ。素の任意は「任意」
-    // 任意の部位は占有しない=AE 追加行も併記しない(占有計算と対応)
+    // 全行が任意なら、行の必須／選択候補によらず従来の列挙表記を維持する。
     if (!labels.length) return "任意";
     return `任意(${labels.join("、")}${hasOther ? "など" : ""})`;
   }
   if (!rows.length) return withAdditions("-");
-  if (!labels.length) return withAdditions(hasOther ? "など" : "-");
+  if (!labels.length && !rows.some(r => partIsOptional(r, partOptional))) return withAdditions(hasOther ? "など" : "-");
 
-  let joined;
-  if (rows.length >= 2 && partRelation === "or") {
-    joined = labels.join(rows.every((r) => r.kind === "option") ? "／" : "、もしくは");
-  } else if (rows.length >= 2 && partRelation === "and") {
-    joined = labels.join("+");
-  } else {
-    joined = labels.join("、");
-  }
+  const nodeOf = row => ({ text: rowDesignation(row), optional: partIsOptional(row, partOptional) });
+  const render = node => node.optional ? (node.text ? `任意(${node.text})` : "任意") : node.text;
+  // 同じ結合の任意要素をまとめる。括弧を外へ広げても必須／候補の関係は保つ。
+  const combine = (nodes, separator) => {
+    nodes = nodes.filter(n => n.text || n.optional);
+    if (!nodes.length) return { text: "", optional: false };
+    if (nodes.every(n => n.optional)) return { text: nodes.map(n => n.text).filter(Boolean).join(separator), optional: true };
+    const optional = nodes.filter(n => n.optional);
+    const grouped = { text: optional.map(n => n.text).filter(Boolean).join(separator), optional: true };
+    return { text: nodes.flatMap(n => n.optional
+      ? (n === optional[0] ? [render(grouped)] : []) : [n.text]).join(separator), optional: false };
+  };
+  const required = rows.filter(r => partRequirement(r, partRelation) !== "or").map(nodeOf);
+  const candidates = rows.filter(r => partRequirement(r, partRelation) === "or");
+  const separator = rows.length >= 3 ? "か" : candidates.every(r => r.kind === "option") ? "／" : "、もしくは";
+  const alternatives = combine(candidates.map(nodeOf), separator);
+  const joined = render(combine([...required, alternatives], "+"));
   return withAdditions(hasOther ? `${joined}など` : joined);
 }
 
@@ -370,8 +399,7 @@ export function computePartOccupancy(partSlots = [], outfits = []) {
   for (const outfit of (outfits ?? [])) {
     if (!outfit?.isPrepared) continue;
     if (outfit.minorCategory === "housingAccessory") continue; // 非消費: 住宅アクセサリ
-    if (outfit.partOptional) continue;                         // 非消費: 任意(部位全体)
-    const rows = Array.isArray(outfit.part) ? outfit.part : [];
+    if (outfit.partOptional && (outfit.part ?? []).every(r => typeof r?.optional !== "boolean")) continue; // 旧全体指定
     const added = Array.isArray(outfit.partAdded) ? outfit.partAdded : [];
     const addedAnd = added.filter((r) => r?.relation === "and");
     const addedOr  = added.filter((r) => r?.relation === "or");
@@ -381,6 +409,7 @@ export function computePartOccupancy(partSlots = [], outfits = []) {
 
     const consumeRow = (row) => {
       if (!row) return;
+      if (partIsOptional(row, outfit.partOptional)) return;
       const effKind = row.kind === "reference" ? row.refSubKind : row.kind;
       if (effKind !== "bodyPart") return;       // 身体部位のみ(オプション等は対象外)
       const slots = Math.max(0, Number(row.slots) || 0);
@@ -399,12 +428,8 @@ export function computePartOccupancy(partSlots = [], outfits = []) {
 
     if (chosenOr) {
       consumeAdded(chosenOr);
-    } else if (outfit.partRelation === "or" && rows.length >= 2) {
-      // 択一: 装備先トグルで選んだ1行だけ占有
-      const idx = Math.max(0, Math.min(rows.length - 1, Number(outfit.partOrChoice) || 0));
-      consumeRow(rows[idx]);
     } else {
-      for (const row of rows) consumeRow(row);
+      for (const row of selectedPartRows(outfit)) consumeRow(row);
     }
     // and 追加行は択一の結果に関わらず常に占有する(フェーズ12・ユーザー確定)
     for (const row of addedAnd) consumeAdded(row);

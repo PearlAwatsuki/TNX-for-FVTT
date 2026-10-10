@@ -1,3 +1,4 @@
+import { newOutfitRowId, ensureOutfitRowIds } from "../rules/outfit-row-operations.mjs";
 import { SYSTEM_ID } from "../constants.mjs";
 import { TokyoNovaItemSheet } from "./tnx-item-sheet.mjs";
 import { TnxSkillUtils } from "../core/tnx-skill-utils.mjs";
@@ -6,10 +7,10 @@ import { ATTACK_DAMAGE_TYPES } from "../data/item/helpers.mjs";
 import { WEAPON_RANGE_MIN_OPTIONS, WEAPON_RANGE_MAX_OPTIONS, WEAPON_ATTACK_AREAS } from "../data/item/weapon.mjs";
 import { SLOT_KINDS } from "../data/item/common/extensible.mjs";
 import { HOUSING_AREA_RANKS, HOUSING_AREA_MOD_FIELDS } from "../data/item/housing-area.mjs";
-import { PART_KINDS, PART_REFERENCE_SUB_KINDS, PART_RELATIONS, SHIKI_TYPES } from "../data/item/common/outfit-base.mjs";
+import { PART_KINDS, PART_REFERENCE_SUB_KINDS, SHIKI_TYPES } from "../data/item/common/outfit-base.mjs";
 import { getPartSlotPreset } from "../app/part-slot-preset-app.mjs";
 import {
-    PART_HOST_FEATURE_LABELS,
+    PART_HOST_FEATURE_LABELS, PART_REQUIREMENTS, partRequirement, partIsOptional, selectedPartRows,
     findPartKeyByLabel,
     matchesHostDescriptor,
     OUTFIT_NAME_SLOT_KIND,
@@ -125,7 +126,7 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
     /** 空の部位行(フェーズ10: 種別ベース。新規行の既定種別は身体部位。任意は part 全体フラグ) */
     static get blankPartRow() {
         return {
-            kind: "bodyPart", value: "", slots: 1,
+            rowId: newOutfitRowId(), kind: "bodyPart", value: "", slots: 1, requirement: "and", optional: false,
             hostMajor: "", hostMinor: "", hostMinorExclude: false,
             hostFeature: "", hostKey: "", refSubKind: "none",
         };
@@ -138,7 +139,7 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
      * @returns {{hostMajor:string, hostMinor:string, hostMinorExclude:boolean, hostFeature:string, hostKey:string}}
      */
     _optionHostSpec(system) {
-        const rows = Array.isArray(system.part) ? system.part : [];
+        const rows = selectedPartRows(system);
         const row = rows.find((r) => (r?.kind === "reference" ? r?.refSubKind : r?.kind) === "option") ?? {};
         return {
             hostMajor: row.hostMajor ?? "", hostMinor: row.hostMinor ?? "",
@@ -271,7 +272,7 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
                 ? Object.values(system.part)
                 : [];
         }
-        if (!system.part.length) system.part = [this.constructor.blankPartRow];
+        if (!system.part.length) system.part = [{ ...this.constructor.blankPartRow, optional: system.partOptional === true }];
 
         // 部位エディタ(フェーズ10): 行ごとの種別連動 UI 用データ(文脈連動の選択肢込み)
         await this._preparePartEditorData(context, system);
@@ -417,6 +418,7 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
             return { index, major: row.major ?? "", minor: row.minor ?? "", minorChoices: minors, isFirst: index === 0 };
         });
         context.options.additionalMajorCategory = allMajorChoices;
+        context.enchantmentWarnings = this.item._tnxEnchantmentWarnings ?? [];
 
         // コンバイナー: カテゴリ自動補正は BOTH_FIXED_CATEGORIES で処理済み
         if (context.isCombiner) {
@@ -704,7 +706,7 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
                 this._updatePartRow(index, (row) => {
                     if (field === "kind") {
                         // 種別変更時は他フィールドを既定にリセットする(裏に前の種別の値が残らないように・2026-07-09 修正)
-                        Object.assign(row, this.constructor.blankPartRow, { kind: value });
+                        Object.assign(row, this.constructor.blankPartRow, { kind: value, requirement: row.requirement, optional: row.optional, rowId: row.rowId });
                     } else {
                         row[field] = value;
                         if (field === "hostMajor") row.hostMinor = ""; // 大分類変更で小分類をリセット
@@ -715,7 +717,7 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
             });
         }
 
-        // 部位全体の結合(and/or)・任意(partOptional)は name= の名前付きフィールドなので
+        // 候補の選択(partOrChoice)は name= の名前付きフィールドなので
         // フォームの submitOnChange で自動保存される(カスタムハンドラ不要)。
 
         // 部位行の追加・削除
@@ -760,7 +762,7 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         // チェック ON=空行を1つ作って展開・OFF=全消去(チェック状態は副分類の有無から導出=状態レス)
         this.element.querySelector("[data-additional-category-toggle]")?.addEventListener("change", (event) => {
             event.stopPropagation();
-            const rows = event.currentTarget.checked ? [{ major: "", minor: "" }] : [];
+            const rows = event.currentTarget.checked ? [{ rowId: newOutfitRowId(), major: "", minor: "" }] : [];
             this.item.update({ "system.additionalCategories": rows });
         });
         for (const el of this.element.querySelectorAll("[data-additional-category-field]")) {
@@ -770,7 +772,7 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
                 const field = event.currentTarget.dataset.additionalCategoryField;
                 const value = event.currentTarget.value;
                 this._updateAdditionalCategories((arr) => {
-                    if (!arr[index]) arr[index] = { major: "", minor: "" };
+                    if (!arr[index]) arr[index] = { rowId: newOutfitRowId(), major: "", minor: "" };
                     arr[index][field] = value;
                     if (field === "major") arr[index].minor = ""; // 大分類変更で小分類をリセット(主分類と同じ挙動)
                 });
@@ -778,7 +780,7 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         }
         this.element.querySelector("[data-additional-category-add]")?.addEventListener("click", (event) => {
             event.preventDefault();
-            this._updateAdditionalCategories((arr) => { arr.push({ major: "", minor: "" }); });
+            this._updateAdditionalCategories((arr) => { arr.push({ rowId: newOutfitRowId(), major: "", minor: "" }); });
         });
         for (const btn of this.element.querySelectorAll("[data-additional-category-del]")) {
             btn.addEventListener("click", (event) => {
@@ -949,7 +951,7 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
 
     /** 副分類(additionalCategories)の全体更新(フェーズ16-1)。配列フィールドのため丸ごと保存する。 */
     _updateAdditionalCategories(mutator) {
-        const arr = foundry.utils.deepClone(this.item._source.system.additionalCategories ?? []);
+        const arr = ensureOutfitRowIds(foundry.utils.deepClone(this.item._source.system.additionalCategories ?? []), "category");
         mutator(arr);
         return this.item.update({ "system.additionalCategories": arr });
     }
@@ -1103,9 +1105,13 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         context.partIsActorOwned = isActorOwned;
         context.partKindChoices    = PART_KINDS;
         context.partRefSubChoices  = PART_REFERENCE_SUB_KINDS;
-        context.partRelationChoices = PART_RELATIONS;
-        context.partRelation = system.partRelation ?? "and";
-        context.partOptional = system.partOptional === true; // 任意は部位全体に効く
+        context.partRequirementChoices = PART_REQUIREMENTS;
+        const candidateRows = (system.part ?? []).map((r, index) => ({r, index}))
+            .filter(({r}) => r.kind !== "none" && partRequirement(r, system.partRelation) === "or");
+        context.partChoiceOptions = Object.fromEntries(candidateRows.map(({r, index}) => [index, r.value || `部位${index + 1}`]));
+        context.hasPartChoices = candidateRows.length > 0;
+        context.selectedPartChoice = candidateRows.some(r => r.index === system.partOrChoice)
+            ? system.partOrChoice : candidateRows[0]?.index;
         context.partMultiRow = (system.part?.length ?? 0) >= 2;
 
         // 身体部位の選択肢: アクター所属=部位スロットのプルダウン / 直下・辞典=プリセットのプルダウン＋(その他選択時のみ)自由入力
@@ -1166,6 +1172,8 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
 
             return {
                 idx,
+                requirement: partRequirement(p, system.partRelation),
+                optional: partIsOptional(p, system.partOptional),
                 kind: p.kind,
                 value: p.value,
                 slots: p.slots,
@@ -1196,8 +1204,8 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         const list = Array.isArray(raw) ? raw
             : (typeof raw === "object" && raw !== null) ? Object.values(raw)
             : [];
-        if (!list.length) list.push(this.constructor.blankPartRow);
-        return list;
+        if (!list.length) list.push({ ...this.constructor.blankPartRow, optional: this.item.system.partOptional === true });
+        return ensureOutfitRowIds(list, "part").map(row => ({ ...row, requirement: partRequirement(row, this.item.system.partRelation), optional: partIsOptional(row, this.item.system.partOptional) }));
     }
 
     /**
@@ -1251,7 +1259,9 @@ export class TokyoNovaOutfitSheet extends TokyoNovaItemSheet {
         const list = this._normalizedPart();
         if (index >= 0 && index < list.length) {
             list.splice(index, 1);
-            await this.item.update({ "system.part": list });
+            const previous = Number(this.item.system.partOrChoice);
+            const choice = previous > index ? previous - 1 : previous === index ? Math.max(0, list.findIndex(row => row.requirement === "or")) : previous;
+            await this.item.update({ "system.part": list, "system.partOrChoice": choice });
         }
     }
 }
