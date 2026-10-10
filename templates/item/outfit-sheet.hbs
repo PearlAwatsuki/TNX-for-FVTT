@@ -764,19 +764,25 @@
                             </div>
                         {{/if}}
 
-                        <div class="form-group">
+                        <div class="form-group align-start">
                             <label>隠匿値</label>
-                            <div class="form-fields {{#if (eq system.hide.mode "value")}}split-fields{{/if}}">
-                                <select name="system.hide.mode">
-                                    {{selectOptions options.hideMode selected=system.hide.mode}}
-                                </select>
-                                {{#if (eq system.hide.mode "value")}}
-                                    <div class="number-input-spinner skill-sheet-spinner">
-                                        <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.hide.value">-</button>
-                                        <input type="number" name="system.hide.value" value="{{system.hide.value}}">
-                                        <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.hide.value">+</button>
-                                    </div>
-                                {{/if}}
+                            <div class="form-fields-stack outfit-hide-fields">
+                                <div class="form-fields {{#if (eq system.hide.mode "value")}}split-fields{{/if}}">
+                                    <select name="system.hide.mode">
+                                        {{selectOptions options.hideMode selected=system.hide.mode}}
+                                    </select>
+                                    {{#if (eq system.hide.mode "value")}}
+                                        <div class="number-input-spinner skill-sheet-spinner">
+                                            <button type="button" class="tnx-btn" data-action="decrementField" data-field="system.hide.value">-</button>
+                                            <input type="number" name="system.hide.value" value="{{system.hide.value}}">
+                                            <button type="button" class="tnx-btn" data-action="incrementField" data-field="system.hide.value">+</button>
+                                        </div>
+                                    {{/if}}
+                                </div>
+                                <div class="checkbox-row outfit-hide-disguise">
+                                    <label for="{{appId}}-disguised-hide">偽装</label>
+                                    <input id="{{appId}}-disguised-hide" type="checkbox" name="system.isDisguisedHide" {{checked system.isDisguisedHide}}>
+                                </div>
                             </div>
                         </div>
 

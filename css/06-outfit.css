@@ -91,6 +91,32 @@
     color: var(--tnx2-text-muted);
 }
 
+/* 隠匿値の補助チェック: 数値行との間隔とラベル間隔を明示する。 */
+.tokyo-nova.sheet.item.outfit .outfit-hide-fields {
+    gap: 8px;
+}
+
+.tokyo-nova.sheet.item.outfit .outfit-hide-disguise {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    min-height: 24px;
+    margin: 0;
+}
+
+.tokyo-nova.sheet.item.outfit .outfit-hide-disguise > label {
+    flex: 0 0 auto;
+    margin: 0;
+    font-weight: normal;
+    cursor: pointer;
+}
+
+.tokyo-nova.sheet.item.outfit .outfit-hide-disguise > input[type="checkbox"] {
+    flex: 0 0 auto;
+    margin: 0;
+}
+
 /* 状態・性質フラグ: 2 カラムのコンパクトなチェックリスト */
 .tokyo-nova.sheet.item.outfit .outfit-flags {
     display: grid;

@@ -49,12 +49,13 @@ export function formatWeaponRangeLabel(range) {
  * @param {{mode?:string, value?:number, total?:number}|null|undefined} hide
  * @returns {string} 表示文字列(なし= "-")
  */
-export function hideLabel(hide) {
+export function hideLabel(hide, isDisguised = false) {
     if (hide?.mode === "reference") return "解説参照";
     if (hide?.mode === "control")   return "制御値";
     if (hide?.mode === "value") {
         const v = hide.total ?? hide.value;
-        return Number.isFinite(v) ? String(v) : "0";
+        const label = Number.isFinite(v) ? String(v) : "0";
+        return isDisguised ? `（${label}）` : label;
     }
     return "-";
 }
@@ -108,7 +109,7 @@ export function buildOutfitSummaryRows(system, type, { areaMods = null, resolveH
     else buy = `-／${expLabel}`;
 
     // 隠匿値／危険値(住宅オプション・住宅アクセサリは危険値なし=隠匿値のみ・2026-07-09)
-    const hideVal = hideLabel(system.hide);
+    const hideVal = hideLabel(system.hide, system.isDisguisedHide);
     const penaltyVal = mvOpt(system.appearancePenalty);
     const noPenaltyCategory = system.minorCategory === "housingOption" || system.minorCategory === "housingAccessory";
     const hideFull = noPenaltyCategory ? `${hideVal}` : `${hideVal}／${penaltyVal}`;
@@ -209,7 +210,7 @@ export function buildOutfitSummaryRows(system, type, { areaMods = null, resolveH
             if (system.buy.mode === "reference") buyR = "解説参照";
             else if (system.buy.mode === "value") buyR = `${(system.buy.total ?? system.buy.value ?? 0) + am("buyRatingMod")}／${preserveR}`;
             else buyR = `-／${preserveR}`;
-            const hideR = hideLabel(system.hide);
+            const hideR = hideLabel(system.hide, system.isDisguisedHide);
             push("購", buyR); push("隠", hideR);
             push("登場", fmtNum((system.appearanceTargetTotal ?? system.appearanceTarget ?? 0) + am("appearanceTargetMod")), "full");
             const security = key => system[`${key}Mode`] === "none" ? "-"

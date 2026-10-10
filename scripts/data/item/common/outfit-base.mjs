@@ -164,6 +164,7 @@ export class OutfitBaseTemplate extends SystemDataModel {
       buy:               modeValueField(["none", "value", "reference"]),
       preserveExp:       modeValueField(["none", "value"]),
       hide:              modeValueField(["none", "value", "reference", "control"]),
+      isDisguisedHide: new fields.BooleanField({ initial: false }),
       appearancePenalty: modeValueField(["none", "value"]),
       hack:              modeValueField(["none", "value"]),
       // 部位行(フェーズ10 で種別ベースへ拡張)。value/slots は維持。kind 既定 "other" は

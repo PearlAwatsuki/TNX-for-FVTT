@@ -47,3 +47,13 @@ describe("hideLabel()（隠匿値の表示）", () => {
     expect(hideLabel({ mode: "value" })).toBe("0");
   });
 });
+
+describe("偽装された隠匿値", () => {
+    it("数値と計算後の値を括弧で囲み、通常値やなしと区別する", () => {
+        expect(hideLabel({mode:"value", value:20}, true)).toBe("（20）");
+        expect(hideLabel({mode:"value", value:20, total:15}, true)).toBe("（15）");
+        expect(hideLabel({mode:"value", value:0}, true)).toBe("（0）");
+        expect(hideLabel({mode:"none"}, true)).toBe("-");
+        expect(hideLabel({mode:"value", value:20}, false)).toBe("20");
+    });
+});

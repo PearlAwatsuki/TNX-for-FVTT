@@ -118,7 +118,7 @@ export async function prepareCombinePreview(sheet, system) {
     const s2 = await resolve(system.combine.source2);
 
     const hackOf = (it) => (it?.system?.hack?.mode === "value" ? num(it.system.hack.value) : null);
-    const hideOf = (sys) => hideLabel(sys?.hide);
+    const hideOf = (sys) => hideLabel(sys?.hide, sys?.isDisguisedHide);
     const penaltyOf = (sys) => sys?.appearancePenalty?.mode === "value"
         ? String(num(sys.appearancePenalty.value)) : "-";
 
