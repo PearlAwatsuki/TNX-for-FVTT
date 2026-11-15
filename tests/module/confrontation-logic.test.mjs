@@ -121,6 +121,14 @@ describe("対決欄の読み取りヘルパ", () => {
 });
 
 describe("mergeConfrontationRows()（合算=追記・吸収。2026-07-17 確定）", () => {
+    it("有効な対決行がなければ「なし」を保持し、再入力でも重複しない", () => {
+        const incoming = [row("blank"), row("none")];
+        const merged = mergeConfrontationRows([row("blank")], incoming);
+        expect(merged).toEqual([row("none")]);
+        expect(mergeConfrontationRows(merged, incoming)).toEqual(merged);
+        expect(mergeConfrontationRows([], [row("blank")])).toEqual([]);
+        expect(mergeConfrontationRows([], [row("none"), row("dodge")])).toEqual([row("dodge")]);
+    });
     it("既存行を保持したまま追記する(置き換えない)", () => {
         const existing = [row("dodge"), row("parry")];
         const merged = mergeConfrontationRows(existing, [row("skillName", "x")]);

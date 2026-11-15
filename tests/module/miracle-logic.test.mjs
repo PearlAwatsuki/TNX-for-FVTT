@@ -298,61 +298,18 @@ describe("evadePlan()（攻撃カードの自分の対象行を回避にする�
 // 効果文《人命救助》「任意のスタイル技能の効果を解除する」・《腹心》《人命救助》「［完全死亡］［精神崩壊］
 // はそのシーンで受けたものしか」・《黄泉還り》他人には「そのシーン中に受けたダメージしか」。
 // 印のゲートの受け側: 神業由来(fromMiracle)の状態・効果は神業の治療でしか除去できない。
-describe("recoveryCandidateAllowed()（神業の治癒で候補に載せてよいか）", () => {
-    const here = { act: "A1", number: 3 };
-    const cond = (over = {}) => ({ isCondition: true, isTerminal: false, isGranted: false, sourceIsStyleSkill: null, fromMiracle: false, receivedScene: here, ...over });
-
-    it("受けたシーンの制限なし: 別シーンで受けた状態も候補", () => {
-        expect(recoveryCandidateAllowed(cond({ receivedScene: { act: "A1", number: 1 } }), { recoverySceneLimit: "none" }, { byMiracle: true, currentScene: here })).toBe(true);
+describe("recoveryCandidateAllowed: selection replaces usage restrictions", () => {
+    it("ignores old scene limits and effect permission flags", () => {
+        for (const recoverySceneLimit of ["none", "all", "terminal"]) {
+            for (const isCondition of [true, false]) {
+                expect(recoveryCandidateAllowed({ isCondition, isTerminal: true, receivedScene: { act: "old", number: 1 } },
+                    { recoverySceneLimit, recoveryEffects: false }, { byMiracle: false, currentScene: { act: "new", number: 2 } })).toBe(true);
+            }
+        }
     });
-
-    it("terminal: 完全死亡・精神崩壊はそのシーンで受けたものだけ（他の状態は制限なし）", () => {
-        const u = { recoverySceneLimit: "terminal" };
-        expect(recoveryCandidateAllowed(cond({ isTerminal: true, receivedScene: { act: "A1", number: 1 } }), u, { byMiracle: true, currentScene: here })).toBe(false);
-        expect(recoveryCandidateAllowed(cond({ isTerminal: true }), u, { byMiracle: true, currentScene: here })).toBe(true);
-        expect(recoveryCandidateAllowed(cond({ isTerminal: false, receivedScene: { act: "A1", number: 1 } }), u, { byMiracle: true, currentScene: here })).toBe(true);
-    });
-
-    it("all: すべてそのシーンで受けたものだけ", () => {
-        const u = { recoverySceneLimit: "all" };
-        expect(recoveryCandidateAllowed(cond({ receivedScene: { act: "A1", number: 2 } }), u, { byMiracle: true, currentScene: here })).toBe(false);
-        expect(recoveryCandidateAllowed(cond(), u, { byMiracle: true, currentScene: here })).toBe(true);
-    });
-
-    it("受けたシーンが不明な状態（旧データ・アクト外）は制限で落とさない（検査できないものはゲートしない）", () => {
-        expect(recoveryCandidateAllowed(cond({ isTerminal: true, receivedScene: null }), { recoverySceneLimit: "terminal" }, { byMiracle: true, currentScene: here })).toBe(true);
-        expect(recoveryCandidateAllowed(cond({ receivedScene: here }), { recoverySceneLimit: "all" }, { byMiracle: true, currentScene: null })).toBe(true);
-    });
-
-    it("別のアクトで受けたものは同じ番号でも別シーン", () => {
-        expect(recoveryCandidateAllowed(cond({ receivedScene: { act: "A0", number: 3 } }), { recoverySceneLimit: "all" }, { byMiracle: true, currentScene: here })).toBe(false);
-    });
-
-    it("神業由来の状態は神業の治療でしか除去できない（印のゲートの受け側）", () => {
-        expect(recoveryCandidateAllowed(cond({ fromMiracle: true }), { recoverySceneLimit: "none" }, { byMiracle: false, currentScene: here })).toBe(false);
-        expect(recoveryCandidateAllowed(cond({ fromMiracle: true }), { recoverySceneLimit: "none" }, { byMiracle: true, currentScene: here })).toBe(true);
-    });
-
-    it("BS・ダメージ以外の効果は recoveryEffects がオンの神業の治癒でだけ候補になる", () => {
-        const eff = { isCondition: false, isTerminal: false, fromMiracle: false, receivedScene: null };
-        expect(recoveryCandidateAllowed(eff, { recoveryEffects: true }, { byMiracle: true, currentScene: here })).toBe(true);
-        expect(recoveryCandidateAllowed(eff, { recoveryEffects: false }, { byMiracle: true, currentScene: here })).toBe(false);
-        expect(recoveryCandidateAllowed(eff, { recoveryEffects: true }, { byMiracle: false, currentScene: here })).toBe(false);
-    });
-
-    it("効果の出どころ(付与経路・供給元の種類)では絞り込まない（2026-09-07 ユーザー指示・選ぶのはダイアログ）", () => {
-        const usage = { recoveryEffects: true };
-        const ctx = { byMiracle: true, currentScene: here };
-        // 付与コピーでない効果・供給元が一般技能の付与コピー・供給元を解決できない効果——すべて候補
-        expect(recoveryCandidateAllowed({ isCondition: false }, usage, ctx)).toBe(true);
-        expect(recoveryCandidateAllowed({ isCondition: false, isGranted: false }, usage, ctx)).toBe(true);
-        expect(recoveryCandidateAllowed({ isCondition: false, isGranted: true, sourceIsStyleSkill: false }, usage, ctx)).toBe(true);
-    });
-
-    it("神業由来の印がある効果は神業の治癒でしか解除できない（印のゲートは効果にも効く）", () => {
-        const eff = { isCondition: false, fromMiracle: true };
-        expect(recoveryCandidateAllowed(eff, { recoveryEffects: true }, { byMiracle: true, currentScene: here })).toBe(true);
-        expect(recoveryCandidateAllowed(eff, { recoveryEffects: true }, { byMiracle: false, currentScene: here })).toBe(false);
+    it("preserves the rule for miracle-origin effects", () => {
+        expect(recoveryCandidateAllowed({ fromMiracle: true }, {}, { byMiracle: false })).toBe(false);
+        expect(recoveryCandidateAllowed({ fromMiracle: true }, {}, { byMiracle: true })).toBe(true);
     });
 });
 
@@ -671,16 +628,16 @@ describe("listDestroyableOutfits()（破壊タイプ・破壊できるアウト�
     const contact  = { id: "i5", name: "コネ",   type: "general",   system: { majorCategory: "service", minorCategory: "social" } };
     const skill    = { id: "i6", name: "〈運転〉", type: "generalSkill", system: {} };
 
-    it("分類ホワイトリストに合致するアウトフィットだけを候補にする（大分類キー＝その大分類の全小分類）", () => {
+    it("旧大分類指定で候補を制限しない", () => {
         const target = { items: [gun, car, house] };
         expect(listDestroyableOutfits(target, { destroyableCategories: ["vehicle", "housing"] }).map(i => i.id))
-            .toEqual(["i3", "i4"]);
+            .toEqual(["i1", "i3", "i4"]);
     });
 
-    it("小分類キーはその小分類だけに効く", () => {
+    it("旧小分類指定で候補を制限しない", () => {
         const target = { items: [gun, sword, car] };
         expect(listDestroyableOutfits(target, { destroyableCategories: ["melee"] }).map(i => i.id))
-            .toEqual(["i2"]);
+            .toEqual(["i1", "i2", "i3"]);
     });
 
     it("破壊済みのアウトフィットは候補にしない", () => {
@@ -718,10 +675,10 @@ describe("listDestroyableOutfits()（破壊タイプ・破壊できるアウト�
             .toEqual(["i1"]);
     });
 
-    it("分類が空（シートでは作れない状態）なら候補なし＝「全部壊せる」へフォールバックしない", () => {
+    it("分類未設定でも未破壊の装備を選択できる", () => {
         const target = { items: [gun, car] };
-        expect(listDestroyableOutfits(target, { destroyableCategories: [] })).toEqual([]);
-        expect(listDestroyableOutfits(target, {})).toEqual([]);
+        expect(listDestroyableOutfits(target, { destroyableCategories: [] })).toEqual([gun, car]);
+        expect(listDestroyableOutfits(target, {})).toEqual([gun, car]);
     });
 });
 

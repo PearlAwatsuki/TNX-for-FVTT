@@ -32,7 +32,7 @@ beforeAll(async () => {
 });
 afterEach(() => vi.restoreAllMocks());
 
-async function createUsage(type, { fixed = false } = {}) {
+async function createUsage(type, { fixed = false, system = {} } = {}) {
     const item = {
         id: "parent-skill", type: fixed ? "generalSkill" : "styleSkill", isOwner: true,
         parent: fixed ? { type: "extra" } : null,
@@ -43,15 +43,54 @@ async function createUsage(type, { fixed = false } = {}) {
             targetValue: "number", targetValueNumber: 12,
             confrontation: [{ value: "dodge", name: "" }],
             uses: { isLimit: true },
+            ...system,
         },
         async update(data) { this.system.actions = data["system.actions"]; },
     };
-    vi.spyOn(TokyoNovaItemSheet, "_promptUsageType").mockResolvedValue(type);
+    vi.spyOn(TokyoNovaItemSheet, "_promptUsageType").mockImplementation(async (_choices, selected) => type ?? selected);
     await TokyoNovaItemSheet._onActionCreate.call({ item, document: item });
     return item.system.actions[0];
 }
 
 describe("用途作成時の自動入力", () => {
+    it.each([["physical", "physicalAttack"], ["mental", "mentalAttack"], ["social", "socialAttack"]])(
+        "%s の技能設定から攻撃用途の初期値を読み取る", async (attackMethod, type) => {
+            const system = { dealsDamage: true, attackMethod, damageType: "P", canStun: true,
+                checkMode: "normal", allowRecheck: true, allowSuitChange: true,
+                checkBonusSelf: "@item.self.system.levelTotal", checkBonusSelfStackable: true,
+                damageBonusSelf: "5", damageBonusSelfStackable: true,
+                damageBonusSelfCondition: { kind: "wet", mode: "exclude", key: "" } };
+            const usage = await createUsage(undefined, { system });
+            expect(usage).toMatchObject({ type, allowRecheck: true, allowSuitChange: true,
+                checkBonusSelf: system.checkBonusSelf, checkBonusSelfStackable: true,
+                damageBonusSelf: "5", damageBonusSelfStackable: true, damageBonusSelfCondition: system.damageBonusSelfCondition });
+            expect(usage.damageType).toBe(type === "physicalAttack" ? "P" : "");
+            if (type === "physicalAttack") expect(usage.canStun).toBe(true);
+            expect(usage.damageBonusSelfCondition).not.toBe(system.damageBonusSelfCondition);
+        });
+
+    it.each([["grant", true, false], ["modify", false, true]])("判定モード %s を用途へ複写する", async (checkMode, grantRecheck, modifyCheck) => {
+        const usage = await createUsage("check", { system: { checkMode, allowRecheck: true, allowSuitChange: true, checkBonusSelf: "3" } });
+        expect(usage).toMatchObject({ grantRecheck: false, modifyCheck, allowRecheck: grantRecheck, allowSuitChange: false, checkBonusSelf: "3" });
+    });
+
+    it("ダメージ特性オフでは保管されているダメージ設定を複写しない", async () => {
+        const usage = await createUsage("physicalAttack", { system: { dealsDamage: false, damageBonusSelf: "99", damageType: "X" } });
+        expect(usage.damageBonusSelf).toBe("");
+        expect(usage.damageType).toBe("");
+    });
+
+    it("用途タイプの手動選択は維持する", async () => {
+        const usage = await createUsage("declaration", { system: { dealsDamage: true, attackMethod: "physical" } });
+        expect(usage.type).toBe("declaration");
+    });
+    it("親技能の射程・目標値・対決の「なし」を用途に保存する", async () => {
+        const usage = await createUsage("check", { system: {
+            range: "none", targetValue: "none", confrontation: [{ value: "none" }],
+        } });
+        expect(usage).toMatchObject({ range: "none", targetValue: "none" });
+        expect(usage.confrontation).toEqual([expect.objectContaining({ value: "none" })]);
+    });
     it.each(["declaration", "check", "physicalAttack"])("%s は親技能の発動値と消費を保存する", async type => {
         const usage = await createUsage(type);
         expect(usage).toMatchObject({

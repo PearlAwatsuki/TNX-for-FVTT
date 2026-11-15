@@ -25,6 +25,7 @@ function eventFor(s, selector) {
 
 beforeEach(() => {
     vi.stubGlobal("fromUuid", vi.fn());
+    vi.stubGlobal("game", { packs: new Map(), items: [] });
     foundry.utils.randomID = () => "newUsage";
     foundry.utils.deepClone = value => structuredClone(value);
 });

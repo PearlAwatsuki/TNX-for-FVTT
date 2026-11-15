@@ -26,6 +26,7 @@ import { registerSheets } from "./core/register-sheets.mjs";
 import { registerSettings } from "./core/register-settings.mjs";
 import { registerUiInjections } from "./core/register-ui-injections.mjs";
 import { registerDocumentHooks } from "./core/register-document-hooks.mjs";
+import { registerUsageSkillSync } from "./core/usage-skill-sync.mjs";
 import { onSystemReady } from "./core/register-ready.mjs";
 import { handleRefreshSheets } from "./core/sheet-refresh.mjs";
 
@@ -141,6 +142,7 @@ Hooks.once("init", async function() {
     registerSettings();
     registerUiInjections();
     registerDocumentHooks();
+    registerUsageSkillSync();
 
 });
 

@@ -12,7 +12,6 @@
  *   文言は「カット進行」に統一(「戦闘」「ラウンド」は使わない)
  */
 
-import { SYSTEM_ID } from "../constants.mjs";
 import { crewVehicle, vehicleToken } from "../session/vehicle-state.mjs";
 import { processLabel, footerPlan, rowActions } from "../rules/combat-tracker-view.mjs";
 import { participantOf } from "../combat/tnx-combat.mjs";
@@ -125,14 +124,13 @@ export class TnxCombatTracker extends CombatTracker {
     turn.tnxIsCandidate = isCandidate;
     // 挿入メイン(割り込み)の行は通常メインと視覚的に区別する(13-5・造語ラベルは置かず行装飾で)
     turn.tnxIsInterruptMain = combatant.id === this._tnxInterruptMainId;
-    // 割り込み許可フラグ(用途が対象に立てる)があれば割り込み入口を出す(フェーズ非依存・rowActions がゲート)
-    const canInterrupt = combatant.getFlag(SYSTEM_ID, "canInterrupt") === true;
+    // 開始済みのカット進行では、所有者/RLに常設の割り込み入口を出す。
     turn.tnxRowActions = rowActions({
       phase: this._tnxPhase,
       isCandidate,
       isOwner: !!combatant.actor?.isOwner,
       isGM: game.user.isGM,
-      canInterrupt,
+      started,
     });
     return turn;
   }
@@ -141,7 +139,7 @@ export class TnxCombatTracker extends CombatTracker {
 
   /** 乗員の手番を選んだ際は、盤面上の車両へ移動する。ダブルクリックは本人のシート。 */
   _onCombatantMouseDown(event, target) {
-    if (event.type === "dblclick" || event.target instanceof HTMLInputElement || event.target instanceof HTMLButtonElement) {
+    if (event.type === "dblclick" || event.target instanceof HTMLInputElement || event.target instanceof HTMLButtonElement || event.target instanceof HTMLSelectElement) {
       return super._onCombatantMouseDown(event, target);
     }
     const combatant = this.viewed?.combatants.get(target?.dataset.combatantId);
@@ -173,7 +171,32 @@ export class TnxCombatTracker extends CombatTracker {
   static async _onWait(event, target) { await this.viewed?.declareWait(combatantIdOf(target)); }
 
   // 割り込み(挿入メイン): 入口=行の「割り込み」・終了=フッターの「割り込みを終了」1本(2026-07-26)。
-  // AR を消費するかは用途宣言(consumesAr)で自動判定するため終了操作は1つ。
-  static async _onInterrupt(event, target) { await this.viewed?.startInterrupt(combatantIdOf(target)); }
+  // AR消費は開始時に選択する。終了時は元の進行へ戻る。
+  static async _onInterrupt(event, target) {
+    const combat = this.viewed;
+    const combatantId = combatantIdOf(target);
+    const combatant = combat?.combatants.get(combatantId);
+    if (!combat?.started || !combatant) return;
+    event.stopPropagation();
+    if (target.disabled) return;
+    target.disabled = true;
+    try {
+      const choice = await foundry.applications.api.DialogV2.wait({
+        window: { title: `${combatant.name}：割り込み` },
+        classes: ["tokyo-nova", "tnx-dialog"],
+        content: "",
+        buttons: [
+          { action: "consume", label: "ARを消費して開始", callback: () => "consume" },
+          { action: "free", label: "ARを消費せず開始", callback: () => "free" },
+          { action: "cancel", label: "キャンセル", callback: () => false },
+        ],
+        close: () => false,
+      });
+      if (choice !== "consume" && choice !== "free") return;
+      await combat.startInterrupt(combatantId, { consumesAr: choice === "consume" });
+    } finally {
+      target.disabled = false;
+    }
+  }
   static async _onInterruptEnd() { await this.viewed?.endInterrupt(); }
 }

@@ -463,19 +463,16 @@ export class TnxCombat extends Combat {
   /**
    * 割り込み(挿入メイン)を開始する。指定キャラを順番外のメイン行動者に据え、現在の進行状態を退避
    * スタックへ積む(元のメイン/サブターンは終了しない=あとで戻る)。挿入メインが AR を消費するかは
-   * 対象の combatant フラグ(interruptConsumesAr・用途宣言由来・既定=真)で決まる。行使したら対象の
-   * 割り込み許可フラグを消費(ワンショット)。
+   * 開始操作で指定した consumesAr に従って終了時のAR消費を処理する。事前許可は不要。
    * @param {string} combatantId 割り込ませる combatant id
    */
-  async startInterrupt(combatantId) {
+  async startInterrupt(combatantId, { consumesAr = true } = {}) {
+    const target = this.combatants.get(combatantId);
+    if (!this.started || !target || !(game.user.isGM || target.actor?.isOwner)) return this;
     if (!game.user.isGM) {
-      TnxSocketHandler.emitInterruptStart({ combatId: this.id, combatantId });
+      TnxSocketHandler.emitInterruptStart({ combatId: this.id, combatantId, consumesAr });
       return this;
     }
-    const target = this.combatants.get(combatantId);
-    if (!target) return this;
-    // consumesAr は付与時に combatant へ載せた値(既定=真=自己割り込み・偽=追加行動の無償)
-    const consumesAr = target.getFlag(SYSTEM_ID, "interruptConsumesAr") !== false;
     const { frame, next } = pushInterruptFrame({
       phase: this.cutPhase,
       mainCombatantId: this.mainCombatantId,
@@ -492,9 +489,6 @@ export class TnxCombat extends Combat {
       [`flags.${SYSTEM_ID}.interruptStack`]: [...this.interruptStack, frame],
       [`flags.${SYSTEM_ID}.interruptConsumesAr`]: next.interruptConsumesAr,
     });
-    // 割り込み許可(ワンショット)と consumesAr を消費する
-    if (target.getFlag(SYSTEM_ID, "canInterrupt")) await target.unsetFlag(SYSTEM_ID, "canInterrupt");
-    if (target.getFlag(SYSTEM_ID, "interruptConsumesAr") !== undefined) await target.unsetFlag(SYSTEM_ID, "interruptConsumesAr");
     // 境界イベント(13-6): 退避された元プロセスは終了しない(サスペンド)ので processEnd は発火しない。
     // 挿入メインも「メインプロセス」なので開始で tnxProcessStart(phase:"main") を発火する(＝
     // メインプロセス中効果は挿入メインでも新規に有効になる)。

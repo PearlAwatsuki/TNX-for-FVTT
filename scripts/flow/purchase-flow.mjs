@@ -29,6 +29,8 @@ import { TnxCheckFlow } from "./tnx-check-flow.mjs";
 import { getSessionState } from "../session/session-state.mjs";
 import { promptModificationParamSelection } from "./modification-flow.mjs";
 import { miracleRewriteVia } from "../rules/miracle.mjs";
+import { acquisitionModificationSources } from "../rules/acquisition-modification.mjs";
+import { buildFormulaData, evaluateFormula } from "../rules/tnx-formula.mjs";
 
 const { DialogV2 } = foundry.applications.api;
 
@@ -120,15 +122,28 @@ async function alwaysAcquire(actor, doc, uuid, targetValue, mundane) {
  * 属性オフは {modSpec: null}(素の購入)。null=中止(選択キャンセル・レベル0)。
  */
 async function resolveAcquireModSpec(usage, usageItem, doc) {
-    if (usage?.acquireModified !== true) return { modSpec: null };
-    const level = Number(usageItem.system.levelTotal ?? usageItem.system.level) || 0;
-    if (level <= 0) {
-        ui.notifications.warn(`「${usageItem.name}」のレベルが 0 のため、改造して入手（＋［レベル］）の効果がありません。`);
+    const sources = acquisitionModificationSources(usageItem, usage);
+    if (!sources.length) return { modSpec: null };
+    const choice = await DialogV2.wait({
+        window: { title: "入手時の改造" },
+        content: "",
+        buttons: [
+            { action: "plain", label: "改造しない", callback: () => ({ plain: true }) },
+            ...sources.map((source, index) => ({ action: `source${index}`, label: `${source.item.name}で改造する`, callback: () => ({ source }) })),
+            { action: "cancel", label: "キャンセル", callback: () => false },
+        ], close: () => false,
+    });
+    if (!choice || typeof choice !== "object") return null;
+    if (choice.plain) return { modSpec: null };
+    const { item, formula } = choice.source;
+    const value = await evaluateFormula(formula, buildFormulaData(usageItem.actor, null, item));
+    if (!Number.isFinite(value) || value <= 0) {
+        ui.notifications.warn(`「${item.name}」の改造値を正の数値として計算できません。`);
         return null;
     }
-    const pick = await promptModificationParamSelection(doc, level);
+    const pick = await promptModificationParamSelection(doc, value);
     if (!pick) return null;
-    return { modSpec: { param: pick.param, value: pick.value, note: usage.name || usageItem.name } };
+    return { modSpec: { param: pick.param, value: pick.value, note: item.name } };
 }
 
 /** 購入方式の選択(縦積みボタン): 購入用途ごとのカード判定＋カードなし特例＋キャンセル。 */

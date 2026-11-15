@@ -7,6 +7,7 @@
  * データの導出を得るために 2,328 行のシートを読み込む形になっていた。
  */
 import { runSerial } from "./serial-queue.mjs";
+import { syncUsageSkills } from "../rules/usage-skill-sync.mjs";
 
 import { resolveUsageSkills } from "../rules/skill-chain-resolution.mjs";
 import { deriveConsumeTargets } from "../flow/usage-consumption.mjs";
@@ -64,7 +65,14 @@ export async function updateUsageActions(item, mutate) {
         const doc = (item.pack ? await fromUuid(item.uuid).catch(() => null) : null) ?? item;
         const actions = foundry.utils.deepClone(doc.system.actions ?? []);
         const result = await mutate(actions);
-        if (result) await doc.update({ "system.actions": result });
+        if (result) {
+            if (doc.type === "styleSkill" || result.some(u => u.baseSkillRef?.itemId || u.skillRefs?.length || u.skillSettingsSync?.sources?.length)) {
+                const siblings = await resolveUsageSiblingSkills(doc);
+                const byId = new Map(siblings.map(i => [i.id, i]));
+                for (const usage of result) syncUsageSkills(usage, doc, id => byId.get(id));
+            }
+            await doc.update({ "system.actions": result });
+        }
     });
 }
 
@@ -141,11 +149,9 @@ export async function enforceUsageChainDefaultsOnImport(item) {
         // 用途の「無視する指定技能」を反映(該当技能の指定技能を必須補完で再追加しない)。
         // ベース技能も seed に含める(2026-07-18): ベース技能自身の連鎖の必須参加技能を補完する
         const ignoreKeys = (usage.ignoreComboSkills ?? []).filter(Boolean);
-        const seedIds = [
-            ...(baseId && baseId !== item.id ? [baseId] : []),
-            ...cleanedRefs,
-        ].filter(Boolean);
-        const res = resolveUsageSkills(normalizeSkillItemDoc(item), skillItems, seedIds, ignoreKeys);
+        const previousAuto = new Set(usage.autoRequiredSkillIds ?? []);
+        const manualRefs = cleanedRefs.filter(id => !previousAuto.has(id));
+        const res = resolveUsageSkills(normalizeSkillItemDoc(item), skillItems, manualRefs, ignoreKeys);
         // 実効ベースを解決して**常に永続化**する(2026-07-18 統一。_enforceComboRequirements と同じ規則)。
         // 自己ベース(親自身)もここで item.id へ張り直す=インポートで親 id が変わっても陳腐化しない
         const parentIsChainSkill = CHAIN_SKILL_TYPES.includes(item.type);
@@ -154,16 +160,18 @@ export async function enforceUsageChainDefaultsOnImport(item) {
                 : (res.baseLocked ? (res.baseCandidateItemIds ?? []) : null);
             if (parentIsAction) baseId = item.id;
             else if (baseCandidates) baseId = baseCandidates.includes(baseId) ? baseId : (res.baseItemId || baseCandidates[0] || "");
-            else if (res.manual) { /* & グループ=ベース曖昧: 自動設定しない */ }
+            else if (res.manual || usage.baseSkillCleared) { /* 明示的な解除も維持する */ }
             else if (parentIsChainSkill) baseId = baseId || res.baseItemId || item.id;
             // アウトフィット親等: baseId はユーザー設定のまま
         }
 
         // ベース・アクション技能を除外し、必須コンボ(クロージャ)を補完する
-        const refs = cleanedRefs.filter(id => id !== baseId && !isActionSkill(id));
-        if (res && !res.defect) {
+        const refs = manualRefs.filter(id => id !== baseId && !isActionSkill(id));
+        const full = resolveUsageSkills(normalizeSkillItemDoc(item), skillItems,
+            [...manualRefs, ...(baseId && baseId !== item.id ? [baseId] : [])], ignoreKeys);
+        if (full && !full.defect) {
             const have = new Set(refs);
-            for (const id of (res.mandatoryItemIds ?? [])) {
+            for (const id of (full.mandatoryItemIds ?? [])) {
                 if (id !== baseId && id !== item.id && !have.has(id) && !isActionSkill(id)) {
                     refs.push(id);
                     have.add(id);
@@ -173,6 +181,11 @@ export async function enforceUsageChainDefaultsOnImport(item) {
 
         const prevBase = usage.baseSkillRef?.itemId ?? "";
         const prevRefs = (usage.skillRefs ?? []).map(r => r.itemId);
+        const automatic = refs.filter(id => !manualRefs.includes(id));
+        if (JSON.stringify(automatic) !== JSON.stringify(usage.autoRequiredSkillIds ?? [])) {
+            usage.autoRequiredSkillIds = automatic;
+            changed = true;
+        }
         if (baseId !== prevBase || refs.length !== prevRefs.length || refs.some((id, i) => id !== prevRefs[i])) {
             usage.baseSkillRef = { ...(usage.baseSkillRef ?? {}), itemId: baseId };
             usage.skillRefs = refs.map(id => ({ itemId: id }));

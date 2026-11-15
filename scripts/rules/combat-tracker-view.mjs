@@ -70,16 +70,14 @@ export function footerPlan({ hasCombat, started, phase, isGM, isMainOwner, isSpo
  * 行動不能の AR−1 は手動ボタンにしない——戦闘不能系タグ/脱落マークの読み取りで
  * イニシアチブの確認時に自動記帳する(confirmMain・2026-07-22 ユーザー指摘=脱落切替と機能が被る)。
  *
- * 割り込み(13-5): 宣言/判定用途がその行のキャラに「割り込み許可」を立てていれば(canInterrupt)、
- * 操作者(と RL)に割り込みの入口を出す。フラグが唯一のゲートで**フェーズに依存しない**
- * (追加行動＝別キャラのメイン中に付与→行使もありうるため)。待機と併存しうる。
- * @param {{phase:string|null, isCandidate:boolean, isOwner:boolean, isGM:boolean, canInterrupt?:boolean}} state
+ * 開始済みのカット進行では、所有者/RLにフェーズを問わず割り込み入口を表示する。
+ * @param {{phase:string|null, isCandidate:boolean, isOwner:boolean, isGM:boolean, started?:boolean}} state
  * @returns {Array<{action:string, label:string}>}
  */
-export function rowActions({ phase, isCandidate, isOwner, isGM, canInterrupt }) {
+export function rowActions({ phase, isCandidate, isOwner, isGM, started = !!phase }) {
   const owns = isOwner || isGM;
   const actions = [];
   if (phase === "initiative" && isCandidate && owns) actions.push({ action: "tnxWait", label: "待機" });
-  if (canInterrupt && owns) actions.push({ action: "tnxInterrupt", label: "割り込み" });
+  if (started && owns) actions.push({ action: "tnxInterrupt", label: "割り込み", interrupt: true });
   return actions;
 }

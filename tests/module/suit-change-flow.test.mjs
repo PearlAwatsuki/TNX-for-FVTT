@@ -1,35 +1,40 @@
-/** スート変更を「成立救済」でなく自由な実効スート書き換えとして保つ回帰テスト。 */
-import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
-import { join, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
-
-const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const src = readFileSync(join(root, "scripts/flow/tnx-check-flow.mjs"), "utf8");
-
-describe("スート変更フロー", () => {
-  it("全4スートのプルダウンを使い、validSuits で変更先を絞らない", () => {
-    const start = src.indexOf("static async _resolveSuitChange");
-    const end = src.indexOf("static async _chooseSuit", start);
-    const helper = src.slice(start, end);
-    expect(helper).toContain("ALL_SUITS.map");
-    expect(helper).toContain('<select name="suit">');
-    expect(helper).not.toContain("ctx.validSuits");
+import { describe, it, expect, beforeAll, vi } from "vitest";
+let Flow;
+beforeAll(async () => {
+  foundry.applications.api.ApplicationV2 = class {};
+  foundry.applications.api.HandlebarsApplicationMixin = Base => Base;
+  ({ TnxCheckFlow: Flow } = await import("../../scripts/flow/tnx-check-flow.mjs"));
+});
+describe("suit selection after playing a card", () => {
+  it.each(["spade", "heart", "diamond", "club"])("uses %s from the separate dialog", async suit => {
+    const prompt = vi.fn().mockResolvedValue(suit);
+    foundry.applications.api.DialogV2 = { wait: prompt };
+    expect(await Flow._resolveSuitChange("spade", { type: "skillCheck", allowSuitChange: true })).toBe(suit);
+    expect(prompt).toHaveBeenCalledOnce();
+    expect(prompt.mock.calls[0][0].content).toContain('value="spade" selected');
   });
-
-  it("元スートを初期選択にし、キャンセル時は元スートを返す", () => {
-    expect(src).toContain('s === initialSuit ? " selected" : ""');
-    expect(src).toContain("return ALL_SUITS.includes(selected) ? selected : originalSuit;");
+  it("does not prompt when the checkbox is off", async () => {
+    const prompt = vi.fn();
+    foundry.applications.api.DialogV2 = { wait: prompt };
+    expect(await Flow._resolveSuitChange("heart", { type: "skillCheck", allowSuitChange: false })).toBe("heart");
+    expect(prompt).not.toHaveBeenCalled();
   });
-
-  it("変更後に通常の一致判定を行い、不成立も許容する", () => {
-    expect(src).toContain("const effectiveSuit = await TnxCheckFlow._resolveSuitChange(suit, ctx);");
-    expect(src).toContain("!ctx.validSuits.includes(effectiveSuit)");
-    expect(src).toContain("suitMismatch: true, suitChangedFrom");
+  it.each([false, null, "invalid"])("keeps the original suit on cancel or invalid result: %s", async value => {
+    foundry.applications.api.DialogV2 = { wait: vi.fn().mockResolvedValue(value) };
+    expect(await Flow._resolveSuitChange("heart", { allowSuitChange: true })).toBe("heart");
   });
-
-  it("待ち受け式 grantSuitChange は復活していない", () => {
-    expect(src).not.toContain("grantSuitChange");
-    expect(src).not.toContain('peekAchievementAction("suitChange")');
+  it("keeps control check suits unchanged", async () => {
+    const prompt = vi.fn();
+    foundry.applications.api.DialogV2 = { wait: prompt };
+    expect(await Flow._resolveSuitChange("heart", { type: "controlCheck", allowSuitChange: true })).toBe("heart");
+    expect(prompt).not.toHaveBeenCalled();
+  });
+  it("updates and resets the current selection", () => {
+    Flow._context = {};
+    Flow.setAllowSuitChange(true);
+    expect(Flow._context.allowSuitChange).toBe(true);
+    Flow.setAllowSuitChange(false);
+    expect(Flow._context.allowSuitChange).toBe(false);
+    Flow._context = null;
   });
 });

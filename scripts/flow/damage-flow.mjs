@@ -99,6 +99,8 @@ async function cancelPending() {
 function readRollForm(el) {
     return {
         manualMod:  Number(el.querySelector('[name="manualMod"]')?.value) || 0,
+        damageType: el.querySelector('[name="damageType"]')?.value,
+        stun: el.querySelector('[name="stun"]')?.checked === true,
     };
 }
 
@@ -152,11 +154,14 @@ export async function openDamageRollDialog(attackMessage) {
         {
             categoryLabel: CATEGORY_LABELS[category] ?? category,
             isPhysical: category === "physical",
+            damageTypeOptions: (f.damageTypeOptions ?? []).length > 1 ? f.damageTypeOptions : [],
             attackLabel: formatAttackLabel(f.damageType, attackPower),
             attackSourceName: f.attackSourceName,
             targetName: hitTargets.map(t => `「${t.name}」`).join("・") || "（対象なし）",
             damageBonus: previewSum,
             damageBonusVaries: previewVaries,
+            stunOption: category === "physical" ? "スタン攻撃" : category === "mental" ? "説得" : null,
+            stun: f.stunDeclared === true,
         }
     );
 
@@ -236,6 +241,7 @@ async function evaluateDamageBonusesPerTarget(damageTargets, { f, attacker, pare
  */
 export async function finalizeDamageRoll(ctx, form, played) {
     const { attackMessage, f, attacker, category, attackPower, damageBonusRows, damageTargets, hitTargets } = ctx;
+    const selectedDamageType = (f.damageTypeOptions ?? []).includes(form.damageType) ? form.damageType : f.damageType;
 
     // 用途の適用効果(2026-07-18 確定): 一般(命中時)効果は攻撃カードの効果セクションが担う。
     // ダメージカードへは**ダメージ時効果(damageEffects 由来)だけ**を引き継ぎ、このカードの
@@ -272,7 +278,7 @@ export async function finalizeDamageRoll(ctx, form, played) {
                     // (カバーした側・受け値なし)。カバーした側が元々対象なら自分の行(受け値あり)も別に残る。
                     targets: damageTargets ?? buildDamageTargets(hitTargets),
                     category,
-                    damageType: f.damageType ?? "",
+                    damageType: selectedDamageType ?? "",
                     attackPower,
                     // 対象なし(RL 手動運用)のときの修正行。対象がいる場合は各対象の bonusRows が正
                     damageBonuses: damageBonusRows,
@@ -283,7 +289,8 @@ export async function finalizeDamageRoll(ctx, form, played) {
                     cardValue: f.cardValue ?? null,   // 命中判定のカード値(式の @card 用)
                     cards: [played],
                     manualMod: form.manualMod,
-                    stun: f.stunDeclared === true,   // 攻撃宣言時のスタン/説得(攻撃側合計を10上限・軽減より前)
+                    stun: (category === "physical" || category === "mental")
+                        && (form.stun ?? f.stunDeclared) === true,
                     // 「ウェットの対象には効果がない」(用途・2026-09-01 承認): ウェットの対象行は
                     // ダメージ算出全体を 0 にする(対象ごと・内訳に「ウェット無効」)
                     noEffectVsWet: f.noEffectVsWet === true,
@@ -984,24 +991,75 @@ async function promptBountyMitigation(message, targetIndex) {
  * 卓の最終裁定ツールのため適用済みでも制限しない(2026-07-14 ユーザー確定・適用済みの実ダメージは
  * 巻き戻さない=台帳の記録訂正。用途経由の modifyDamage は従来どおり適用前まで)。
  */
+function damageEditChoices(message) {
+    const f = message?.getFlag(SYSTEM_ID, "damageRoll");
+    if (!f) return [];
+    const owns = uuid => {
+        const doc = resolveSync(uuid);
+        return (doc?.actor ?? doc)?.isOwner === true;
+    };
+    const choices = [];
+    if (game.user.isGM || owns(f.attackerUuid)) choices.push({ index: -1, label: "攻撃側合計（全対象）" });
+    for (const [index, target] of (f.targets ?? []).entries()) {
+        if (!target.covered && (game.user.isGM || owns(target.uuid)))
+            choices.push({ index, label: `${target.name}へのダメージ` });
+    }
+    return choices;
+}
+
+export function canManageDamageResult(message) {
+    return damageEditChoices(message).length > 0;
+}
+
 export async function manualEditDamage(message) {
+    const choices = damageEditChoices(message);
+    if (!choices.length) return;
+    let index = choices[0].index;
+    if (choices.length > 1) {
+        const esc = foundry.utils.escapeHTML;
+        const selected = await foundry.applications.api.DialogV2.wait({
+            window: { title: "ダメージの修正対象" },
+            content: `<select name="damageTarget">${choices.map(c => `<option value="${c.index}">${esc(c.label)}</option>`).join("")}</select>`,
+            buttons: [
+                { action: "ok", label: "選択", default: true,
+                    callback: (_e, _b, dialog) => ({ index: Number(dialog.element.querySelector('[name="damageTarget"]').value) }) },
+                { action: "cancel", label: "キャンセル", callback: () => false },
+            ],
+            close: () => false,
+        });
+        if (!selected || !choices.some(c => c.index === selected.index)) return;
+        index = selected.index;
+    }
+    if (!damageEditChoices(message).some(c => c.index === index)) return;
     const f = message.getFlag(SYSTEM_ID, "damageRoll");
     if (!f) return;
     // 手動修正も mods(事後修正)に積むため、基準は表示中の攻撃側合計(共有事後修正込みの攻撃側の数字。
     // 対象ごとのダメージ修正は含まない＝台帳の「攻撃側合計」と同じ数字・2026-09-01)
-    const current = damageRollTotals(f, { bonusRows: bonusRowsSplit(f).shared }).attackerTotal;
+    const target = index >= 0 ? f.targets[index] : null;
+    const current = target ? targetPlannedPreview(f, target).final
+        : damageRollTotals(f, { bonusRows: bonusRowsSplit(f).shared }).attackerTotal;
+    const label = choices.find(c => c.index === index).label;
     const input = await AmountInputDialog.prompt({
-        title: `ダメージを修正（攻撃側合計 ${current}）`,
+        title: `ダメージを修正（${label} ${current}）`,
         label: "ダメージへの修正値（軽減は負の値）",
         initialValue: 0, min: -99, max: 99, okLabel: "適用",
-        allowOverride: true, overrideLabel: "上書き（入力値をそのまま新しい攻撃側合計にする）",
+        allowOverride: true, overrideLabel: "上書き（入力値を修正後の値にする）",
     });
     if (!input || !Number.isFinite(input.value)) return;
     const overrideTo = input.override ? input.value : undefined;
     const mod = input.override ? input.value - current : input.value;
     if (mod === 0 && overrideTo === undefined) return;
-    await applyDamagePatch(message, { mods: [...(f.mods ?? []),
-        { label: "手動修正", value: mod, ...(overrideTo !== undefined ? { overrideTo } : {}) }] });
+    if (!damageEditChoices(message).some(c => c.index === index)) return;
+    const latest = message.getFlag(SYSTEM_ID, "damageRoll");
+    const row = { label: "手動修正", value: mod, ...(overrideTo !== undefined ? { overrideTo } : {}) };
+    if (target) {
+        const targets = foundry.utils.deepClone(latest.targets);
+        if (targets[index]?.uuid !== target.uuid) return;
+        targets[index].mods = [...(targets[index].mods ?? []), row];
+        await applyDamagePatch(message, { targets });
+        return;
+    }
+    await applyDamagePatch(message, { mods: [...(latest.mods ?? []), row] });
 }
 
 /**

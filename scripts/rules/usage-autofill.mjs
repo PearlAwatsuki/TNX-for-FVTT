@@ -50,7 +50,8 @@ export function rangeRank(range, isFixed) {
         case "close":     return 1;
         case "explanation":
         case "other":     return FALLBACK_RANK;
-        default:          return 0; // blank / なし は無視
+        case "none":      return 0.25; // 明示的な「なし」は未設定と区別する
+        default:          return 0; // blank は無視
     }
 }
 
@@ -115,7 +116,7 @@ export function resolveTargetValue(entries) {
         && !isFallbackValue(e.targetValue));
     if (real) return { targetValue: real.targetValue };
     const fallback = entries.find(e => isFallbackValue(e.targetValue));
-    if (!fallback) return null;
+    if (!fallback) return entries.some(e => e.targetValue === "none") ? { targetValue: "none" } : null;
     return { targetValue: "other", targetValueOther: fallback.targetValue === "other" ? (fallback.otherText ?? "") : "" };
 }
 

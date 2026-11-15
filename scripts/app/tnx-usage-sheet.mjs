@@ -20,6 +20,7 @@ import { USAGE_TYPE_LABELS, executionFormOf, usageDisplayName, effectiveBaseSkil
 import {
     CHAIN_SKILL_TYPES,
     updateUsageActions,
+    resolveUsageSiblingSkills,
     normalizeSkillItemDoc,
     deriveUsageAutoFill,
     deriveWeaponRangeLive,
@@ -28,6 +29,7 @@ import {
 import { prepareUsageContext, ACQUIRE_MODES } from "./usage-sheet-context.mjs";
 
 import { submitUsageForm } from "./usage-sheet-submit.mjs";
+import { applyRegisteredSkillDefaults } from "../rules/style-skill-usage-defaults.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -697,11 +699,17 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
     async _patchUsage(patch) {
         // 直列キュー経由(2026-07-17): 常に最新の actions に対して自分の用途だけを書き換える
         // (削除済みなら何もしない=stale 上書きで消えた用途を復活させない)
-        await updateUsageActions(this._item, (actions) => {
+        await updateUsageActions(this._item, async (actions) => {
             const idx = actions.findIndex(a => a._id === this._usageId);
             if (idx === -1) return null;
+            const previous = foundry.utils.deepClone(actions[idx]);
             for (const [key, value] of Object.entries(patch)) {
                 foundry.utils.setProperty(actions[idx], key, value);
+            }
+            if (Object.keys(patch).some(key => key === "skillRefs" || key === "baseSkillRef" || key.startsWith("baseSkillRef."))) {
+                const siblings = await resolveUsageSiblingSkills(this._item);
+                const byId = new Map(siblings.map(item => [item.id, item]));
+                applyRegisteredSkillDefaults(previous, actions[idx], this._item.id, id => byId.get(id));
             }
             return actions;
         });
@@ -724,7 +732,7 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         if (!usage || executionFormOf(usage) !== "check") return null;
         // 親が技能でなくても(アウトフィット等)、ベース技能が設定されていればその連鎖を解決する
         // (2026-07-18 ユーザー確定: 「ベース技能として設定された技能のベース技能」も自動解決)
-        if (!CHAIN_SKILL_TYPES.includes(this._item.type) && !usage.baseSkillRef?.itemId) return null;
+        if (!CHAIN_SKILL_TYPES.includes(this._item.type) && !usage.baseSkillRef?.itemId && !usage.autoRequiredSkillIds?.length) return null;
         const actor = this._item.actor;
         const skills = actor
             ? actor.items.filter(i => CHAIN_SKILL_TYPES.includes(i.type))
@@ -739,13 +747,13 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
      * その必須参加技能を組み合わせへ自動解決する**(ベース技能をそのシートで直接編集したときと同じ)。
      * seed の連鎖は resolveUsageSkills が推移的に必須クロージャへ畳み込む。
      */
-    _resolveComboChain() {
+    _resolveComboChain({ includeBase = true, baseId = this.usage.baseSkillRef?.itemId } = {}) {
         const skillItems = this._actorSkillItems();
         if (!skillItems) return null;
-        const baseId = this.usage.baseSkillRef?.itemId;
+        const automatic = new Set(this.usage.autoRequiredSkillIds ?? []);
         const seedComboIds = [
-            ...(baseId && baseId !== this._item.id ? [baseId] : []),
-            ...this.usage.skillRefs.map(r => r.itemId),
+            ...(includeBase && baseId && baseId !== this._item.id ? [baseId] : []),
+            ...this.usage.skillRefs.map(r => r.itemId).filter(id => !automatic.has(id)),
         ].filter(Boolean);
         return resolveUsageSkills(this._normalizeSkillItem(this._item), skillItems, seedComboIds,
             this._ignoreComboKeys());
@@ -769,7 +777,8 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
 
     /** アイテム id がアクション技能か(アクション技能はベース専用で組み合わせ技能の欄には絶対に入らない)。 */
     _isActionSkillId(id) {
-        const it = this._item.actor?.items.get(id) ?? (id === this._item.id ? this._item : null);
+        const it = this._item.actor?.items.get(id) ?? this._siblingSkills?.find(i => i.id === id)
+            ?? (id === this._item.id ? this._item : null);
         return it?.system?.isAction === true;
     }
 
@@ -934,7 +943,7 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
     async _enforceComboRequirements() {
         const usage = this.usage;
         if (!usage) return false;
-        const res = this._resolveComboChain();
+        const res = this._resolveComboChain({ includeBase: false });
         if (!res || res.defect) return false; // 解決不能/不備のときは自動設定しない
 
         const parentIsAction = this._item.system.isAction === true;
@@ -954,17 +963,24 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         let baseId;
         if (parentIsAction) baseId = parentItemId;
         else if (baseCandidates) baseId = baseCandidates.includes(curBase) ? curBase : (res.baseItemId || baseCandidates[0] || "");
-        else if (res.manual) baseId = curBase;
+        else if (res.manual || usage.baseSkillCleared) baseId = curBase;
         else if (parentIsChainSkill) baseId = curBase || res.baseItemId || parentItemId;
         else baseId = curBase; // アウトフィット親等: ユーザーが設定したベースのみ
 
         const patch = {};
         if (baseId && baseId !== curBase) patch["baseSkillRef.itemId"] = baseId;
 
-        // ベースが決まっているときのみ: ベース自身はコンボから外し、必須コンボ(クロージャ)を補完する
-        if (baseId) {
+        // 新しいベースの依存だけを補完する。以前の自動追加分は再解決して置き換える。
+        const resolved = this._resolveComboChain({ baseId });
+        if (resolved && !resolved.defect) {
             const current = usage.skillRefs.map(r => r.itemId);
-            const target = this._targetSkillRefs(baseId, current, res); // ベース除外＋必須補完
+            const previousAuto = new Set(usage.autoRequiredSkillIds ?? []);
+            const manual = current.filter(id => !previousAuto.has(id));
+            const target = this._targetSkillRefs(baseId, manual, resolved);
+            const automatic = target.filter(id => !manual.includes(id));
+            if (JSON.stringify(automatic) !== JSON.stringify(usage.autoRequiredSkillIds ?? [])) {
+                patch.autoRequiredSkillIds = automatic;
+            }
             if (target.length !== current.length || target.some((id, i) => id !== current[i])) {
                 patch.skillRefs = target.map(id => ({ itemId: id }));
             }

@@ -76,8 +76,12 @@ describe("resolveRange()（射程優先度）", () => {
             .toEqual({ range: "other", isFixed: false, otherText: "視界" });
     });
 
-    it("blank・なし(none)は無視される", () => {
-        expect(resolveRange([{ range: "none" }, { range: "blank" }])).toBeNull();
+    it("なしを未設定と区別し、具体的な射程があればそちらを優先する", () => {
+        expect(resolveRange([{ range: "none", isFixed: false }, { range: "blank" }]))
+            .toEqual({ range: "none", isFixed: false });
+        expect(resolveRange([{ range: "blank" }])).toBeNull();
+        expect(resolveRange([{ range: "none" }, { range: "short", isFixed: false }]))
+            .toEqual({ range: "short", isFixed: false });
     });
 });
 
@@ -104,8 +108,11 @@ describe("resolveTargetValue()（目標値）", () => {
             .toEqual({ targetValue: "other", targetValueOther: "@system.reason.value" });
     });
 
-    it("blank・なし(none)のみは null", () => {
-        expect(resolveTargetValue([{ targetValue: "none" }, { targetValue: "blank" }])).toBeNull();
+    it("なしを未設定と区別し、数値があればそちらを優先する", () => {
+        expect(resolveTargetValue([{ targetValue: "none" }, { targetValue: "blank" }])).toEqual({ targetValue: "none" });
+        expect(resolveTargetValue([{ targetValue: "blank" }])).toBeNull();
+        expect(resolveTargetValue([{ targetValue: "none" }, { targetValue: "number", number: 10 }]))
+            .toEqual({ targetValue: "number", targetValueNumber: 10 });
     });
 });
 

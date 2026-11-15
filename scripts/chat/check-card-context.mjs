@@ -64,6 +64,8 @@ export function buildCheckCardContext({
         // カード数字の上書き(2026-07-13): 元→後(A/J/Q/K 表記)を内訳に明示
         cardOverrideDisplay: result?.cardOverride
             ? `${CARD_NUM_LABEL(result.cardOverride.from)} → ${CARD_NUM_LABEL(result.cardOverride.to)}`
+                + (result.cardOverride.modifier && !result.fixedAt21 && !result.fumble && !suitMismatch
+                    ? `（数字${result.cardOverride.modifier > 0 ? "+" : ""}${result.cardOverride.modifier}）` : "")
             : null,
         isFixed21: result?.fixedAt21 === true,
         fromDeck, trumpUsed, suitMismatch, isRecheck,

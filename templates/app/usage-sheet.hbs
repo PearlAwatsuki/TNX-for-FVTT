@@ -323,56 +323,7 @@
             {{#if isCheckType}}
             <fieldset class="tnx-fieldset">
                 <legend>判定</legend>
-                {{!-- 判定モード(排他のためラジオ・2026-07-11): 通常=判定を行う / 再判定を付与 / 判定を修正。
-                     判定用途である限り「なし」は存在しない(最初の選択肢=通常の判定) --}}
-                <div class="usage-form-row usage-toggle-row">
-                    <label class="usage-toggle-inline">
-                        <input type="radio" name="checkMode" value="normal" {{checked (eq checkMode "normal")}} {{#unless editable}}disabled{{/unless}}>
-                        <span>通常</span>
-                    </label>
-                    <label class="usage-toggle-inline">
-                        <input type="radio" name="checkMode" value="grant" {{checked (eq checkMode "grant")}} {{#unless editable}}disabled{{/unless}}>
-                        <span>再判定を付与</span>
-                    </label>
-                    <label class="usage-toggle-inline">
-                        <input type="radio" name="checkMode" value="modify" {{checked (eq checkMode "modify")}} {{#unless editable}}disabled{{/unless}}>
-                        <span>判定を修正</span>
-                    </label>
-                </div>
-                {{#if (eq checkMode "normal")}}
-                {{!-- 再判定可能・スート変更可能は「判定を行う用途」の性質のため通常モードでのみ表示 --}}
-                <div class="usage-form-row usage-toggle-row">
-                    <label class="usage-toggle-inline">
-                        <input type="checkbox" name="allowRecheck" {{checked usage.allowRecheck}}
-                               {{#unless editable}}disabled{{/unless}}>
-                        <span>再判定可能</span>
-                    </label>
-                    <label class="usage-toggle-inline">
-                        <input type="checkbox" name="allowSuitChange" {{checked usage.allowSuitChange}}
-                               {{#unless editable}}disabled{{/unless}}>
-                        <span>スート変更可能</span>
-                    </label>
-                </div>
-                {{!-- 割り込み許可(13-5): この用途で対象に割り込み許可を立てる(トラッカーの割り込み入口が開く) --}}
-                <div class="usage-form-row usage-toggle-row">
-                    <label class="usage-toggle-inline">
-                        <input type="checkbox" name="grantsInterrupt" {{checked usage.grantsInterrupt}}
-                               {{#unless editable}}disabled{{/unless}}>
-                        <span>割り込みを許可</span>
-                    </label>
-                </div>
-                {{#if usage.grantsInterrupt}}
-                {{!-- consumesAr(2026-07-26): オン(既定)=自己割り込み等でその挿入メインが AR を消費。
-                     オフ=追加行動技能で無償(付与者が自分のメジャーとして肩代わり) --}}
-                <div class="usage-form-row usage-toggle-row">
-                    <label class="usage-toggle-inline">
-                        <input type="checkbox" name="interruptConsumesAr" {{checked usage.interruptConsumesAr}}
-                               {{#unless editable}}disabled{{/unless}}>
-                        <span>割り込みで AR を消費する</span>
-                    </label>
-                </div>
-                {{/if}}
-                {{/if}}
+
                 {{!-- ヴィークル準備時(2026-07-18 一般化): オンで「使用ヴィークル」セクションを表示し、
                      準備済みヴィークルが無ければ判定不可になる。移動/リアクション（移動妨害）は既定オン --}}
                 {{#if showRequiresVehicleToggle}}
@@ -402,16 +353,8 @@
             <fieldset class="tnx-fieldset">
                 <legend>リアクション</legend>
                 <div class="usage-form-row usage-toggle-row">
-                    <label class="usage-toggle-inline">
-                        <input type="checkbox" name="reactionAreaAttack" {{checked usage.reactionAreaAttack}}
-                               {{#unless editable}}disabled{{/unless}}>
-                        <span>範囲攻撃へのリアクション</span>
-                    </label>
-                    <label class="usage-toggle-inline">
-                        <input type="checkbox" name="reactionFailsAttack" {{checked usage.reactionFailsAttack}}
-                               {{#unless editable}}disabled{{/unless}}>
-                        <span>攻撃を失敗させる</span>
-                    </label>
+
+
                     <label class="usage-toggle-inline">
                         <input type="checkbox" name="ignoresUnopposable" {{checked usage.ignoresUnopposable}}
                                {{#unless editable}}disabled{{/unless}}>
@@ -462,30 +405,6 @@
             </fieldset>
             {{/if}}
 
-            {{!-- ダメージを修正(2026-07-11→2026-07-17): 汎用の判定タイプのみの使用の仕方フラグ
-                 (攻撃はタイプ化で分離・排他ラジオは廃止) --}}
-            {{#if (eq usage.type "check")}}
-            <fieldset class="tnx-fieldset usage-attack-section">
-                <legend>ダメージ</legend>
-                <div class="usage-form-row usage-toggle-row">
-                    <label class="usage-toggle-inline">
-                        <input type="checkbox" name="modifyDamage" {{checked usage.modifyDamage}}
-                               {{#unless editable}}disabled{{/unless}}>
-                        <span>ダメージを修正</span>
-                    </label>
-                </div>
-                {{#if isModifyDamage}}
-                <div class="usage-form-section">
-                    <label class="usage-field-label">ダメージ修正（式）</label>
-                    <input type="text" name="damageBonusSelf" value="{{damageBonusSelf}}"
-                           placeholder="式（例: -@skill.技能識別キー.level、@check.card、-5）"
-                           {{#unless editable}}disabled{{/unless}}>
-                    <label class="usage-toggle-inline"><input type="checkbox" name="damageBonusSelfStackable" {{checked usage.damageBonusSelfStackable}} {{#unless editable}}disabled{{/unless}}>重複可</label>
-                </div>
-                {{/if}}
-            </fieldset>
-            {{/if}}
-
             {{!-- 攻撃(2026-07-17 再編: 攻撃は行動種別タイプ=系統はタイプが持つ)。
                  武器・ダメージ種別は物理のみ(精神・社会は攻撃力を持たない) --}}
             {{#if isAttack}}
@@ -505,15 +424,7 @@
                     </div>
                     {{/if}}
                     {{#if isPhysicalAttack}}
-                    {{!-- スタン可能: 物理攻撃のみの能力ゲート。ON の物理攻撃は攻撃の判定ダイアログで
-                         「スタンとして行う」を宣言できる（説得は精神攻撃で常時・canStun 不要） --}}
-                    <div class="usage-form-row usage-toggle-row">
-                        <label class="usage-toggle-inline">
-                            <input type="checkbox" name="canStun" {{checked usage.canStun}}
-                                   {{#unless editable}}disabled{{/unless}}>
-                            <span>スタン可能</span>
-                        </label>
-                    </div>
+
                     <div class="usage-form-row">
                         <label class="usage-field-label">使用武器</label>
                         <div class="usage-skill-ref-list">
@@ -587,74 +498,6 @@
                 </div>
             </fieldset>
             {{/if}}
-            {{/if}}
-
-            {{!-- 宣言: 判定/ダメージへの修正(2026-07-12 ユーザー確定・バフ宣言の表現)。
-                 判定用途とレイアウトを揃えた 2 fieldset・チェックボックスは独立(排他にしない) --}}
-            {{#if isDeclarationType}}
-            <fieldset class="tnx-fieldset">
-                <legend>判定</legend>
-                {{!-- 再判定を付与(2026-07-13 ユーザー確定): 宣言は判定でない=参加技能が無いため、
-                     組み合わせなしの素の再判定権を事後付与する(check 用途の付与は親技能を組み合わせる) --}}
-                <div class="usage-form-row usage-toggle-row">
-                    <label class="usage-toggle-inline">
-                        <input type="checkbox" name="grantRecheck" {{checked usage.grantRecheck}}
-                               {{#unless editable}}disabled{{/unless}}>
-                        <span>再判定を付与</span>
-                    </label>
-                </div>
-                <div class="usage-form-row usage-toggle-row">
-                    <label class="usage-toggle-inline">
-                        <input type="checkbox" name="modifyCheck" {{checked usage.modifyCheck}}
-                               {{#unless editable}}disabled{{/unless}}>
-                        <span>判定を修正</span>
-                    </label>
-                </div>
-                {{#if usage.modifyCheck}}
-                <label class="usage-field-label">判定修正（式）</label>
-                <input type="text" name="checkBonusSelf" value="{{checkBonusSelf}}"
-                       placeholder="式（例: @skill.技能識別キー.level、2、-3）"
-                       {{#unless editable}}disabled{{/unless}}>
-                <label class="usage-toggle-inline"><input type="checkbox" name="checkBonusSelfStackable" {{checked usage.checkBonusSelfStackable}} {{#unless editable}}disabled{{/unless}}>重複可</label>
-                {{/if}}
-                {{!-- 割り込み許可(13-5): この宣言で対象に割り込み許可を立てる(トラッカーの割り込み入口が開く) --}}
-                <div class="usage-form-row usage-toggle-row">
-                    <label class="usage-toggle-inline">
-                        <input type="checkbox" name="grantsInterrupt" {{checked usage.grantsInterrupt}}
-                               {{#unless editable}}disabled{{/unless}}>
-                        <span>割り込みを許可</span>
-                    </label>
-                </div>
-                {{#if usage.grantsInterrupt}}
-                {{!-- consumesAr(2026-07-26): オン(既定)=自己割り込み等でその挿入メインが AR を消費。
-                     オフ=追加行動技能で無償(付与者が自分のメジャーとして肩代わり) --}}
-                <div class="usage-form-row usage-toggle-row">
-                    <label class="usage-toggle-inline">
-                        <input type="checkbox" name="interruptConsumesAr" {{checked usage.interruptConsumesAr}}
-                               {{#unless editable}}disabled{{/unless}}>
-                        <span>割り込みで AR を消費する</span>
-                    </label>
-                </div>
-                {{/if}}
-            </fieldset>
-
-            <fieldset class="tnx-fieldset">
-                <legend>ダメージ</legend>
-                <div class="usage-form-row usage-toggle-row">
-                    <label class="usage-toggle-inline">
-                        <input type="checkbox" name="modifyDamage" {{checked usage.modifyDamage}}
-                               {{#unless editable}}disabled{{/unless}}>
-                        <span>ダメージを修正</span>
-                    </label>
-                </div>
-                {{#if usage.modifyDamage}}
-                <label class="usage-field-label">ダメージ修正（式）</label>
-                <input type="text" name="damageBonusSelf" value="{{damageBonusSelf}}"
-                       placeholder="式（例: -@skill.技能識別キー.level、@check.card、-5）"
-                       {{#unless editable}}disabled{{/unless}}>
-                <label class="usage-toggle-inline"><input type="checkbox" name="damageBonusSelfStackable" {{checked usage.damageBonusSelfStackable}} {{#unless editable}}disabled{{/unless}}>重複可</label>
-                {{/if}}
-            </fieldset>
             {{/if}}
 
             {{!-- NPC取得(Troops.md・2026-07-13 タイプ→設定へ移管): check/declaration の
@@ -744,18 +587,7 @@
 
             {{!-- 改造して入手(16-4): 購入タイプの任意属性。「購入判定を行い、改造された
                  アウトフィットを入手する」変則効果の受け皿(2026-08-31 設計確定) --}}
-            {{#if (eq usage.type "purchase")}}
-            <fieldset class="tnx-fieldset">
-                <legend>購入</legend>
-                <div class="usage-form-row usage-toggle-row">
-                    <label class="usage-toggle-inline">
-                        <input type="checkbox" name="acquireModified" {{checked usage.acquireModified}}
-                               {{#unless editable}}disabled{{/unless}}>
-                        <span>改造して入手する</span>
-                    </label>
-                </div>
-            </fieldset>
-            {{/if}}
+
 
             {{!-- 治療(2026-07-13→2026-07-17 タイプ化): BS/戦闘不能/負傷を除去する設定。
                  実行形式(判定/宣言)は用途の設定で固定(1つのタイプで両形式をカバー・2026-07-17 裁定)。
@@ -873,42 +705,9 @@
                  空欄は許容しない(初期値=「全てのアウトフィット」・最後の1つは削除できない)。
                  「全て」は列挙ではなく専用の選択肢で、個別の分類とは排他。
                  サービス大分類は破壊免疫のため選択肢に出ない(「全て」でも壊せない)。 --}}
-            {{#if isMiracleDestroy}}
-            <fieldset class="tnx-fieldset usage-destroy-section">
-                <legend>破壊</legend>
-                <label class="usage-field-label">破壊できるアウトフィットの分類</label>
-                <div class="usage-skill-ref-list">
-                    {{#each destroyCategoryRows}}
-                    <div class="usage-skill-ref-row">
-                        <span class="usage-skill-ref-name">{{this.label}}</span>
-                        {{#if ../editable}}
-                        <a class="usage-icon-btn" data-action="destroyCategoryDelete" data-key="{{this.key}}"
-                           title="削除"><i class="fas fa-times"></i></a>
-                        {{/if}}
-                    </div>
-                    {{/each}}
-                </div>
-                {{#if editable}}
-                <div class="usage-skill-ref-add">
-                    <select class="destroy-category-select">
-                        <option value="">── 破壊できる分類を追加 ──</option>
-                        {{#if destroyAllChoice}}
-                        <option value="{{destroyAllChoice.value}}">{{destroyAllChoice.label}}</option>
-                        {{/if}}
-                        {{#each destroyCategoryChoices}}
-                        <optgroup label="{{this.label}}">
-                            {{#each this.minors}}
-                            <option value="{{this.value}}">{{this.label}}</option>
-                            {{/each}}
-                        </optgroup>
-                        {{/each}}
-                    </select>
-                </div>
-                {{/if}}
-            </fieldset>
-            {{/if}}
 
-            {{#if isRecoveryCapable}}
+
+            {{#if isTreatment}}
             <fieldset class="tnx-fieldset usage-recovery-section">
                 <legend>治療</legend>
                 {{#if isTreatment}}
@@ -921,96 +720,6 @@
                     </select>
                 </div>
                 {{/if}}
-                {{#if isRecovery}}
-                <label class="usage-field-label">回復対象の範囲</label>
-                <div class="usage-recovery-rows">
-                    {{#each recoveryRows as |row|}}
-                    <div class="usage-consume-row">
-                        <select name="recoveryGroup-{{row.idx}}" {{#unless @root.editable}}disabled{{/unless}}>
-                            {{#each row.groupOptions}}
-                            <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
-                            {{/each}}
-                        </select>
-                        <select name="recoveryKind-{{row.idx}}" {{#unless @root.editable}}disabled{{/unless}}>
-                            {{#each row.kindOptions}}
-                            <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
-                            {{/each}}
-                        </select>
-                        {{#if @root.editable}}
-                        <a class="usage-icon-btn" data-action="recoveryRowDelete" data-row-index="{{row.idx}}"
-                           title="削除"><i class="fas fa-times"></i></a>
-                        {{/if}}
-                    </div>
-                    {{else}}
-                    <p class="usage-empty-hint">（範囲なし）</p>
-                    {{/each}}
-                    {{#if editable}}
-                    <a class="tnx-row-btn" data-action="recoveryRowAdd" title="範囲を追加"><i class="fas fa-plus"></i></a>
-                    {{/if}}
-                </div>
-                <label class="usage-field-label">除外タグ</label>
-                <div class="usage-skill-ref-list">
-                    {{#each recoveryExcludeRows}}
-                    <div class="usage-skill-ref-row">
-                        <span class="usage-skill-ref-name">{{this.label}}</span>
-                        {{#if ../editable}}
-                        <a class="usage-icon-btn" data-action="recoveryExcludeDelete" data-key="{{this.key}}"
-                           title="削除"><i class="fas fa-times"></i></a>
-                        {{/if}}
-                    </div>
-                    {{else}}
-                    <p class="usage-empty-hint">（なし）</p>
-                    {{/each}}
-                </div>
-                {{#if editable}}
-                <div class="usage-skill-ref-add">
-                    <select class="recovery-exclude-select">
-                        <option value="">── 除外するタグを選択 ──</option>
-                        {{#each recoveryExcludeChoices}}
-                        <option value="{{this.value}}">{{this.label}}</option>
-                        {{/each}}
-                    </select>
-                </div>
-                {{/if}}
-                <div class="usage-form-row usage-toggle-row">
-                    <label class="usage-toggle-inline">
-                        <input type="checkbox" name="recoveryAll" {{checked usage.recoveryAll}}
-                               {{#unless editable}}disabled{{/unless}}>
-                        <span>該当すべてを回復</span>
-                    </label>
-                </div>
-                {{#unless recoveryAll}}
-                <div class="usage-form-row">
-                    <label class="usage-field-label">回復数</label>
-                    <div class="number-input-spinner">
-                        <button type="button" data-action="decrementRecoveryCount" class="tnx-btn" {{#unless editable}}disabled{{/unless}}>-</button>
-                        <input type="number" name="recoveryCount" value="{{recoveryCountValue}}" min="1"
-                               {{#unless editable}}disabled{{/unless}}>
-                        <button type="button" data-action="incrementRecoveryCount" class="tnx-btn" {{#unless editable}}disabled{{/unless}}>+</button>
-                    </div>
-                </div>
-                {{/unless}}
-                {{#if isDefenceCure}}
-                {{!-- 神業の治癒(17-2)で足す2つ: BS・ダメージ以外の効果の解除(《腹心》「バッドステータスなど
-                     不利になる効果」・《人命救助》「任意のスタイル技能の効果」)・受けたシーンの制限
-                     (《腹心》《人命救助》=完全死亡・精神崩壊のみ／《黄泉還り》を他人に=すべて) --}}
-                <div class="usage-form-row usage-toggle-row">
-                    <label class="usage-toggle-inline">
-                        <input type="checkbox" name="recoveryEffects" {{checked recoveryEffects}}
-                               {{#unless editable}}disabled{{/unless}}>
-                        <span>BS・ダメージ以外の不利な効果も解除</span>
-                    </label>
-                </div>
-                <div class="usage-form-row">
-                    <label class="usage-field-label">受けたシーンの制限</label>
-                    <select name="recoverySceneLimit" {{#unless editable}}disabled{{/unless}}>
-                        {{#each recoverySceneLimitOptions}}
-                        <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
-                        {{/each}}
-                    </select>
-                </div>
-                {{/if}}
-                {{/if}}
             </fieldset>
             {{/if}}
 
@@ -1018,39 +727,7 @@
                  (小分類キーまたは大分類キー=その大分類全体・2026-07-19)。
                  使用→対象解決(未ターゲット=自分)→対象所持の故障アウトフィットのうち分類が合致する
                  ものを選択→判定成功で故障を解除。サービス大分類は免疫のため候補に出ない。 --}}
-            {{#if isRepair}}
-            <fieldset class="tnx-fieldset usage-repair-section">
-                <legend>修理</legend>
-                <label class="usage-field-label">修理できるアウトフィットの分類</label>
-                <div class="usage-skill-ref-list">
-                    {{#each repairCategoryRows}}
-                    <div class="usage-skill-ref-row">
-                        <span class="usage-skill-ref-name">{{this.label}}</span>
-                        {{#if ../editable}}
-                        <a class="usage-icon-btn" data-action="repairCategoryDelete" data-key="{{this.key}}"
-                           title="削除"><i class="fas fa-times"></i></a>
-                        {{/if}}
-                    </div>
-                    {{else}}
-                    <p class="usage-empty-hint">（なし）</p>
-                    {{/each}}
-                </div>
-                {{#if editable}}
-                <div class="usage-skill-ref-add">
-                    <select class="repair-category-select">
-                        <option value="">── 修理できる分類を追加 ──</option>
-                        {{#each repairCategoryChoices}}
-                        <optgroup label="{{this.label}}">
-                            {{#each this.minors}}
-                            <option value="{{this.value}}">{{this.label}}</option>
-                            {{/each}}
-                        </optgroup>
-                        {{/each}}
-                    </select>
-                </div>
-                {{/if}}
-            </fieldset>
-            {{/if}}
+
 
             {{!-- 適用される効果（ActiveEffect）: 一般リスト（攻撃では命中時に適用）。
                  神業専用タイプは効果を ActiveEffect で持たない（効果文と神業専用の設定が正・

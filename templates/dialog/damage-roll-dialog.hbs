@@ -10,6 +10,16 @@
     </p>
 
     <div class="tnx-damage-fields">
+        {{#if stunOption}}
+        <div class="form-group">
+            <label><input type="checkbox" name="stun" {{checked stun}}> {{stunOption}}</label>
+        </div>
+        {{/if}}
+        {{#if damageTypeOptions.length}}
+        <div class="form-group"><label>ダメージ種別</label><select name="damageType">
+            {{#each damageTypeOptions}}<option value="{{this}}">{{this}}</option>{{/each}}
+        </select></div>
+        {{/if}}
         <div class="form-group">
             <label>ダメージ修正（手動）</label>
             <div class="number-input-spinner">

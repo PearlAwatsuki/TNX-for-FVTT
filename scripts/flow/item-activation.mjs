@@ -10,6 +10,7 @@
  */
 
 import { SYSTEM_ID } from "../constants.mjs";
+import { syncUsageSkills } from "../rules/usage-skill-sync.mjs";
 import { OUTFIT_ITEM_TYPES } from "../data/helpers.mjs";
 import { isOutfitUnusable, isOutfitDestroyed } from "../data/item/helpers.mjs";
 import { TnxCheckFlow } from "./tnx-check-flow.mjs";
@@ -21,7 +22,6 @@ import { buildUsageCheckContext } from "./usage-check-context.mjs";
 import { buildParryGuardSnapshot } from "../rules/parry-weapons.mjs";
 import { useAttack, useOpposedCheck } from "./attack-flow.mjs";
 import { prepareUsageEffectPayload } from "./usage-effects.mjs";
-import { applyInterruptGrantForUsage } from "./interrupt-grant.mjs";
 import { useMiracleWithoutUsage, postMiracleCard, resolveMiracleRewrite, useMiracleDamage, useMiracleDestroy, resolveMiracleCopyFromLog } from "./miracle-flow.mjs";
 import { withDefaultMiracleConsumption, withoutConsumption } from "../rules/miracle.mjs";
 import { isAttackUsage } from "../data/item/common/usage.mjs";
@@ -50,33 +50,6 @@ import { ghostCanInteract, preparedVehicle } from "../session/vehicle-state.mjs"
  *   asOther={uuid,name,source}: 効果の参照/コピー(17-5)の解決済みの参照先(再入時に載る)
  * @returns {Promise<boolean|undefined>} 神業の分岐は発動したか(要求カードが使用済みを記録する)。判定系は未定義
  */
-async function promptAreaReactionTargets(reaction) {
-    const attackMessage = game.messages.get(reaction.attackMessageId);
-    const attack = attackMessage?.getFlag(game.system.id, "attackCheck");
-    const targets = attack?.targets ?? [];
-    if (targets.length < 2) return targets[reaction.targetIndex]?.uuid ? [targets[reaction.targetIndex].uuid] : [];
-    const rows = targets.map((t, i) => {
-        const uuid = foundry.utils.escapeHTML(t.uuid ?? "");
-        const name = foundry.utils.escapeHTML(t.name ?? "?");
-        const fixed = i === reaction.targetIndex;
-        return `<label class="tnx-dialog-check-row"><input type="checkbox" name="areaTarget" value="${uuid}"${fixed ? " checked disabled" : ""}> <span>${name}</span></label>`;
-    }).join("");
-    const result = await foundry.applications.api.DialogV2.wait({
-        window: { title: "範囲攻撃へのリアクション" },
-        content: `<div class="tnx-dialog-body"><p>このリアクションで守る対象を選択してください。</p>${rows}</div>`,
-        buttons: [
-            { action: "confirm", label: "決定", icon: "fa-solid fa-check", default: true, callback: (_e, button) => {
-                const chosen = [...button.form.querySelectorAll('input[name="areaTarget"]:checked')].map(el => el.value);
-                const self = targets[reaction.targetIndex]?.uuid;
-                return [...new Set([...(self ? [self] : []), ...chosen])];
-            } },
-            { action: "cancel", label: "キャンセル", icon: "fa-solid fa-xmark", callback: () => null },
-        ],
-        close: () => null,
-    });
-    return result;
-}
-
 export async function activateItemCheck(actor, item, extraOpen = {}) {
     // usageId(用途の直接指定)は起動制御のみに使い、open へは流さない
     const { usageId: directUsageId, ...openExtra } = extraOpen;
@@ -158,6 +131,8 @@ export async function activateItemCheck(actor, item, extraOpen = {}) {
         selectedUsage = openExtra.miracleFree ? withoutConsumption(selectedUsage) : withDefaultMiracleConsumption(selectedUsage);
     }
 
+    selectedUsage = syncUsageSkills(foundry.utils.deepClone(selectedUsage), item, id => actor.items.get(id));
+
     // カバー(2026-07-16→2026-07-17 タイプ化): アイテムロールで使用したら「カバー待ち受け」に入り、
     // ダメージカードのカバーする対象クリックで判定を起動する(covering 文脈つきで本関数へ再入=下の
     // 通常判定へ合流)。再入時(openExtra.covering)はこの分岐を通さず通常判定を行う。
@@ -197,28 +172,6 @@ export async function activateItemCheck(actor, item, extraOpen = {}) {
             console.error("TNX | NPC取得の実行に失敗しました", err);
             ui.notifications.error(`NPC取得の実行に失敗しました: ${err.message}`);
         }
-        return;
-    }
-
-    // クリック待ち系の用途(2026-07-11): 判定を行わず「クリック待ち」モードに入る。
-    // 再判定を付与=達成値クリックでその判定にこの技能を組み合わせた再判定を起動。
-    // 判定を修正=達成値クリックでその判定に事後ボーナス/ペナルティを適用。
-    // ダメージを修正=ダメージカードの攻撃側合計クリックでそのダメージに修正を適用。
-    // 宣言(declaration)の再判定を付与/判定を修正/ダメージを修正も同経路
-    // (バフ宣言・2026-07-12。再判定を付与は 2026-07-13=判定でないため組み合わせなし)。
-    // 複数フラグ ON は上記の順で先に振る(排他 UI にはしない・複数 ON の運用は想定しない)。
-    // 消費は用途の consumeTargets(プランを持ち回り、発動時に適用)
-    if ((selectedUsage.type === "check" || selectedUsage.type === "declaration")
-        && (selectedUsage.grantRecheck === true || selectedUsage.modifyCheck === true
-            || selectedUsage.modifyDamage === true)) {
-        const kind = selectedUsage.grantRecheck === true ? "recheck"
-            : (selectedUsage.modifyCheck === true ? "modify" : "modifyDamage");
-        const grantRows = resolveConsumeRowsForActor(actor, item, selectedUsage.consumeTargets);
-        const grantPlan = await promptConsumption(actor, grantRows, { title: `使用回数の消費: ${item.name}` });
-        if (grantPlan === null) return;
-        TnxCheckFlow.startAchievementAction(kind, actor, item, {
-            usageId: selectedUsage._id, consumeUses: grantPlan, merge: selectedUsage.type === "check",
-        });
         return;
     }
 
@@ -410,13 +363,6 @@ export async function activateItemCheck(actor, item, extraOpen = {}) {
             guardBonusSourceItemId: item.id,
         };
     }
-    if (openExtra.reaction && selectedUsage.reactionAreaAttack === true
-        && selectedUsage.reactionFailsAttack !== true && openExtra.reaction.open !== true) {
-        const selected = await promptAreaReactionTargets(openExtra.reaction);
-        if (selected === null) return;
-        openExtra.reaction = { ...openExtra.reaction, reactionAreaTargetUuids: selected };
-    }
-
     // 判定起動の共通前段(エキストラ制限・不備検知・参加技能・報酬点・消費・適用効果・目標値)。
     // 攻撃/NPC取得/回復の専用フローも同じ前段を通る(2026-07-16 一本化)
     const base = await buildUsageCheckContext(actor, item, selectedUsage, {
@@ -428,13 +374,6 @@ export async function activateItemCheck(actor, item, extraOpen = {}) {
 
     // リアクション用途の追加挙動(範囲攻撃へのリアクション/攻撃を失敗させる)を reaction 文脈へ載せる
     // (完了継続 completeReactionFromCheck が参照する・2026-07-15)
-    if (openExtra.reaction) {
-        openExtra.reaction = {
-            ...openExtra.reaction,
-            reactionAreaAttack: selectedUsage.reactionAreaAttack === true,
-            reactionFailsAttack: selectedUsage.reactionFailsAttack === true,
-        };
-    }
 
     // extraCheckBonuses(14-5): 入口が供給する追加の判定ボーナス行(固定ラベル可)。上書きでなく
     // 共通前段の checkBonuses へ**追記**する(例=登場判定の危険値ペナルティ)
@@ -469,8 +408,7 @@ export async function useDeclarationUsage(actor, item, usage, { asOther = null }
     if (plan === null) return;
     await applyConsumptionPlan(plan);
 
-    // 割り込み許可(13-5): grantsInterrupt の宣言用途は対象へ割り込み許可を立てる(効果が無くても)
-    await applyInterruptGrantForUsage(actor, usage);
+
 
     // 用途の適用効果: ペイロードを組んで解説カードに載せる(判定を伴わない用途=宣言等・
     // 2026-07-10)。使用カードはアイテムの解説カードに統合(2026-08-30 ユーザー承認)——宣言は

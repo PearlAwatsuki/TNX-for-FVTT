@@ -1,20 +1,4 @@
-/**
- * @fileoverview 修理フロー(2026-07-18 ユーザー確定・repair タイプ)。
- *
- * 〈製作〉等の技能に持たせた「修理」用途で、故障したアウトフィットの故障(isMalfunction)を解除する。
- * 破壊(isDestroyed)は修理対象外(基本アクト終了まで直らない)。
- *
- * フロー:
- * 1. 使用(アイテムロール) → 対象解決(ターゲット中のキャラクター・いなければ自分=し忘れの自動解決。
- *    実対象はアウトフィットで、キャラクターのターゲットは「どのキャラクターの所持品か」を指す
- *    便宜=対象欄の値では分岐・ブロックしない・2026-07-19 ユーザー裁定)
- * 2. 対象が所持する故障アウトフィットのうち、用途の repairableCategories(分類ホワイトリスト・
- *    小分類キーまたは大分類キー=その大分類全体)に合致するものを1つ選択
- * 3. 判定へ(共通前段 buildUsageCheckContext → TnxCheckFlow.open)。完了継続 ctx.repair が
- *    成功時に選択アウトフィットの故障を解除する(対象の所有権が無ければ GM 委譲)。
- *
- * サービス大分類は故障しない(免疫)ため候補に出ない(isOutfitMalfunctioning が false)。
- */
+/** Select malfunctioning equipment, then clear the malfunction on a successful check. */
 
 import { TnxCheckFlow } from "./tnx-check-flow.mjs";
 import { stampCardOutcome } from "../chat/chat-card.mjs";
@@ -25,25 +9,14 @@ import { ListSelectionDialog } from "../ui/tnx-dialog.mjs";
 import { resolveTargetedOrSelf } from "./target-resolution.mjs";
 import { itemDisplayName } from "../core/identification.mjs";
 import { isOutfitMalfunctioning } from "../data/item/helpers.mjs";
-import { OUTFIT_TYPES, getMajorCategoryLabel, getMinorCategoryLabel, outfitClassifications } from "../data/item/outfit-categories.mjs";
+import { OUTFIT_TYPES, getMajorCategoryLabel, getMinorCategoryLabel } from "../data/item/outfit-categories.mjs";
 
-/**
- * 対象が所持する、この用途で修理できる故障アウトフィットを列挙する。
- * 故障中(実効・サービス免疫は除外)かつ分類がホワイトリストに合致するもの
- * (小分類キー=その小分類のみ・大分類キー=その大分類の全小分類)。
- * 照合は分類集合(主分類＋副分類=「両方の分類として扱う」・フェーズ16-1)。
- * @param {Actor} target
- * @param {{repairableCategories?: string[]}} usage
- * @returns {Item[]}
- */
-export function listRepairableOutfits(target, usage) {
-    const cats = new Set(usage?.repairableCategories ?? []);
-    if (!cats.size) return [];
+/** Equipment eligibility follows its current state, not a usage whitelist. */
+export function listRepairableOutfits(target) {
     const out = [];
     for (const it of (target?.items ?? [])) {
         if (!OUTFIT_TYPES.has(it.type)) continue;
         if (!isOutfitMalfunctioning(it.system)) continue;
-        if (!outfitClassifications(it.system).some((c) => cats.has(c.major) || cats.has(c.minor))) continue;
         out.push(it);
     }
     return out;
@@ -72,10 +45,6 @@ async function promptRepairSelection(target, candidates) {
 export async function useRepair(item, usage) {
     const actor = item.actor;
     if (!actor) { ui.notifications.warn("修理はアクターが所持している技能から使用してください。"); return; }
-    if (!(usage.repairableCategories ?? []).length) {
-        ui.notifications.warn("修理できるアウトフィットの分類が設定されていません（用途の〈修理〉で設定してください）。");
-        return;
-    }
 
     // 対象: ターゲット中のキャラクター(先頭)・いなければ自分(し忘れの自動解決・2026-07-19)。
     // 対象欄の値では分岐・ブロックしない(複数ターゲット時は先頭の1体)

@@ -12,7 +12,7 @@ import { TnxRecordSheet } from "../app/tnx-record-sheet.mjs";
 import { TnxCheckFlow } from "../flow/tnx-check-flow.mjs";
 import { FOCUS_SYSTEM_FLAG, defaultFocusSystemData } from "../focus-system/data.mjs";
 import { getPartSlotPreset } from "../app/part-slot-preset-app.mjs";
-import { manualEditDamage } from "../flow/damage-flow.mjs";
+import { manualEditDamage, canManageDamageResult } from "../flow/damage-flow.mjs";
 import { applyAttackPatch } from "../flow/attack-flow.mjs";
 import { wrapMenu } from "../ui/menu-wrapper.mjs";
 
@@ -59,9 +59,8 @@ export function registerUiInjections() {
                 label: "再判定（この判定をやり直す）",
             icon: '<i class="fas fa-rotate-right"></i>',
             visible: (li) => {
-                    if (!game.user.isGM) return false;
                     const m = msgOf(li);
-                    return !!m?.getFlag(SYSTEM_ID, "checkRecheck") && !TnxCheckFlow.recheckBlockReason(m);
+                    return TnxCheckFlow.canManageCheckResult(m) && !TnxCheckFlow.recheckBlockReason(m);
                 },
                 onClick: (li) => TnxCheckFlow.startRecheck(msgOf(li)),
             },
@@ -70,20 +69,20 @@ export function registerUiInjections() {
                 icon: '<i class="fas fa-pen"></i>',
                 // スナップショット持ちのカードに限る: 継続処理系(移動/治療等)は達成値だけ書き換えると
                 // 適用済みの帰結と乖離し、事後修正のライブ描画もスナップショット持ちでしか動かない
-                visible: (li) => game.user.isGM && !!msgOf(li)?.getFlag(SYSTEM_ID, "checkRecheck"),
+                visible: (li) => TnxCheckFlow.canManageCheckResult(msgOf(li)),
                 onClick: (li) => TnxCheckFlow.manualEditAchievement(msgOf(li)),
             },
             {
                 label: "ダメージを修正（手動）",
                 icon: '<i class="fas fa-burst"></i>',
                 // 達成値の手動修正と同じ最終裁定ツール=適用済みでも制限しない(2026-07-14 ユーザー確定)
-                visible: (li) => game.user.isGM && !!msgOf(li)?.getFlag(SYSTEM_ID, "damageRoll"),
+                visible: (li) => canManageDamageResult(msgOf(li)),
                 onClick: async (li) => {
                     await manualEditDamage(msgOf(li));
                 },
             },
             {
-                label: "ダメージ処理をリセット",
+                label: "ダメージ算出ボタンを再表示",
                 icon: '<i class="fas fa-rotate-left"></i>',
                 // 攻撃カードの damageRolled を戻し「ダメージカードを出す」ボタンを復活させる=算出の
                 // やり直し(2026-07-14 ユーザー確定)。出済みのダメージカードは残る(整理は手動)。
@@ -95,7 +94,7 @@ export function registerUiInjections() {
                 },
                 onClick: async (li) => {
                     await applyAttackPatch(msgOf(li), { damageRolled: false });
-                    ui.notifications.info("ダメージ処理をリセットしました（出済みのダメージカードは必要に応じて削除してください）。");
+                    ui.notifications.info("ダメージ算出ボタンを再表示しました。既存のダメージカードと適用済み負傷は変更していません。");
                 },
             },
         ]));

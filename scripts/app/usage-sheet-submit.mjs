@@ -81,26 +81,22 @@ export async function submitUsageForm(sheet, event, form, formData) {
             update.guardBonusSelf = raw["guardBonusSelf"] ?? usage.guardBonusSelf ?? "";
             update.guardBonusSelfStackable = [true, "true", "on"].includes(raw.guardBonusSelfStackable);
         }
-        // 判定モード: normal/grant/modify。排他はラジオが保証。
-        // 再判定可能(allowRecheck)・スート変更可能(allowSuitChange)は「判定を行う用途」の性質の
-        // ため通常モードでのみ保持
+        // 旧モード指定は解除する。判定の修正はチャットのコンテキストメニューで行う。
         const prevCheckMode = usage.grantRecheck === true ? "grant"
             : (usage.modifyCheck === true ? "modify" : "normal");
-        const checkMode = raw["checkMode"] ?? prevCheckMode;
-        update.grantRecheck    = checkMode === "grant";
-        update.modifyCheck     = checkMode === "modify";
-        update.allowRecheck = checkMode === "normal"
-            ? (raw["allowRecheck"] ?? usage.allowRecheck ?? false) : false;
-        update.allowSuitChange = checkMode === "normal"
-            ? (raw["allowSuitChange"] ?? usage.allowSuitChange ?? false) : false;
+        const checkMode = "normal";
+        update.grantRecheck    = false;
+        update.modifyCheck     = false;
+        update.allowRecheck = raw["allowRecheck"] ?? usage.allowRecheck ?? false;
+        update.allowSuitChange = raw["allowSuitChange"] ?? usage.allowSuitChange ?? false;
         // 攻撃タイプ(2026-07-17): ダメージ修正行は攻撃のみ。「ダメージを修正」は汎用の判定タイプ
         // のみの使用の仕方フラグ(攻撃タイプ化で排他ラジオは廃止)
         const isAtk = isAttackType(usage.type);
-        const isModD = usage.type === "check" && (raw["modifyDamage"] ?? usage.modifyDamage) === true;
+        const isModD = false;
         if (usage.type === "check") update.modifyDamage = isModD;
         update.damageBonuses  = isAtk ? collectBonusRows(raw, "damageBonus", { withCondition: true }) : [];
         // damageBonusSelf は攻撃の「ダメージ修正値」/ダメージを修正の「修正値」を兼ねる(2026-07-11)
-        update.damageBonusSelf = (isAtk || isModD) ? (raw["damageBonusSelf"] ?? usage.damageBonusSelf ?? "") : "";
+        update.damageBonusSelf = isAtk ? (raw["damageBonusSelf"] ?? usage.damageBonusSelf ?? "") : (usage.damageBonusSelf ?? "");
         update.damageBonusSelfStackable = [true, "true", "on"].includes(raw.damageBonusSelfStackable);
         // 自身の修正値の対象条件(2026-09-01 承認・UI は攻撃のみ。非攻撃は残骸をリセット)
         update.damageBonusSelfCondition = isAtk
@@ -115,9 +111,7 @@ export async function submitUsageForm(sheet, event, form, formData) {
         condUiChanged = isAtk && (
             update.damageBonuses.some((r, i) => (r.targetCondition?.kind ?? "none") !== (prevRowKinds[i] ?? "none"))
             || update.damageBonusSelfCondition.kind !== (usage.damageBonusSelfCondition?.kind ?? "none"));
-        // スタン可能は物理攻撃のみの能力ゲート(精神は説得が常時可・社会は無)
-        update.canStun = usage.type === "physicalAttack"
-            ? (raw["canStun"] ?? usage.canStun ?? false) : false;
+
         // 「ダメージを修正」のオン/オフ=式欄の出し入れ・判定モード切替=サブトグルの出し入れ
         modeUiChanged = (usage.type === "check" && isModD !== (usage.modifyDamage === true))
             || checkMode !== prevCheckMode;
@@ -130,15 +124,16 @@ export async function submitUsageForm(sheet, event, form, formData) {
     if (usage.type === "declaration") {
         const prevMC = usage.modifyCheck === true;
         const prevMD = usage.modifyDamage === true;
-        update.modifyCheck  = raw["modifyCheck"]  ?? prevMC;
-        update.modifyDamage = raw["modifyDamage"] ?? prevMD;
-        update.checkBonusSelf  = update.modifyCheck  ? (raw["checkBonusSelf"]  ?? usage.checkBonusSelf  ?? "") : "";
-        update.damageBonusSelf = update.modifyDamage ? (raw["damageBonusSelf"] ?? usage.damageBonusSelf ?? "") : "";
-        update.checkBonusSelfStackable = update.modifyCheck && [true, "true", "on"].includes(raw.checkBonusSelfStackable);
-        update.damageBonusSelfStackable = update.modifyDamage && [true, "true", "on"].includes(raw.damageBonusSelfStackable);
+        update.modifyCheck  = false;
+        update.modifyDamage = false;
+        update.checkBonusSelf = usage.checkBonusSelf ?? "";
+        update.damageBonusSelf = usage.damageBonusSelf ?? "";
+        update.checkBonusSelfStackable = usage.checkBonusSelfStackable === true;
+        update.damageBonusSelfStackable = usage.damageBonusSelfStackable === true;
         // 再判定を付与(2026-07-13): 宣言は組み合わせなしの素の再判定権を事後付与する。
         // 式欄を持たないため再描画は不要
-        update.grantRecheck = raw["grantRecheck"] ?? (usage.grantRecheck === true);
+        update.grantRecheck = false;
+        update.allowRecheck = raw["allowRecheck"] ?? usage.allowRecheck ?? usage.grantRecheck ?? false;
         declModifyChanged = update.modifyCheck !== prevMC || update.modifyDamage !== prevMD;
     }
 
@@ -289,6 +284,9 @@ export async function submitUsageForm(sheet, event, form, formData) {
         update["baseSkillRef.itemId"] = sheet._item.system.isAction === true
             ? sheet._item.id
             : (raw["baseSkillRef.itemId"] ?? usage.baseSkillRef?.itemId ?? "");
+        if (Object.hasOwn(raw, "baseSkillRef.itemId")) {
+            update.baseSkillCleared = sheet._item.system.isAction !== true && raw["baseSkillRef.itemId"] === "";
+        }
     }
 
     // 物理攻撃の白兵/射撃(2026-07-17): 変更時は武器候補の絞り込みが変わるため再描画する。
@@ -347,12 +345,12 @@ export async function submitUsageForm(sheet, event, form, formData) {
     // ベース変更等を即反映: 必須コンボの移動・ベースのコンボ除去を enforcement で行い再レンダリング(冪等)
     await sheet._enforceComboRequirements();
     // ベースを別技能に変えて個数上限を超えたら、トリムダイアログで調整(取り消しで元のベースへ戻す)
-    if (baseChanged) await sheet._promptTrimCombos(prevBaseRef);
+    if (baseChanged && sheet.usage.baseSkillRef?.itemId) await sheet._promptTrimCombos(prevBaseRef);
 
     // 白兵/射撃の変更(武器候補の絞り込み)・判定モード/ダメージを修正の切替・宣言の修正フラグ変更・
     // 消費種別の変更・治療設定の変更・射程の幅・対決欄の種別/カスケード変更は入力欄の出し入れが
     // あるため即再描画する(submitOnChange は再描画しない・2026-07-09)
-    if (attackKindChanged || modeUiChanged || condUiChanged || declModifyChanged || consumeUiChanged
+    if (baseChanged || attackKindChanged || modeUiChanged || condUiChanged || declModifyChanged || consumeUiChanged
         || recoveryUiChanged || rangeUiChanged || confrontationUiChanged || vehicleUiChanged) {
         sheet.render({ force: true });
     }

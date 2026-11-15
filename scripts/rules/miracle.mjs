@@ -12,7 +12,7 @@ import { SYSTEM_ID } from "../constants.mjs";
 import { usesMaxTotalOf, usesMaxBaseOf } from "../data/item/uses.mjs";
 import { conditionDisplayName } from "./conditions.mjs";
 import { isOutfitDestroyed, isOutfitServiceImmune } from "../data/item/helpers.mjs";
-import { OUTFIT_TYPES, outfitClassifications, ALL_CATEGORIES_KEY } from "../data/item/outfit-categories.mjs";
+import { OUTFIT_TYPES } from "../data/item/outfit-categories.mjs";
 
 
 /**
@@ -261,32 +261,13 @@ export function evadePlan(f, { rowIndex, actorId, by, resolveActorId }) {
 
 // ─── 破壊(17-3・《天変地異》《突破》) ────────────────────────────────────────────
 
-/**
- * 対象が所持する、この用途で破壊できるアウトフィットを列挙する。
- * 未破壊(実効・AE 反映済み)かつ分類がホワイトリストに合致するもの
- * (小分類キー=その小分類のみ・大分類キー=その大分類の全小分類)。照合は分類集合
- * (主分類＋副分類=「両方の分類として扱う」)で、修理用途の絞り込みと同じ規約。
- *
- * ホワイトリストに「全て」(ALL_CATEGORIES_KEY)が入っていれば分類で絞らない。
- * サービス大分類は**破壊免疫**なので、「全て」でも候補から外れる(選んでも壊れない)。
- *
- * ホワイトリストは**空欄を許容しない**(初期値=「全て」の1件)。空で呼ばれても
- * 「全部壊せる」へフォールバックしない——「全て」は専用の値で明示されるものだから。
- *
- * @param {Actor|{items: Iterable<Item>}} target 対象キャラクター
- * @param {{destroyableCategories?: string[]}} usage 破壊タイプの用途
- * @returns {Item[]}
- */
-export function listDestroyableOutfits(target, usage) {
-    const cats = new Set(usage?.destroyableCategories ?? []);
-    if (!cats.size) return [];
-    const all = cats.has(ALL_CATEGORIES_KEY);
+/** Select undestroyed equipment; retain service immunity, ignore legacy category restrictions. */
+export function listDestroyableOutfits(target) {
     const out = [];
     for (const it of (target?.items ?? [])) {
         if (!OUTFIT_TYPES.has(it.type)) continue;
         if (isOutfitServiceImmune(it.system)) continue;
         if (isOutfitDestroyed(it.system)) continue;
-        if (!all && !outfitClassifications(it.system).some(c => cats.has(c.major) || cats.has(c.minor))) continue;
         out.push(it);
     }
     return out;
@@ -385,29 +366,9 @@ export function isSameReceivedScene(received, current) {
     return received.act === current.act && Number(received.number) === Number(current.number);
 }
 
-/**
- * 神業の治癒(防御タイプ「受けた後に消す」・17-2)で、その効果を回復対象の候補に載せてよいか(純関数)。
- * 回復範囲(recoveryTargets)/除外(recoveryExcludes)の照合は既存の回復フロー側で行い、ここは神業の治癒で
- * 足した3つを判定する:
- *  - 印のゲートの受け側: 神業由来(fromMiracle)の状態・効果は神業の治療でしか除去できない。
- *  - 受けたシーンの制限(recoverySceneLimit): terminal=完全死亡・精神崩壊だけそのシーンで受けたもの／
- *    all=すべてそのシーンで受けたもの(《腹心》《人命救助》《黄泉還り》の効果文)。
- *  - BS・ダメージ以外の効果の解除(recoveryEffects): 状態でない効果は、この設定がオンの神業の治癒で
- *    だけ候補になる。**どこから来た効果かは見ない**(2026-09-07 ユーザー指示「付与経路などの判断は
- *    全て邪魔」)——解除するものはダイアログで選ぶ。
- * @param {{isCondition: boolean, isTerminal?: boolean,
- *          fromMiracle?: boolean, receivedScene?: ?{act?: string, number?: number}}} entry
- * @param {{recoverySceneLimit?: string, recoveryEffects?: boolean}} usage
- * @param {{byMiracle: boolean, currentScene?: ?{act?: string, number?: number}}} ctx
- * @returns {boolean}
- */
-export function recoveryCandidateAllowed(entry, usage, { byMiracle, currentScene = null }) {
+/** Keep the miracle-origin rule; effect selection and scene restrictions are table decisions. */
+export function recoveryCandidateAllowed(entry, _usage, { byMiracle }) {
     if (entry?.fromMiracle && !byMiracle) return false;
-    if (!entry?.isCondition) return byMiracle && usage?.recoveryEffects === true;
-    const limit = usage?.recoverySceneLimit ?? "none";
-    if (limit === "all" || (limit === "terminal" && entry.isTerminal)) {
-        return isSameReceivedScene(entry.receivedScene ?? null, currentScene);
-    }
     return true;
 }
 

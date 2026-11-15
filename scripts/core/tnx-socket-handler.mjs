@@ -370,7 +370,7 @@ export class TnxSocketHandler {
         const target = combat?.combatants.get(data?.combatantId);
         const requester = game.users.get(data?.userId);
         if (!requester || !target?.actor?.testUserPermission(requester, "OWNER")) return;
-        await combat.startInterrupt(data.combatantId);
+        await combat.startInterrupt(data.combatantId, { consumesAr: data.consumesAr !== false });
     }
 
     /** 割り込み開始を GM へ委譲する（割り込む対象の操作者クライアントから呼ぶ）。 */

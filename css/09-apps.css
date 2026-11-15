@@ -856,8 +856,24 @@
     font-style: italic;
     color: var(--tnx2-text-muted);
 }
+.combat-sidebar .combat-tracker .tnx-combatant {
+    display: grid;
+    grid-template-columns: var(--sidebar-item-height) minmax(0, 1fr) auto;
+}
+.tnx-combatant > .token-name {
+    min-width: 0;
+    overflow: hidden;
+}
+.tnx-combatant > .tnx-combatant-stats {
+    grid-column: 3;
+    grid-row: 1;
+    white-space: nowrap;
+}
 .tnx-combatant-actions {
+    grid-column: 2 / -1;
+    grid-row: 2;
     display: flex;
+    flex-wrap: wrap;
     flex: 0 0 auto;
     gap: 3px;
 }

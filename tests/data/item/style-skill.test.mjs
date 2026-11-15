@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { join } from "node:path";
 import {
   MockArrayField,
   MockBooleanField,
@@ -9,8 +10,76 @@ import {
 
 const { StyleSkillDataModel } = await import("../../../scripts/data/item/style-skill.mjs");
 
+it("moves legacy acquisition modification to the skill without overwriting an explicit formula", () => {
+  const legacy = { actions: [{ type: "purchase", acquireModified: true }] };
+  const migrated = StyleSkillDataModel.migrateData(structuredClone(legacy));
+  expect(migrated.acquisitionModification).toBe("@item.self.system.levelTotal");
+  expect(StyleSkillDataModel.migrateData({ ...structuredClone(legacy), acquisitionModification: "2" }).acquisitionModification).toBe("2");
+  expect(StyleSkillDataModel.migrateData({ ...structuredClone(legacy), acquisitionModification: "" }).acquisitionModification).toBe("");
+});
+
+it("removes the legacy modification mode without losing bonus formulas", () => {
+  const src = StyleSkillDataModel.migrateData({ checkMode: "modify", checkBonusSelf: "2",
+    actions: [{ _id: "legacy", type: "check", modifyCheck: true, checkBonusSelf: "3" }] });
+  expect(src.checkMode).toBe("normal");
+  expect(src.checkBonusSelf).toBe("2");
+  expect(src.actions[0].modifyCheck).toBe(false);
+  expect(src.actions[0].checkBonusSelf).toBe("3");
+});
+
+describe.skipIf(!process.env.FOUNDRY_APP_PATH)("StyleSkill schema with installed Foundry fields", () => {
+  it("accepts default values and weapon-derived damage, while rejecting unknown damage types", async () => {
+    await import(/* @vite-ignore */ join(
+      process.env.FOUNDRY_APP_PATH, "common/primitives/_module.mjs"
+    ).replaceAll("\\", "/"));
+    const fields = await import(/* @vite-ignore */ join(
+      process.env.FOUNDRY_APP_PATH, "common/data/fields.mjs"
+    ).replaceAll("\\", "/"));
+    const original = foundry.data.fields;
+    let schema;
+    try {
+      foundry.data.fields = fields;
+      schema = new fields.SchemaField(StyleSkillDataModel.defineSchema());
+    } finally {
+      foundry.data.fields = original;
+    }
+    const defaults = schema.clean({});
+    expect(schema.validate(defaults)).toBeUndefined();
+    for (const attackMethod of ["physical", "mental", "social"]) {
+      for (const damageType of ["", "reference", "S", "P", "I", "X"]) {
+        const data = { ...defaults, dealsDamage: true, attackMethod, damageType };
+        expect(schema.validate(data)).toBeUndefined();
+      }
+    }
+    expect(schema.validate({ ...defaults, damageType: "invalid" })).toBeDefined();
+    // Reproduce the original failure using Foundry's real StringField, not a mock.
+    const previous = new fields.StringField({ initial: "", choices: ["", "S"] });
+    expect(previous.validate("")).toBeDefined();
+  });
+});
+
 describe("StyleSkillDataModel.defineSchema()", () => {
   const schema = StyleSkillDataModel.defineSchema();
+
+  it.each([["", false], ["  ", false], ["0", true], ["3", true], ["@item.self.system.levelTotal", true]])(
+    "使用回数の制限は最大値 %s から決まり、旧フラグには依存しない", (max, limited) => {
+      const system = Object.assign(Object.create(StyleSkillDataModel.prototype), {
+        level: 2, uses: { max, spent: 1, isLimit: !limited },
+      });
+      system.prepareDerivedData();
+      expect(system.uses.isLimit).toBe(limited);
+      expect(system.uses.spent).toBe(1);
+    });
+
+  it("攻撃方法は物理・精神・社会で、判定・ダメージの初期値を保持する", () => {
+    expect(schema.attackMethod.options.choices).toEqual(["physical", "mental", "social"]);
+    expect(schema.dealsDamage.options.initial).toBe(false);
+    expect(schema.damageType.options.initial).toBe("");
+    expect(schema.damageType.options.blank).toBe(true);
+    expect(schema.checkMode.options.initial).toBe("normal");
+    expect(schema.damageBonusSelf.options.initial).toBe("");
+    expect(schema.damageBonusSelfCondition.fields.kind.options.initial).toBe("none");
+  });
 
   it("スキーマを取得できる", () => {
     expect(schema).toBeDefined();

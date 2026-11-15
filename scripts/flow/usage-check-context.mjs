@@ -13,7 +13,6 @@
 import { getComboSuits, comboUsesBounty } from "../rules/tnx-check-engine.mjs";
 import { resolveConsumeRowsForActor, promptConsumption } from "./usage-consumption.mjs";
 import { prepareUsageEffectPayload } from "./usage-effects.mjs";
-import { applyInterruptGrantForUsage } from "./interrupt-grant.mjs";
 import { resolveUsageTargetValue } from "../rules/usage-target-value.mjs";
 import { executionFormOf, effectiveBaseSkillId, usageDisplayName, isReactionType, isAttackType } from "../rules/usage-types.mjs";
 import { formatSkillName } from "../core/identification.mjs";
@@ -52,8 +51,6 @@ function canAnswerCheckRequest(usage) {
     if (usage?.type !== "check") return false;
     if (Number.isFinite(usage.fixedResult)) return false;
     if (usage.npcAcquire === true) return false;
-    if (usage.grantRecheck === true || usage.modifyCheck === true
-        || usage.modifyDamage === true) return false;
     return true;
 }
 
@@ -219,11 +216,7 @@ export async function buildUsageCheckContext(actor, item, usage, {
             ? { targetOverride: effectTargetOverride }
             : { targetOverride: resolvedTargetRefs });
 
-    // 割り込み許可(13-5): grantsInterrupt の用途は対象へ割り込み許可を立てる(適用効果と同じ対象)。
-    await applyInterruptGrantForUsage(actor, usage,
-        effectTargetOverride !== undefined
-            ? { targetOverride: effectTargetOverride }
-            : { targetOverride: resolvedTargetRefs });
+
 
     return {
         type:            "skillCheck",
@@ -241,6 +234,7 @@ export async function buildUsageCheckContext(actor, item, usage, {
         checkBonusSelf:  usage.checkBonusSelf ?? "",
         checkBonusSelfStackable: usage.checkBonusSelfStackable === true,
         sourceItemId:    item.id,   // 用途の親アイテム(@item.self の解決に使う)
+        sourceUsageId:   usage._id,
         // メジャーアクション記帳の判定に使う(2026-07-26 一般則)。ドラッグ改造の
         // マイナーアクション化(16-4)は実効タイミングとしてここで解決される
         usageTiming:     effectiveUsageTiming(usage, item.system),
@@ -250,6 +244,6 @@ export async function buildUsageCheckContext(actor, item, usage, {
         attackWeaponKind: null, // 白兵/射撃の区別は攻撃フローで上書き
         usageEffects,               // 付与効果ペイロード(null=効果なし)
         allowRecheck:    usage.allowRecheck === true, // 再判定可能(用途の設定・2026-07-11)
-        allowSuitChange: usage.allowSuitChange === true, // スート変更可能(用途の設定・2026-07-12)
+        allowSuitChange: false, // 判定ダイアログで今回のスート変更可否を指定する。
     };
 }

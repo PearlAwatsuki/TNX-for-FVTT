@@ -1,37 +1,5 @@
-/**
- * @fileoverview 回復フロー(2026-07-13 ユーザー確定・正本 Conditions.md / Check_Rules.md)。
- *
- * BS・戦闘不能・負傷を除去する回復・治療系スタイル技能の表現。器は用途の回復設定
- * (recovery / recoveryTargets / recoveryExcludes / recoveryAll / recoveryCount /
- * recoveryTargetFormula)。使用は必ずアイテムロール。
- *
- * フロー:
- * 1. 使用 → 対象解決(ターゲット中のキャラクター・いなければ自分=し忘れの自動解決。
- *    対象欄の値では分岐・ブロックしない・2026-07-19 ユーザー裁定)
- * 2. **対象が現在受けている状態から回復対象を選択**(範囲=recoveryTargets・除外=recoveryExcludes。
- *    該当すべて(recoveryAll)は一覧確認のみ・それ以外は recoveryCount 個まで選択)
- * 3. declaration 用途=消費適用→即除去 / check 用途=判定へ(ctx.recovery 完了継続・成功で除去)
- *
- * 治療メニュー(シートの状態クリック=treatment-flow)起点も本フローへ一本化(2026-07-18 ユーザー確定):
- * 入口が範囲照合を済ませ、患者とクリック状態を prebound 文脈で渡す(手順1・2をスキップ)。
- * 旧・治療専用の目標値ハードコード(気絶/失神=15 等)と完了継続 ctx.treatment は廃止——目標値の
- * 分岐は用途の範囲指定＋目標値設定で表現する(通常ダメージ用の用途は戦闘不能系タグを全て除外に
- * 入れる設定規約)。
- *
- * 目標値: 発動タブの目標値設定に一本化(2026-07-13・回復専用の式欄は廃止)。解説参照/その他の
- * 自由記入欄の式は @condition.magnitude(選択した状態の強度・複数は最大)と
- * @condition.woundValue(負傷のダメージ値=治療対象のダメージのチャート値・同)を参照できる
- * (resolveUsageTargetValue に注入)。
- *
- * 除去の意味論(既存規約の流用):
- * - BS=その効果のみ(woundSource は辿らない=「BS を回復してもダメージは治療されない」)
- * - 戦闘不能=**元となる負傷(ダメージ)ごと治療する**(2026-07-13 ユーザー確定。戦闘不能はダメージ
- *   そのもの=2026-07-09 裁定。紐づく負傷があればその除去範囲へ展開・孤立は単体除去)
- * - 負傷=治療と同じ範囲(負傷+紐づき戦闘不能+非BS。BS は残る)
- * - 除去の権限が無ければ treatmentApply ソケットで GM 委譲(治療と同じ経路)
- *
- * 完全死亡・精神崩壊(とそれを与える負傷)は全回復系でも治療不可=通例は除外タグに設定する
- * (システムはハードコードで強制しない。抹殺は未確定=技能ごとの設定・卓裁定)。
+/** Recovery selects current conditions and effects at execution time.
+ * Consumption, check continuation, linked wounds and delegated updates share one flow.
  */
 
 import { SYSTEM_ID } from "../constants.mjs";
@@ -41,7 +9,7 @@ import { nowrap } from "../chat/chat-text.mjs";
 import { TnxSocketHandler } from "../core/tnx-socket-handler.mjs";
 import { buildUsageCheckContext } from "./usage-check-context.mjs";
 import { resolveTargetedOrSelf } from "./target-resolution.mjs";
-import { CONDITION_KINDS, conditionDisplayName, getConditionKinds, recoveryKindMatches, recoveryKindExcluded, readCondition, woundChartValue } from "../rules/conditions.mjs";
+import { CONDITION_KINDS, conditionDisplayName, getConditionKinds, readCondition, woundChartValue } from "../rules/conditions.mjs";
 import { resolveConsumeRowsForActor, promptConsumption, applyConsumptionPlan } from "./usage-consumption.mjs";
 import { executionFormOf } from "../rules/usage-types.mjs";
 import { buildPostTreatmentRest } from "./treatment-flow.mjs";
@@ -50,17 +18,8 @@ import { getSessionState } from "../session/session-state.mjs";
 import { postMiracleCard } from "./miracle-flow.mjs";
 
 
-/**
- * 対象アクターの現在の状態から、回復範囲に合致し除外に当たらない効果を列挙する。
- * 神業の治癒(防御タイプ「受けた後に消す」・17-2)の3条件——神業由来は神業でしか除去できない／
- * 受けたシーンの制限／BS・ダメージ以外の効果の解除——は純関数 recoveryCandidateAllowed が担う。
- * 状態でない効果は**どこから来たかを見ない**(2026-09-07 ユーザー指示)——選ぶのはダイアログ。
- * @param {Actor} patient
- * @param {object} usage
- * @param {{byMiracle?: boolean, currentScene?: ?{act?: string, number?: number}}} [ctx]
- *   byMiracle=用途の親が神業か・currentScene=上演中のシーン(アクト id とシーン番号)
- */
-export function listRecoverableEffects(patient, usage, { byMiracle = false, currentScene = null } = {}) {
+/** Legacy range/count/scene settings do not filter selectable effects. */
+export function listRecoverableEffects(patient, _usage, { byMiracle = false, currentScene = null } = {}) {
     const out = [];
     for (const e of (patient?.effects ?? [])) {
         const f = e.flags?.[SYSTEM_ID] ?? {};
@@ -71,11 +30,7 @@ export function listRecoverableEffects(patient, usage, { byMiracle = false, curr
             fromMiracle: f.fromMiracle === true,
             receivedScene: f.receivedScene ?? null,
         };
-        if (kind) {
-            if (!recoveryKindMatches(kind, usage.recoveryTargets)) continue;
-            if (recoveryKindExcluded(kind, usage.recoveryExcludes)) continue;
-        }
-        if (!recoveryCandidateAllowed(entry, usage, { byMiracle, currentScene })) continue;
+        if (!recoveryCandidateAllowed(entry, { recoveryEffects: true, recoverySceneLimit: "none" }, { byMiracle, currentScene })) continue;
         out.push(e);
     }
     return out;
@@ -145,18 +100,15 @@ function recoveryOutcome(patientName, { conditionLabel = "", effectLabel = "" } 
     return { icon: "fa-kit-medical", text: `${esc(patientName)}の${parts.join("")}` };
 }
 
-/**
- * 回復対象の選択ダイアログ。
- * - 状態(BS・戦闘不能・負傷): recoveryAll=一覧確認のみ／それ以外=recoveryCount 個まで選択。
- * - BS・ダメージ以外の効果(recoveryEffects): **常に任意選択**(「該当すべて」でも一括では消さない)。
- *   効果文が「任意のスタイル技能の効果を解除する」(《人命救助》)「それらも同時に解除できる」(《腹心》)
- *   と任意にしているため。個数の上限も置かない(2026-09-07 ユーザー指示)。
- */
-async function promptRecoverySelection(patient, candidates, usage) {
+/** Choose conditions and effects together; neither group is preselected. */
+async function promptRecoverySelection(patient, candidates) {
     const esc = foundry.utils.escapeHTML;
+    const sceneLabel = e => {
+        const scene = e.flags?.[SYSTEM_ID]?.receivedScene;
+        return scene?.number === undefined || scene.number === null ? "" : `（受けたシーン: ${scene.act ?? ""} / ${scene.number}）`;
+    };
     const conditions = candidates.filter(e => getConditionKinds(e)[0]);
     const effects = candidates.filter(e => !getConditionKinds(e)[0]);
-    const max = Math.max(1, Number(usage.recoveryCount) || 1);
 
     const conditionRows = conditions.map(e => {
         const kind = getConditionKinds(e)[0];
@@ -172,26 +124,29 @@ async function promptRecoverySelection(patient, candidates, usage) {
                     ? conditionDisplayName(getConditionKinds(linkedWound)[0], { quote: true })
                     : `「${linkedWound.name}」`}ごと治療）`
                 : (mag ? `（強度 ${mag}）` : "");
-        const input = usage.recoveryAll
-            ? `<input type="checkbox" checked disabled>`
-            : `<input type="checkbox" name="recover" value="${esc(e.id)}">`;
+        const input = `<input type="checkbox" name="recover" value="${esc(e.id)}">`;
         return `<div class="tnx-uses-row"><label>${input}
-            <span>${esc(def?.label ?? e.name)}${esc(extra)}</span></label></div>`;
+            <span>${esc(def?.label ?? e.name)}${esc(extra)}${esc(sceneLabel(e))}</span></label></div>`;
     }).join("");
-    const conditionNote = usage.recoveryAll
-        ? "<p class=\"tnx-uses-note\">該当するすべての状態を回復します。</p>"
-        : `<p class="tnx-uses-note">回復する状態を選んでください（最大 ${max} 個）。</p>`;
+    const conditionNote = '<label><input type="checkbox" data-select-all="recover">状態を全選択</label>';
 
     const effectRows = effects.map(e =>
         `<div class="tnx-uses-row"><label>
             <input type="checkbox" name="recoverEffect" value="${esc(e.id)}">
-            <span>${esc(e.name)}</span></label></div>`).join("");
-    const effectNote = "<p class=\"tnx-uses-note\">解除する効果を選んでください。</p>";
+            <span>${esc(e.name)}${esc(sceneLabel(e))}</span></label></div>`).join("");
+    const effectNote = '<label><input type="checkbox" data-select-all="recoverEffect">効果を全選択</label>';
 
     const picked = await foundry.applications.api.DialogV2.wait({
         window: { title: `回復対象の選択: ${patient.name}` },
         classes: ["tokyo-nova", "tnx-dialog", "tnx-uses-dialog"],
         position: { width: 420 },
+        render: (_event, dialog) => {
+            for (const toggle of dialog.element.querySelectorAll('[data-select-all]')) {
+                toggle.addEventListener("change", () => {
+                    for (const input of dialog.element.querySelectorAll(`input[name="${toggle.dataset.selectAll}"]`)) input.checked = toggle.checked;
+                });
+            }
+        },
         content: `<div class="tnx-uses-consume">`
             + (conditions.length ? conditionNote + conditionRows : "")
             + (effects.length ? effectNote + effectRows : "")
@@ -199,9 +154,7 @@ async function promptRecoverySelection(patient, candidates, usage) {
         buttons: [
             { action: "ok", icon: "fas fa-check", label: "決定", default: true,
               callback: (_e, _b, dialog) => ({
-                  conditions: usage.recoveryAll
-                      ? conditions.map(e => e.id)
-                      : [...dialog.element.querySelectorAll('input[name="recover"]:checked')].map(cb => cb.value),
+                  conditions: [...dialog.element.querySelectorAll('input[name="recover"]:checked')].map(cb => cb.value),
                   effects: [...dialog.element.querySelectorAll('input[name="recoverEffect"]:checked')].map(cb => cb.value),
               }) },
             { action: "cancel", icon: "fas fa-times", label: "キャンセル", callback: () => false },
@@ -211,10 +164,6 @@ async function promptRecoverySelection(patient, candidates, usage) {
     // DialogV2 は「コールバックの戻り値 ?? ボタンの action」を返す——キャンセルの戻り値 null は
     // 文字列 "cancel" になって届く。中止は**選択結果(オブジェクト)でないこと**で判定する
     if (!picked || typeof picked !== "object") return null;
-    if (!usage.recoveryAll && picked.conditions.length > max) {
-        ui.notifications.warn(`回復できる状態は最大 ${max} 個です。`);
-        return null;
-    }
     const ids = [...picked.conditions, ...picked.effects];
     if (!ids.length) { ui.notifications.warn("回復・解除するものが選ばれていません。"); return null; }
     return candidates.filter(e => ids.includes(e.id));
@@ -259,10 +208,6 @@ async function applyRecoveryRemoval(patient, removeIds, actorUuid = null) {
 export async function useRecovery(item, usage, prebound = null, { asOther = null } = {}) {
     const actor = item.actor;
     if (!actor) { ui.notifications.warn("治療はアクターが所持しているアイテムから使用してください。"); return; }
-    if (!(usage.recoveryTargets ?? []).length) {
-        ui.notifications.warn("回復対象の範囲が設定されていません（用途の〈治療〉で設定してください）。");
-        return;
-    }
 
     let patient;
     let selected;
@@ -322,6 +267,7 @@ export async function useRecovery(item, usage, prebound = null, { asOther = null
 
     await TnxCheckFlow.open({
         ...base,
+        editableTargetValue: true,
         // 完了継続(TnxCheckFlow._execute → resolveRecoveryFromCheck)
         recovery: {
             // 委譲の受理条件で使う行為者=治療する人(修理・改造と同じ)

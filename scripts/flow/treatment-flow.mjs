@@ -1,25 +1,9 @@
-/**
- * @fileoverview 治療メニューの入口(2026-07-18 治療用途へ一本化・正本 Damage_Rules.md「治療」)。
- *
- * シートの状態(負傷/戦闘不能)クリックから治療を開始する。実行の実体は治療用途(usage type="treatment"
- * =recovery-flow)であり、本モジュールは入口の照合だけを担う:
- * 1. クリックされた状態をダメージインスタンス(負傷＋紐づき戦闘不能/支配)の kind 集合へ展開する
- *    (負傷と紐づく戦闘不能は同じ一つのダメージ=2026-07-09 ユーザー裁定。どの行をクリックしても同じ集合)。
- * 2. 治療者=操作可能なキャスト/ゲストから選択(既定=担当キャラクター・1体なら即決)。担当キャラ固定は
- *    不備(RL は複数のゲストを操作する=2026-07-18 ユーザー是正)。治療に使う技能はその治療者自身のもの。
- * 3. 治療者のアイテムから kind 集合に範囲適合(recoveryTargets/recoveryExcludes)する治療用途を検出。
- *    無ければ「治療できる技能が無い」で中止(代用判定は廃止=2026-07-18)。
- * 4. activateItemCheck へ prebound 文脈(患者・クリック状態)を注入して起動(起動関数の一本化規範)。
- *    実行(消費・宣言/判定・除去)は recovery-flow が担う。
- *
- * 旧・治療専用機構(目標値ハードコード 気絶/失神=15・仮死/昏睡=20・それ以外=ダメージ値、
- * 社会ダメージのハードブロック、代用判定、完了継続 ctx.treatment)は撤去済み——分岐はすべて用途の
- * 範囲指定と目標値設定で表現する(通常ダメージ用の用途は戦闘不能系タグを全て除外に入れる設定規約。
- * チャート値=目標値式の @condition.woundValue)。
+/** A condition-sheet entry point into the shared recovery flow.
+ * The user selects a healer and treatment usage; usage ranges no longer filter choices.
  */
 
 import { SYSTEM_ID } from "../constants.mjs";
-import { CONDITION_KINDS, getConditionKinds, usageCanTreatKinds } from "../rules/conditions.mjs";
+import { CONDITION_KINDS, getConditionKinds } from "../rules/conditions.mjs";
 import { TargetSelectionDialog } from "../ui/tnx-dialog.mjs";
 import { itemDisplayName } from "../core/identification.mjs";
 import { usageDisplayName } from "../rules/usage-types.mjs";
@@ -82,7 +66,6 @@ export async function startTreatment(patient, effectId) {
     for (const item of [...treater.items].sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0))) {
         for (const usage of (item.system.actions ?? [])) {
             if (usage.type !== "treatment") continue;
-            if (!usageCanTreatKinds(usage, kinds)) continue;
             matches.push({ item, usage });
         }
     }

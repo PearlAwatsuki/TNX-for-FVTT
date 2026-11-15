@@ -146,8 +146,8 @@ describe("enumerateRequestComboCandidates()（判定要求のコンボ候補列�
         ] } };
         const actor = mkActor([perception, style]);
         const found = enumerateRequestComboCandidates(actor, "perception", { excludeItemId: "p1" });
-        // リアクション等の行動種別タイプ(h)も除外され、素の「判定」用途(i)だけが残る
-        expect(found.map(c => c.usage._id)).toEqual(["i"]);
+        // 廃止した再判定フラグは候補を除外しない。通常の判定用途(c/i)が残る。
+        expect(found.map(c => c.usage._id)).toEqual(["c", "i"]);
     });
 
     it("不備のある用途(共通スート無し)は除外する", () => {
@@ -171,7 +171,7 @@ describe("buildRequestUsageChoices()（判定要求の第2段プルダウンの�
         { _id: "u2", type: "declaration" },                       // 宣言=判定タイプでない
         { _id: "u3", type: "declaration", grantRecheck: true },   // バフ宣言=判定タイプでない
         { _id: "u4", type: "dodge" },                             // 行動種別タイプ=対象外(2026-07-19 裁定)
-        { _id: "u5", type: "check", grantRecheck: true },         // クリック待ち系=要求に結果を返せない
+        { _id: "u5", type: "check", grantRecheck: true },         // 旧フラグがあっても通常の判定
     ] } };
     const style = { id: "s1", type: "styleSkill", name: "見切り", system: { actions: [] } };
 
@@ -181,12 +181,12 @@ describe("buildRequestUsageChoices()（判定要求の第2段プルダウンの�
             { item: style, usage: { _id: "c2", type: "check", name: "カウンター" } },
         ];
         const choices = buildRequestUsageChoices(perception, combos);
-        expect(choices.map(c => c.usage._id)).toEqual(["u1", "c1", "c2"]);
+        expect(choices.map(c => c.usage._id)).toEqual(["u1", "u5", "c1", "c2"]);
         // 実効名の親名は素の名前(「判定（知覚）」・2026-07-19 ユーザー指摘=〈〉は付けない)
         expect(choices[0].label).toBe("判定（知覚）");
-        expect(choices[1].label).toBe("判定（見切り）");
+        expect(choices[2].label).toBe("判定（見切り）");
         // 名前つきのコンボ候補は「用途名（親名）」で由来を判別可能に
-        expect(choices[2].label).toBe("カウンター（見切り）");
+        expect(choices[3].label).toBe("カウンター（見切り）");
     });
 
     it("指定技能なし(未所持)はコンボ候補のみ・両方なしは空", () => {

@@ -82,7 +82,7 @@ export function asteriskSkillKeys(rows) {
  * - 無印技能名行は、既にある手段行のリアクション用途タイプをその技能が持つなら吸収
  *   (例: ドッジ行があり〈回避〉がドッジ用途を持つ→〈回避〉行はスキップ。既定技能でなく
  *   技能の能力で判定する=2026-07-17 ユーザー裁定)。※(必須)行は吸収しない。
- * - blank/なし・用途対決欄で表せない値(スタイル技能の解説参照/その他)は持ち込まない。
+ * - 有効な対決行がない場合は、明示的な「なし」を取り込む。blank・解説参照/その他は持ち込まない。
  * @param {Array<object>} existing 用途の既存行
  * @param {Array<object>} incoming 追記する行(参加技能の対決欄など)
  * @param {{skillHasReactionType?: (key: string, type: string) => boolean}} [helpers]
@@ -114,7 +114,11 @@ export function mergeConfrontationRows(existing, incoming, { skillHasReactionTyp
         if (CONFRONTATION_REACTION_VALUES.includes(v)) {
             if (!hasManeuver(v)) out.push(makeRow(v));
         }
-        // blank/none/explanation/other 等はスキップ
+        // 「なし」は合算後に、有効な対決行がない場合だけ反映する。
+    }
+    if (!out.some(isEffectiveRow) && !out.some(r => r.value === "none")
+        && (incoming ?? []).some(r => r?.value === "none")) {
+        return [...out.filter(r => r.value !== "blank"), makeRow("none")];
     }
     return out;
 }

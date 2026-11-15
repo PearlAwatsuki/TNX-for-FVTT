@@ -10,6 +10,7 @@ import { defaultConfrontationForType, executionFormOf, usageDisplayName, usesVeh
 import { resolveBunshinOwner } from "../flow/usage-consumption.mjs";
 import { attachEditorSectionToggles } from "../ui/editor-sections.mjs";
 import { activateItemCheck } from "../flow/item-activation.mjs";
+import { styleSkillAttackType, styleSkillUsageDefaults } from "../rules/style-skill-usage-defaults.mjs";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ItemSheetV2 } = foundry.applications.sheets;
@@ -45,6 +46,23 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
             usageDelete: TokyoNovaItemSheet._onActionDelete,
         },
     };
+
+    /** 辞典のキャッシュにない既存文書を、新規作成として扱わせない。 */
+    async _processSubmitData(event, form, submitData, options = {}) {
+        const document = this.document;
+        if (!document.pack || !document.id) return super._processSubmitData(event, form, submitData, options);
+
+        const pack = game.packs.get(document.pack);
+        const current = await pack?.getDocument(document.id);
+        if (!current) throw new Error("保存先の辞典アイテムが見つかりません。辞典から開き直してください。");
+        const updated = await current.update(submitData, options);
+        if (updated && updated !== document) {
+            // 再取得でインスタンスが変わっても、開いているシートを古い値のままにしない。
+            document.updateSource(updated.toObject());
+            this.render({ force: true });
+        }
+        return updated ? { updated } : {};
+    }
 
     /** @override */
     async _prepareContext(options) {
@@ -101,7 +119,7 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
             }
             if (this.item.type === "styleSkill") {
                 flags.push({ name: "system.noCombo", label: "組み合わせ不可", checked: !!system.noCombo });
-                flags.push({ name: "system.uses.isLimit", label: "使用回数に制限あり", checked: !!system.uses?.isLimit, disabled: !!context.usesSharedWithOwner });
+                flags.push({ name: "system.dealsDamage", label: "ダメージを発生させる", checked: !!system.dealsDamage });
                 if (system.styleSkillCategory === "special")
                     flags.push({ name: "system.special.works.value", label: "ワークス技能", checked: !!system.special?.works?.value });
                 flags.push({ name: "system.isSubstitute", label: "代用可能", checked: !!system.isSubstitute });
@@ -264,10 +282,11 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
         // なるため、神業と同じ器(神業専用の5種)で作る
         const miracleOwnEffect = this.item.type === "styleSkill" && this.item.system?.miracleRewrite?.effect === "own";
         let type = defaultUsageTypeFor(this.item.type, { miracleOwnEffect });
+        if (this.item.type === "styleSkill" && !miracleOwnEffect) type = styleSkillAttackType(this.item.system) ?? type;
         if (!isFixedCheck) {
             // 選択肢は親の型で決まる(17-2): 神業なら神業専用の5種(宣言/即死/防御/社会戦/破壊)だけ、
             // それ以外は神業専用を除いた行動種別タイプ。NPC取得は用途の設定(効果タブ)へ移管済み
-            const choice = await TokyoNovaItemSheet._promptUsageType(usageTypeLabelsFor(this.item.type, { miracleOwnEffect }));
+            const choice = await TokyoNovaItemSheet._promptUsageType(usageTypeLabelsFor(this.item.type, { miracleOwnEffect }), type);
             if (!choice) return;
             type = choice;
         }
@@ -296,6 +315,10 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
             consumeTargets: [],
             ...(isFixedCheck ? { fixedResult: 10 } : {}),
         };
+
+        if (this.item.type === "styleSkill" && !miracleOwnEffect) {
+            Object.assign(entry, styleSkillUsageDefaults(this.item.system, entry));
+        }
 
         // 自動入力の作成時一回適用: 判定系・宣言用途は親技能の固有値から
         // 発動パラメータと消費行を導出して初期値にする(以降の再導出はシートのボタンで明示的に。
@@ -392,9 +415,9 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
     // ─── 種別選択ダイアログ ────────────────────────────────────────────────────
 
     /** 用途タイプを選択させる DialogV2。選択されたキーを返す。 */
-    static async _promptUsageType(choices = USAGE_TYPES) {
+    static async _promptUsageType(choices = USAGE_TYPES, selected = "") {
         const options = Object.entries(choices)
-            .map(([value, label]) => `<option value="${value}">${label}</option>`)
+            .map(([value, label]) => `<option value="${value}"${value === selected ? " selected" : ""}>${label}</option>`)
             .join("");
 
         const content = `

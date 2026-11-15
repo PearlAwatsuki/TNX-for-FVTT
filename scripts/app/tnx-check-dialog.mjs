@@ -59,16 +59,6 @@ export class TnxCheckDialog extends HandlebarsApplicationMixin(ApplicationV2) {
         const trumpPile = userFlag.trumpCardPileId ? await fromUuid(userFlag.trumpCardPileId) : null;
         const hasTrump  = (trumpPile?.cards.size ?? 0) > 0;
 
-        // スタン/説得の宣言トグル(攻撃の判定のみ・2026-07-15 ユーザー確定): 物理攻撃かつ canStun→
-        // スタン、精神攻撃→説得(常時)、社会・非攻撃→出さない。既定オフ・宣言は攻撃ペイロードに載る
-        const atk = ctx.attack;
-        let stunOption = null;
-        if (atk?.category === "physical" && atk.stunCapable) {
-            stunOption = { label: "スタン攻撃として実行", checked: atk.stunDeclared === true };
-        } else if (atk?.category === "mental") {
-            stunOption = { label: "説得として実行", checked: atk.stunDeclared === true };
-        }
-
         const actor = game.actors.get(ctx.actorId);
         const addedIds = ctx.dialogAddedSkillIds ?? [];
         const addedSkillChips = addedIds
@@ -90,7 +80,6 @@ export class TnxCheckDialog extends HandlebarsApplicationMixin(ApplicationV2) {
             : [];
 
         return {
-            stunOption,
             ...context,
             typeLabel:      TYPE_LABEL[ctx.type] ?? ctx.type,
             skillLabel:     ctx.skillLabel,
@@ -102,7 +91,7 @@ export class TnxCheckDialog extends HandlebarsApplicationMixin(ApplicationV2) {
                 symbol: SUIT_SYMBOL[s] ?? s,
                 name:   SUIT_NAME[s]   ?? s,
             })),
-            hasTargetValue: ctx.targetValue !== null,
+            hasTargetValue: ctx.targetValue !== null && ctx.targetValue !== undefined,
             targetValue:    ctx.targetValue,
             hasTrump,
             trumpMode:      TnxCheckFlow.trumpMode,
@@ -110,6 +99,9 @@ export class TnxCheckDialog extends HandlebarsApplicationMixin(ApplicationV2) {
             // 通常判定=達成値へ加算・制御判定=制御値(成功条件)へ加算。代用判定・再判定の
             // 引き継ぎ値(ctx.manualMod)が初期値に入る
             manualMod:      ctx.manualMod ?? 0,
+            canSelectSuit: ctx.type !== "controlCheck",
+            allowSuitChange: ctx.allowSuitChange === true,
+            allowNumberChange: ctx.allowNumberChange === true,
             manualModLabel: ctx.type === "controlCheck" ? "制御値への修正（手動）" : "修正値（手動）",
             hint:           TnxCheckFlow.trumpMode
                 ? "手札から1枚を選択してください（Jokerとして使います）"
@@ -125,14 +117,16 @@ export class TnxCheckDialog extends HandlebarsApplicationMixin(ApplicationV2) {
             TnxCheckFlow.setManualMod(Number(input.value) || 0);
         });
         const skillAdd = this.element.querySelector('[data-dialog-skill-add]');
+        const suitToggle = this.element.querySelector('[name="allowSuitChange"]');
+        suitToggle?.addEventListener("change", () => TnxCheckFlow.setAllowSuitChange(suitToggle.checked));
+        const numberToggle = this.element.querySelector('[name="allowNumberChange"]');
+        numberToggle?.addEventListener("change", () => TnxCheckFlow.setAllowNumberChange(numberToggle.checked));
         skillAdd?.addEventListener("change", async () => {
             const skillId = skillAdd.value;
             skillAdd.value = "";
             if (skillId) await TnxCheckFlow.addDialogSkill(skillId);
         });
-        // スタン/説得の宣言トグルを判定コンテキストへ同期する(カードプレイ時に読まれる・2026-07-15)
-        const stunInput = this.element.querySelector('input[name="stunDeclared"]');
-        stunInput?.addEventListener("change", () => TnxCheckFlow.setStunDeclared(stunInput.checked));
+
     }
 
     // ×ボタンで閉じたら判定をキャンセルする

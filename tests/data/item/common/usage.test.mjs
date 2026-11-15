@@ -249,10 +249,10 @@ describe("UsageTemplate.migrateData()", () => {
     expect(result.actions[1].type).toBe("declaration");
   });
 
-  it("旧 boostDamage=true は modifyDamage=true へ変換される(2026-07-11 置換)", () => {
+  it("旧 boostDamage はダメージ修正モードを再有効化しない", () => {
     const source = { actions: [{ _id: "a", type: "check", boostDamage: true }] };
     const result = UsageTemplate.migrateData(source);
-    expect(result.actions[0].modifyDamage).toBe(true);
+    expect(result.actions[0].modifyDamage).toBe(false);
   });
 
   it("modifyDamage が既に設定済みなら boostDamage で上書きしない", () => {

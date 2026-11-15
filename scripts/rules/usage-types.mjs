@@ -166,6 +166,7 @@ export function defaultConfrontationForType(type) {
  */
 export function effectiveBaseSkillId(usage, item) {
     if (item?.system?.isAction === true) return item.id;
+    if (usage?.baseSkillCleared && !usage?.baseSkillRef?.itemId) return "";
     return usage?.baseSkillRef?.itemId || item?.id || "";
 }
 

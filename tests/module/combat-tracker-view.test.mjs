@@ -100,41 +100,19 @@ describe("footerPlan()（フッター＝「次へ」＋フェーズ送り＋開�
   });
 });
 
-describe("rowActions()（行の宣言操作＝待機のみ・行動不能はタグ/脱落マークの読み取りで自動）", () => {
-  it("イニシアチブ中の候補行＝操作者（と RL）に待機", () => {
-    expect(rowActions({ phase: "initiative", isCandidate: true, isOwner: true, isGM: false }))
-      .toEqual([{ action: "tnxWait", label: "待機" }]);
-    expect(rowActions({ phase: "initiative", isCandidate: true, isOwner: false, isGM: true }))
-      .toEqual([{ action: "tnxWait", label: "待機" }]);
+describe("rowActions: interrupt without a grant", () => {
+  it.each(["setup", "initiative", "main", "cleanup"])("offers interrupt in %s", phase => {
+    for (const permissions of [{isOwner: true}, {isGM: true}]) {
+      expect(rowActions({phase, started: true, ...permissions}).map(a => a.action)).toEqual(["tnxInterrupt"]);
+    }
   });
-
-  it("行動不能ボタンは存在しない（脱落切替・戦闘不能タグと機能が被るため）", () => {
-    const all = rowActions({ phase: "initiative", isCandidate: true, isOwner: true, isGM: true });
-    expect(all.some(a => a.action === "tnxCantAct")).toBe(false);
+  it("requires ownership or GM and a started combat", () => {
+    expect(rowActions({phase: "main", started: true})).toEqual([]);
+    expect(rowActions({phase: "main", started: false, isGM: true})).toEqual([]);
   });
-
-  it("候補でない行・他人の行・他フェーズは操作なし", () => {
-    expect(rowActions({ phase: "initiative", isCandidate: false, isOwner: true, isGM: true })).toEqual([]);
-    expect(rowActions({ phase: "initiative", isCandidate: true, isOwner: false, isGM: false })).toEqual([]);
-    expect(rowActions({ phase: "main", isCandidate: true, isOwner: true, isGM: true })).toEqual([]);
-    expect(rowActions({ phase: "setup", isCandidate: true, isOwner: true, isGM: true })).toEqual([]);
-  });
-
-  it("割り込み許可フラグのある行＝操作者（と RL）に割り込み（フェーズ非依存）", () => {
-    expect(rowActions({ phase: "main", isCandidate: false, isOwner: true, isGM: false, canInterrupt: true }))
-      .toEqual([{ action: "tnxInterrupt", label: "割り込み" }]);
-    expect(rowActions({ phase: "setup", isCandidate: false, isOwner: false, isGM: true, canInterrupt: true }))
-      .toEqual([{ action: "tnxInterrupt", label: "割り込み" }]);
-  });
-
-  it("割り込み許可があっても、その行の操作者でも RL でもなければ出さない", () => {
-    expect(rowActions({ phase: "main", isCandidate: false, isOwner: false, isGM: false, canInterrupt: true }))
-      .toEqual([]);
-  });
-
-  it("待機と割り込みは併存しうる（イニシアチブ候補かつ割り込み許可あり）", () => {
-    expect(rowActions({ phase: "initiative", isCandidate: true, isOwner: true, isGM: false, canInterrupt: true }))
-      .toEqual([{ action: "tnxWait", label: "待機" }, { action: "tnxInterrupt", label: "割り込み" }]);
+  it("retains wait alongside interrupt for the initiative candidate", () => {
+    expect(rowActions({phase: "initiative", started: true, isCandidate: true, isOwner: true}).map(a => a.action))
+      .toEqual(["tnxWait", "tnxInterrupt"]);
   });
 });
 

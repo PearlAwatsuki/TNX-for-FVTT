@@ -7,6 +7,7 @@
  */
 
 import { SYSTEM_ID } from "../constants.mjs";
+import { synchronizeItemUsages } from "../core/usage-skill-sync.mjs";
 import { TnxSkillUtils } from "../core/tnx-skill-utils.mjs";
 import { getComboSuits } from "../rules/tnx-check-engine.mjs";
 import { comboLockAnalysis, isComboRequired } from "../rules/skill-chain-resolution.mjs";
@@ -91,8 +92,19 @@ const RECOVERY_GROUP_LABELS = Object.freeze({
 // ルール正本: llm-wiki/01_Wiki/Game_Rules/Check_Rules.md（対象優先度・射程優先度）。
 // 優先度解決の純ロジックは rules/usage-autofill.mjs へ分離(KI-033・2026-07-19)。
 
+/** 解決済みベースは一般技能も含める。その他の候補は従来どおり参加スタイル技能のみ。 */
+export function buildSkillBonusSourceOptions(usage, baseId, getItem) {
+    const ids = [...new Set([baseId, ...(usage.skillRefs ?? []).map(r => r.itemId)].filter(Boolean))];
+    return ids.map(getItem)
+        .filter(it => it && (it.type === "styleSkill" || (it.id === baseId && it.type === "generalSkill"))
+            && it.system.identificationKey)
+        .map(it => ({ value: it.system.identificationKey, label: formatSkillName(it.name) }));
+}
+
 /** @override */
 export async function prepareUsageContext(sheet, context) {
+    if (sheet._item.isOwner && !(sheet._item.pack && game.packs.get(sheet._item.pack)?.locked))
+        await synchronizeItemUsages(sheet._item);
     const usage = sheet.usage;
     if (!usage) {
         sheet.close();
@@ -139,8 +151,7 @@ export async function prepareUsageContext(sheet, context) {
     context.isModifyDamage     = usage.type === "check" && usage.modifyDamage === true;
     // 判定モードのラジオ値: 通常/再判定を付与/判定を修正
     // (判定用途に「なし」は無い)
-    context.checkMode          = usage.grantRecheck === true ? "grant"
-        : (usage.modifyCheck === true ? "modify" : "normal");
+    context.checkMode = usage.modifyCheck === true ? "modify" : "normal";
     // 宣言(declaration)の判定/ダメージ修正(2026-07-12 ユーザー確定): バフ宣言の表現。
     // 判定用途とレイアウトを揃えた〈判定〉〈ダメージ〉fieldset・チェックボックス2つは独立
     // (排他 UI にしない。両方 ON の運用は想定せず、使用時は「判定を修正」が先に振られる)
@@ -372,7 +383,7 @@ export async function prepareUsageContext(sheet, context) {
         // 技能チェーン解決: アクション技能がチェーンにあると、ベースは「指定技能＋その代用」に限定する
         // (他の無関係な技能はベースになれない)。候補が1つなら固定表示、代用が増えれば選択可能(ハードロックにしない)。
         const parentItemId = sheet._item.id;
-        const chainRes = sheet._resolveComboChain();
+        const chainRes = sheet._resolveComboChain({ includeBase: false });
         const lockedByChain = !!chainRes && !chainRes.defect && chainRes.baseLocked;
         // baseCandidates: null=全技能から選択(非ロック)、配列=その候補に限定(本体優先で先頭)
         let baseCandidates = null;
@@ -386,7 +397,7 @@ export async function prepareUsageContext(sheet, context) {
         if (baseCandidates && !baseCandidates.includes(baseId)) baseId = defaultBaseId ?? baseCandidates[0] ?? "";
         // 非ロック・未設定は連鎖の解決ベース(指定技能があれば末端・無ければ親自身)を既定に(2026-07-18 統一)。
         // 親が技能のときのみ自己ベースを既定にする(アウトフィット親はユーザーがベース技能を明示設定)
-        else if (!baseCandidates && !baseId && !chainRes?.manual && parentIsChainSkill) {
+        else if (!baseCandidates && !baseId && !chainRes?.manual && parentIsChainSkill && !usage.baseSkillCleared) {
             baseId = defaultBaseId || parentItemId;
         }
 
@@ -579,21 +590,18 @@ export async function prepareUsageContext(sheet, context) {
     if (context.isCheckType && !context.isFixedCheck) {
         // 判定ボーナス/ダメージ修正の行(式＋供給元)。供給元はチャットの帰属表示専用(識別キーを保存し
         // 表示は逆引きした現在名)。式は @system.*・@item.<識別キー>.system.* を参照可(2026-07-10)。
-        // 供給元候補(グループ化): 組み合わせスタイル技能(一般技能除外)＋使用武器。値=識別キー・
+        // 供給元候補(グループ化): ベース技能＋組み合わせスタイル技能＋使用武器。値=識別キー・
         // 表示=現在のアイテム名。識別キーを持つものだけ(帰属できる供給元)を出す
         // 技能は同輩キャッシュ(辞典/ワールド直下でも解決・2026-07-18)・武器はアクター所持のみ
-        const getItem = (id) => sheet._siblingSkills?.find(i => i.id === id) ?? sheet._item.actor?.items.get(id);
-        const skillItemIds = [...new Set([usage.baseSkillRef?.itemId, ...(usage.skillRefs ?? []).map(r => r.itemId)].filter(Boolean))];
-        const styleSourceOpts = skillItemIds
-            .map(getItem)
-            .filter(it => it && it.type === "styleSkill" && it.system.identificationKey)
-            .map(it => ({ value: it.system.identificationKey, label: formatSkillName(it.name) }));
+        const getItem = (id) => id === sheet._item.id ? sheet._item
+            : sheet._siblingSkills?.find(i => i.id === id) ?? sheet._item.actor?.items.get(id);
+        const skillSourceOpts = buildSkillBonusSourceOptions(usage, context.baseSkillId, getItem);
         const weaponSourceOpts = (usage.weaponRefs ?? [])
             .map(r => getItem(r.itemId))
             .filter(it => it && it.system.identificationKey)
             .map(it => ({ value: it.system.identificationKey, label: it.name }));
         const sourceGroups = [];
-        if (styleSourceOpts.length)  sourceGroups.push({ label: "組み合わせ技能", options: styleSourceOpts });
+        if (skillSourceOpts.length)  sourceGroups.push({ label: "組み合わせ技能", options: skillSourceOpts });
         if (weaponSourceOpts.length) sourceGroups.push({ label: "使用武器", options: weaponSourceOpts });
         // 行ごとに selected 付きの供給元グループを作る(テンプレートの深いネスト回避)
         const rowGroups = (source) => sourceGroups.map(g => ({

@@ -4,6 +4,8 @@ import { TnxSkillUtils } from "../core/tnx-skill-utils.mjs";
 import { loadSkillChoices, loadCascadeData, buildSkillCascadeSteps, SKILL_PACKS, STYLE_PACK, ORGANIZATION_PACK, SOCIETY_CLASSES } from "../dictionary/skill-dictionary.mjs";
 import { MIRACLE_PACK } from "../dictionary/dictionary-browser-data.mjs";
 import { STAND_IN_KINDS } from "../rules/designation-response.mjs";
+import { ATTACK_DAMAGE_TYPES } from "../data/item/helpers.mjs";
+import { SKILL_ATTACK_METHODS } from "../rules/style-skill-usage-defaults.mjs";
 
 export class TokyoNovaStyleSkillSheet extends TokyoNovaItemSheet {
 
@@ -37,6 +39,11 @@ export class TokyoNovaStyleSkillSheet extends TokyoNovaItemSheet {
         context.options = TnxSkillUtils.getSkillOptions();
         const system = TokyoNovaStyleSkillSheet._normalizeSystem(this.item);
         context.system = system;
+        context.attackMethods = SKILL_ATTACK_METHODS;
+        context.damageTypes = ATTACK_DAMAGE_TYPES;
+        context.isPhysicalDamage = system.attackMethod === "physical";
+        context.damageConditionKinds = { none: "条件なし", wet: "ウェット", style: "スタイル", works: "ワークス" };
+        context.damageConditionModes = { exclude: "には無効", only: "のみ有効" };
         context.TNX = {
             SUITS: {
                 spade:   { label: "スペード", disabled: false },
@@ -63,6 +70,10 @@ export class TokyoNovaStyleSkillSheet extends TokyoNovaItemSheet {
         // スタイル欄・ワークス(組織名)欄の選択肢: スタイル辞典 / オーガニゼーション辞典(identificationKey 保存)
         context.styleChoices        = await loadSkillChoices([STYLE_PACK]);
         context.organizationChoices = await loadSkillChoices([ORGANIZATION_PACK]);
+        const conditionKind = system.damageBonusSelfCondition?.kind ?? "none";
+        context.damageConditionNeedsKey = ["style", "works"].includes(conditionKind);
+        context.damageConditionHasMode = conditionKind !== "none";
+        context.damageConditionKeys = conditionKind === "style" ? context.styleChoices : context.organizationChoices;
 
         // 技能名カスケード(10-3): value=技能名 の各 comboSkill 行に依存プルダウンの段(steps)を算出。
         // 2列グリッドに種別＋各段を流し込む。種別(1)＋段数 が奇数なら最後の段を全幅(最後が単独列にならないように)。
@@ -217,13 +228,6 @@ export class TokyoNovaStyleSkillSheet extends TokyoNovaItemSheet {
                 this._onSelectChange(event);
             });
         }
-
-        // isLimit チェックボックス: 解除時に uses フィールドをリセット
-        this.element.querySelector('input[name="system.uses.isLimit"]')
-            ?.addEventListener("change", (event) => {
-                event.stopPropagation();
-                this._onUsesLimitChange(event);
-            });
 
         // isSubstitute チェックボックス: 解除時に substituteTarget をリセット
         this.element.querySelector('input[name="system.isSubstitute"]')
@@ -483,17 +487,6 @@ export class TokyoNovaStyleSkillSheet extends TokyoNovaItemSheet {
         if (Object.keys(updateData).length) await this.item.update(updateData);
     }
 
-    async _onUsesLimitChange(event) {
-        const isChecked = event.currentTarget.checked;
-        const update = { "system.uses.isLimit": isChecked };
-        if (!isChecked) {
-            update["system.uses.spent"] = 0;
-            update["system.uses.max"]   = "";  // StringField(式可・2026-08-09)
-            update["system.uses.type"]  = "";
-        }
-        await this.item.update(update);
-    }
-
     async _onIsSubstituteChange(event) {
         const isChecked = event.currentTarget.checked;
         const update = { "system.isSubstitute": isChecked };
@@ -512,6 +505,12 @@ export class TokyoNovaStyleSkillSheet extends TokyoNovaItemSheet {
         const select = event.currentTarget;
         const fieldName = select.name;
         const value = select.value;
+
+        if (fieldName === "system.damageBonusSelfCondition.kind") {
+            await this.item.update({ [fieldName]: value,
+                "system.damageBonusSelfCondition.key": "", "system.damageBonusSelfCondition.mode": "exclude" });
+            return;
+        }
 
         // ── スカラーフィールド ────────────────────────────────────────────
         if (fieldName === "system.maxLevel") {

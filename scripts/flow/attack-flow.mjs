@@ -51,6 +51,8 @@ import { cardField, cardResult } from "../chat/chat-card.mjs";
 
 // 攻撃系統の明示表記(2026-07-15 ユーザー指摘: 判定カードで物理/精神/社会攻撃を明示)。
 // ※物理攻撃が与えるのは肉体ダメージ(攻撃名とダメージ名がずれるのは物理のみ)。
+import { restoreReactionDefense, reactionEffectPatch } from "../rules/reaction-effects.mjs";
+
 export const ATTACK_CATEGORY_LABELS = Object.freeze({
     physical: "物理攻撃",
     mental:   "精神攻撃",
@@ -123,9 +125,7 @@ export async function useAttack(item, usage) {
                 attackValue: Number(w.system.attack?.total ?? w.system.attack?.value) || 0,
                 damageType:  w.system.attack?.damageTypeTotal || w.system.attack?.damageType || "",
             }));
-        // スタン可能(2026-07-15): 使用武器のいずれかがスタン可能 ∨ 生身(武器なし) ∨ 用途.canStun(技能効果)
-        stunCapable = usage.canStun === true || usedWeapons.length === 0
-            || usedWeapons.some(w => w.system.canStun === true);
+        stunCapable = true;
         // 生身は value+mod が実効(AE はネイティブに value/mod へ乗る・UI 表示も value+mod)
         const baseAtk = actor.system.baseAttack ?? {};
         ({ weaponAttack, damageType, attackSourceName } =
@@ -169,6 +169,7 @@ export async function useAttack(item, usage) {
             // 対決欄(2026-07-17): リアクション導線の正本(手段行・技能名行・不可マスク)
             confrontation: foundry.utils.deepClone(usage.confrontation ?? []),
             category, damageType, weaponAttack, attackSourceName,
+            damageTypeOptions: usage.damageTypeOptions ?? [],
             damageBonuses: usage.damageBonuses ?? [],
             damageBonusSelf: usage.damageBonusSelf ?? "",
             damageBonusSelfStackable: usage.damageBonusSelfStackable === true,
@@ -177,7 +178,7 @@ export async function useAttack(item, usage) {
             damageBonusSelfCondition: usage.damageBonusSelfCondition ?? null,
             noEffectVsWet: usage.noEffectVsWet === true,
             sourceItemId: item.id,
-            stunCapable,                       // スタン攻撃を宣言できるか(物理・武器/生身/用途canStun 由来・2026-07-15)
+            stunCapable,                       // 物理攻撃は常にスタンを選択可能
             stunDeclared: false,               // 判定ダイアログのトグルで宣言される(2026-07-15)
             skillLabel: base.skillLabel,
             usageName: usageDisplayName(usage, item.name),
@@ -486,7 +487,8 @@ export async function rebuildRecheckedTargets(prevTargets, next) {
     const ability = SUIT_TO_ABILITY[next.suit];
     const wholeFail = next.fumble === true || next.suitMismatch === true;
     const out = [];
-    for (const t of (prevTargets ?? [])) {
+    for (const original of (prevTargets ?? [])) {
+        const t = restoreReactionDefense(original);
         // 新形式(複数リアクション併存・2026-07-18): 解決の進んだ対象(決断済み or リアクションあり)は
         // リアクションをやり直さず、保存済みの防御要素で新しい攻撃値に対して再合成する
         const hasComposite = Array.isArray(t.reactions) && (t.reactions.length || t.selfDecision);
@@ -924,15 +926,6 @@ function resolveUserIdentityActor({ warn = true } = {}) {
  * 閉じる(削除)。削除権限(GM か作者=攻撃者)がある場合のみ実行し、無ければ残す——その場合も
  * startReaction/handleNoReaction 側の「解決済み」ガードで誤った再解決は防がれる(2026-07-15)。
  */
-async function closeUnresolvedReactionCards(attackMessage, exceptIndex) {
-    const cards = game.messages.filter(m => {
-        const rf = m.getFlag(SYSTEM_ID, "attackReaction");
-        return rf && rf.attackMessageId === attackMessage.id && rf.resolved !== true && rf.targetIndex !== exceptIndex;
-    });
-    for (const rc of cards) {
-        if (game.user.isGM || rc.isAuthor) await rc.delete();
-    }
-}
 
 // ─── 命中確定(リアクションなし/対決) ─────────────────────────────────────────
 
@@ -1260,7 +1253,7 @@ export async function completeReactionFromCheck(payload, result, { suitMismatch 
     const f = attackMsg.getFlag(SYSTEM_ID, "attackCheck");
     if (!f) return;
 
-    const ok = !result.fumble && !suitMismatch;
+    const ok = !result.fumble && !suitMismatch && !result.forcedFailure;
     const reactAch = ok ? (result.achievement ?? 0) : 0;
     // このリアクション自身の勝敗(特性フラグの発火・リアクションカードの成否表示用)
     const { hit, diff } = resolveOpposed(f.achievement, reactAch);
@@ -1287,6 +1280,8 @@ export async function completeReactionFromCheck(payload, result, { suitMismatch 
         mode: payload.mode,
         achievement: result.achievement ?? 0,
         established: ok,
+        protectedTargetUuids: [...(payload.protectedTargetUuids ?? [])],
+        failsAttack: payload.failsAttack === true,
         // 受け値はパリー成立時のみ有効(実効値は resolveTargetDefense が成立パリーの最大1つを採る)
         parryWeapons: payload.parryWeapons ?? [],
         parryGuardBase: Number(payload.parryGuardBase) || 0,
@@ -1295,7 +1290,6 @@ export async function completeReactionFromCheck(payload, result, { suitMismatch 
         messageId: payload.reactionMessageId ?? null,
     };
 
-    let triggerAllAvoid = false;
 
     if (payload.open === true) {
         // オープンリアクション(対象なし・2026-07-18 任意・複数化 → 2026-07-19 直接起動): キャラごとに
@@ -1317,7 +1311,7 @@ export async function completeReactionFromCheck(payload, result, { suitMismatch 
         return;
     }
     {
-        const targets = foundry.utils.deepClone(f.targets ?? []);
+        const targets = foundry.utils.deepClone(f.targets ?? []).map(restoreReactionDefense);
         const t = targets[payload.targetIndex];
         if (!t) return;
         seedLegacyTarget(t);
@@ -1345,21 +1339,7 @@ export async function completeReactionFromCheck(payload, result, { suitMismatch 
         // 範囲攻撃へのリアクション / 攻撃を失敗させる(2026-07-15 ユーザー確定): **このリアクション自身の
         // 勝利**(高い方に負けた代理の特殊効果は発火しない・2026-07-18)をトリガーに、同じ攻撃の全対象を
         // 回避で解決する。ファンブル/スート不一致(不成立)や被弾時は発火しない
-        triggerAllAvoid = ok && !hit
-            && (payload.reactionAreaAttack === true || payload.reactionFailsAttack === true);
-        if (triggerAllAvoid) {
-            const selectedAreaTargets = new Set(payload.reactionAreaTargetUuids ?? []);
-            for (let i = 0; i < targets.length; i++) {
-                if (i === payload.targetIndex || !selectedAreaTargets.has(targets[i].uuid)) continue;
-                targets[i].state = "miss";
-                targets[i].resolution = "areaCover"; // 範囲攻撃へのリアクションで回避(達成値を持たない)
-                targets[i].reactionAchievement = null;
-                targets[i].diff = null;
-                targets[i].parryGuard = 0;
-            }
-        }
         const patch = { targets };
-        if (triggerAllAvoid && payload.reactionFailsAttack === true) patch.state = "failed";
         await applyAttackPatch(attackMsg, patch);
     }
 
@@ -1391,7 +1371,6 @@ export async function completeReactionFromCheck(payload, result, { suitMismatch 
     }
 
     // 全対象回避の場合、まだ未解決の他対象リアクションカードは不要になるので閉じる(権限のある側のみ)
-    if (triggerAllAvoid) await closeUnresolvedReactionCards(attackMsg, payload.targetIndex);
 }
 
 // ─── カバー(ダメージ算出の直前に、他者への予定ダメージを自身へ付け替える・2026-07-16 ユーザー確定) ──
@@ -1448,7 +1427,9 @@ export async function completeCoveringFromCheck(payload, result, { suitMismatch 
 
 /** 攻撃カードのフラグを更新する(全クライアントでライブ書き換え)。 */
 export async function applyAttackPatch(message, patch) {
-    await TnxSocketHandler.applyMessagePatch(message, patch, "attackCheck");
+    const current = message.getFlag(SYSTEM_ID, "attackCheck") ?? {};
+    const resolved = reactionEffectPatch(current, patch);
+    await TnxSocketHandler.applyMessagePatch(message, resolved, "attackCheck");
 }
 
 /** 攻撃カードの特定対象(targets[index])を更新する(配列ごと差し替え・権限委譲は applyAttackPatch)。 */

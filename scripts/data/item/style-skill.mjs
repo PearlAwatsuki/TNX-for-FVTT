@@ -129,6 +129,29 @@ export class StyleSkillDataModel extends SystemDataModel.mixin(BaseTemplate, Usa
       // 組み合わせ不可(この技能を使う組み合わせ判定自体が不可=単独判定のみ。用途でコンボ追加を抑止)
       noCombo:          new fields.BooleanField({ initial: false }),
 
+      // 用途作成時に複写する技能固有の判定・ダメージ設定。
+      dealsDamage: new fields.BooleanField({ initial: false }),
+      attackMethod: new fields.StringField({ initial: "physical", choices: ["physical", "mental", "social"] }),
+      // 空欄は「武器に従う」。choices を持つ StringField は明示しないと空欄を拒否する。
+      damageType: new fields.StringField({ initial: "", blank: true, choices: ["", "reference", "S", "P", "I", "X"] }),
+      checkMode: new fields.StringField({ initial: "normal", choices: ["normal", "grant", "modify"] }),
+      allowRecheck: new fields.BooleanField({ initial: false }),
+      allowSuitChange: new fields.BooleanField({ initial: false }),
+      grantsInterrupt: new fields.BooleanField({ initial: false }),
+      interruptConsumesAr: new fields.BooleanField({ initial: true }),
+      requiresVehicle: new fields.BooleanField({ initial: false }),
+      checkBonusSelf: new fields.StringField({ initial: "" }),
+      checkBonusSelfStackable: new fields.BooleanField({ initial: false }),
+      damageBonusSelf: new fields.StringField({ initial: "" }),
+      damageBonusSelfStackable: new fields.BooleanField({ initial: false }),
+      acquisitionModification: new fields.StringField({ initial: "" }),
+      canStun: new fields.BooleanField({ initial: false }),
+      damageBonusSelfCondition: new fields.SchemaField({
+        kind: new fields.StringField({ initial: "none" }),
+        mode: new fields.StringField({ initial: "exclude" }),
+        key: new fields.StringField({ initial: "" }),
+      }),
+
       // 代替ターゲット(単純な文字列配列。シートコメント: "単純な文字列の配列として扱います")
       substituteTarget: new fields.ArrayField(new fields.StringField()),
 
@@ -245,6 +268,11 @@ export class StyleSkillDataModel extends SystemDataModel.mixin(BaseTemplate, Usa
    * spent = max - value（[0, max] にクランプ）。あわせて uses.max を文字列へ移行する。
    */
   static migrateData(source) {
+    if (source.acquisitionModification === undefined && source.actions?.some(a => a.acquireModified === true)) {
+      source.acquisitionModification = "@item.self.system.levelTotal";
+    }
+    if (source.checkMode === "grant") { source.checkMode = "normal"; source.allowRecheck = true; }
+    if (source.checkMode === "modify") source.checkMode = "normal";
     migrateUsesValueToSpent(source);
     // uses.max の NumberField → StringField(2026-08-09)。**spent 移行の後に**呼ぶ(前者が max を数値で読む)
     migrateUsesMaxToString(source);
@@ -260,6 +288,8 @@ export class StyleSkillDataModel extends SystemDataModel.mixin(BaseTemplate, Usa
    */
   prepareDerivedData() {
     super.prepareDerivedData?.();
+    // 制限の有無は最大値の入力から決める。0や評価結果0の式も「制限あり」。
+    this.uses.isLimit = String(this.uses.max ?? "").trim() !== "";
     this._applyLevelRef();
     computeUsesMaxTotal(this);
   }

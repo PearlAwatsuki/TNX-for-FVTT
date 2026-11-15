@@ -251,36 +251,90 @@
                             </div>
                         </div>
 
-                        {{!-- 「使用回数に制限あり」トグルは特性セクションへ移動(2026-07-09)。オン時に詳細を表示 --}}
+                    </div>
+                </fieldset>
+
+                <fieldset class="tnx-fieldset">
+                    <legend>判定</legend>
+
+                    <div class="usage-form-row usage-toggle-row">
+                        <label class="usage-toggle-inline"><input type="checkbox" name="system.requiresVehicle" {{checked system.requiresVehicle}}>ヴィークル準備時</label>
+                    </div>
+                    <div class="form-group">
+                        <label>判定修正（式）</label>
+                        <input type="text" name="system.checkBonusSelf" value="{{system.checkBonusSelf}}" placeholder="式（例: @item.self.system.levelTotal、2）">
+                    </div>
+                    <label class="usage-toggle-inline"><input type="checkbox" name="system.checkBonusSelfStackable" {{checked system.checkBonusSelfStackable}}>重複可</label>
+                </fieldset>
+
+                <details class="tnx-fieldset" {{#if system.acquisitionModification}}open{{/if}}>
+                    <summary>入手時の改造</summary>
+                    <div class="form-group">
+                        <label>改造値（式）</label>
+                        <input type="text" name="system.acquisitionModification" value="{{system.acquisitionModification}}" placeholder="@item.self.system.levelTotal">
+                    </div>
+                </details>
+
+                {{#if system.dealsDamage}}
+                <fieldset class="tnx-fieldset">
+                    <legend>ダメージ</legend>
+                    <div class="form-group">
+                        <label>攻撃方法</label>
+                        <select name="system.attackMethod">{{selectOptions attackMethods selected=system.attackMethod}}</select>
+                    </div>
+                    {{#if isPhysicalDamage}}
+                    <div class="form-group">
+                        <label>ダメージ種別</label>
+                        <select name="system.damageType">
+                            <option value="">── 武器に従う ──</option>
+                            {{selectOptions damageTypes selected=system.damageType}}
+                        </select>
+                    </div>
+                    {{/if}}
+                    <div class="form-group">
+                        <label>ダメージ修正（式）</label>
+                        <input type="text" name="system.damageBonusSelf" value="{{system.damageBonusSelf}}" placeholder="式（例: @item.self.system.levelTotal + 2）">
+                    </div>
+                    <label class="usage-toggle-inline"><input type="checkbox" name="system.damageBonusSelfStackable" {{checked system.damageBonusSelfStackable}}>重複可</label>
+                    <div class="form-group">
+                        <label>対象条件</label>
+                        <div class="form-fields">
+                            <select name="system.damageBonusSelfCondition.kind">{{selectOptions damageConditionKinds selected=system.damageBonusSelfCondition.kind}}</select>
+                            {{#if damageConditionNeedsKey}}
+                            <select name="system.damageBonusSelfCondition.key">{{selectOptions damageConditionKeys selected=system.damageBonusSelfCondition.key}}</select>
+                            {{/if}}
+                            {{#if damageConditionHasMode}}
+                            <select name="system.damageBonusSelfCondition.mode">{{selectOptions damageConditionModes selected=system.damageBonusSelfCondition.mode}}</select>
+                            {{/if}}
+                        </div>
+                    </div>
+                </fieldset>
+                {{/if}}
+
+                <fieldset class="tnx-fieldset">
+                    <legend>使用回数</legend>
+                    <div class="tnx-form-field">
                         {{#if usesSharedWithOwner}}
                         <p class="usage-empty-hint">
                             <i class="fas fa-link"></i> 使用回数は本体「{{usesOwnerName}}」と共有されます
                         </p>
                         {{/if}}
-                        {{#if system.uses.isLimit}}
                             <div class="form-group">
                                 <label>種別</label>
                                 <select name="system.uses.type" {{#if usesSharedWithOwner}}disabled{{/if}}>
                                     {{selectOptions options.usesType selected=system.uses.type}}
                                 </select>
                             </div>
-                            <div class="form-group usage-limit-group">
-                                <label>使用回数</label>
-                                <div class="usage-inputs">
-                                    <div class="usage-field">
-                                        <label>消費済み</label>
-                                        <input type="number" name="system.uses.spent" value="{{system.uses.spent}}" {{#if usesSharedWithOwner}}disabled{{/if}}>
-                                    </div>
-                                    <span class="usage-separator">/</span>
-                                    <div class="usage-field usage-field--formula">
-                                        <label>最大値</label>
-                                        <input type="text" name="system.uses.max" value="{{system.uses.max}}"
-                                               placeholder="数値 または 式"
-                                               {{#if usesSharedWithOwner}}disabled{{/if}}>
-                                    </div>
-                                </div>
+                            <div class="form-group">
+                                <label>消費済み</label>
+                                <input type="number" name="system.uses.spent" value="{{system.uses.spent}}" {{#if usesSharedWithOwner}}disabled{{/if}}>
                             </div>
-                        {{/if}}
+                            <div class="form-group">
+                                <label>最大値</label>
+                                <input type="text" name="system.uses.max" value="{{system.uses.max}}"
+                                       placeholder="数値 または 式"
+                                       {{#if usesSharedWithOwner}}disabled{{/if}}>
+                            </div>
                     </div>
                 </fieldset>
 

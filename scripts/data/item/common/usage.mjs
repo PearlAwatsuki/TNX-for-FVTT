@@ -54,6 +54,8 @@ export class UsageTemplate extends SystemDataModel {
                     type:        new fields.StringField({ initial: "check" }),
                     name:        new fields.StringField({ initial: "" }),
                     description: new fields.StringField({ initial: "" }),
+                    skillSettingsSync: new fields.ObjectField({ initial: {} }),
+                    damageTypeOptions: new fields.ArrayField(new fields.StringField(), { initial: [] }),
 
                     // タイミング (getSkillOptions().timing + actions/processes 準拠)
                     timing: new fields.SchemaField({
@@ -166,6 +168,8 @@ export class UsageTemplate extends SystemDataModel {
                     baseSkillRef: new fields.SchemaField({
                         itemId: new fields.StringField({ initial: "" }),
                     }),
+                    baseSkillCleared: new fields.BooleanField({ initial: false }),
+                    autoRequiredSkillIds: new fields.ArrayField(new fields.StringField(), { initial: [] }),
 
                     // check・attack: 組み合わせ技能 item ID リスト（ベース技能は含まない）
                     skillRefs: new fields.ArrayField(
@@ -492,6 +496,8 @@ export class UsageTemplate extends SystemDataModel {
         if (Array.isArray(source.actions)) {
             source.actions = source.actions.map(a => {
                 let migrated = a._id ? a : { ...a, _id: foundry.utils.randomID() };
+                if (migrated.grantRecheck || migrated.allowRecheck) migrated = { ...migrated, allowRecheck: false, grantRecheck: false };
+                if (migrated.modifyCheck) migrated = { ...migrated, modifyCheck: false };
                 if (typeof migrated.negateMiracle === "string") {
                     migrated = { ...migrated, negateMiracle: migrated.negateMiracle ? [migrated.negateMiracle] : [] };
                 }
@@ -506,9 +512,7 @@ export class UsageTemplate extends SystemDataModel {
                     migrated = { ...migrated, type: "declaration" };
                 }
                 // 旧「ダメージを増加」(boostDamage)は「ダメージを修正」(modifyDamage)へ置換(2026-07-11)
-                if (migrated.boostDamage === true && migrated.modifyDamage === undefined) {
-                    migrated = { ...migrated, modifyDamage: true };
-                }
+                if (migrated.boostDamage || migrated.modifyDamage) migrated = { ...migrated, modifyDamage: false, boostDamage: false };
                 // 用途タイプの一本化(2026-07-13)のうち、旧 modification→check の変換は削除
                 // (2026-07-17 行動種別再編で「改造」タイプが復活したため。残しておくと新規作成した
                 // 改造用途がロードのたびに判定へ化ける)。旧 npcAcquire のフラグ化は継続:
