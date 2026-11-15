@@ -20,7 +20,6 @@ import { USAGE_TYPE_LABELS, executionFormOf, usageDisplayName, effectiveBaseSkil
 import {
     CHAIN_SKILL_TYPES,
     updateUsageActions,
-    resolveUsageSiblingSkills,
     normalizeSkillItemDoc,
     deriveUsageAutoFill,
     deriveWeaponRangeLive,
@@ -29,7 +28,9 @@ import {
 import { prepareUsageContext, ACQUIRE_MODES } from "./usage-sheet-context.mjs";
 
 import { submitUsageForm } from "./usage-sheet-submit.mjs";
-import { applyRegisteredSkillDefaults } from "../rules/style-skill-usage-defaults.mjs";
+import { migrateUsageSettings, restoreUsageSettings, USAGE_SKILL_FIELDS } from "../rules/usage-skill-sync.mjs";
+
+import { UsageSettingsMigrationDialog } from "../ui/tnx-dialog.mjs";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -56,6 +57,8 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             closeOnSubmit: false,
         },
         actions: {
+            migrateSettings: TnxUsageSheet._onMigrateSettings,
+            restoreSettings: TnxUsageSheet._onRestoreSettings,
             skillRefDelete:        TnxUsageSheet._onSkillRefDelete,
             ignoreComboDelete:     TnxUsageSheet._onIgnoreComboDelete,
             weaponRefDelete:       TnxUsageSheet._onWeaponRefDelete,
@@ -91,6 +94,37 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             decrementAcquireCount: TnxUsageSheet._onAcquireCountDec,
         },
     };
+
+    static async _onMigrateSettings() {
+        if (!this._item.isOwner || (this._item.pack && game.packs.get(this._item.pack)?.locked)) return;
+        const before = foundry.utils.deepClone(this.usage);
+        const decisions = await UsageSettingsMigrationDialog.prompt(before, USAGE_SKILL_FIELDS);
+        if (!decisions || typeof decisions !== "object") return;
+        await updateUsageActions(this._item, actions => {
+            const index = actions.findIndex(u => u._id === this._usageId);
+            if (index < 0) return null;
+            if (JSON.stringify(actions[index]) !== JSON.stringify(before)) {
+                ui.notifications.warn("確認中に用途が変更されました。最新の設定で再確認してください。"); return null;
+            }
+            actions[index] = migrateUsageSettings(actions[index], decisions);
+            return actions;
+        });
+        this.render({ force: true });
+    }
+
+    static async _onRestoreSettings() {
+        if (!this._item.isOwner || (this._item.pack && game.packs.get(this._item.pack)?.locked)) return;
+        const before = JSON.stringify(this.usage);
+        if (await UsageSettingsMigrationDialog.confirmRestore() !== true) return;
+        await updateUsageActions(this._item, actions => {
+            const index = actions.findIndex(u => u._id === this._usageId);
+            if (index < 0 || !actions[index].settingsBackup) return null;
+            if (JSON.stringify(actions[index]) !== before) { ui.notifications.warn("確認中に用途が変更されました。再確認してください。"); return null; }
+            actions[index] = restoreUsageSettings(actions[index]);
+            return actions;
+        });
+        this.render({ force: true });
+    }
 
     static async _onNegateMiracleDelete(_event, target) {
         if (!this.usage) return;
@@ -185,6 +219,7 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
                         return;
                     }
                     await this._patchUsage({ skillRefs: [...usage.skillRefs, { itemId }] });
+                    await this._enforceComboRequirements();
                     this.render({ force: true });
                 });
             }
@@ -243,6 +278,7 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
                     const usage = this.usage;
                     if (!usage || (usage.ignoreComboSkills ?? []).includes(key)) { ev.target.value = ""; return; }
                     await this._patchUsage({ ignoreComboSkills: [...(usage.ignoreComboSkills ?? []), key] });
+                    await this._enforceComboRequirements();
                     this.render({ force: true });
                 });
             }
@@ -301,8 +337,7 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             }
         }
 
-        // 技能チェーンの既定ベース設定・必須コンボの自動付与(冪等。変更があるときだけ update→再レンダリングで収束)
-        if (context.editable) this._enforceComboRequirements();
+        // Rendering must not persist combo defaults. Explicit edits enforce them.
 
         // 再描画後にスクロール位置を復元する(行の追加/削除等の操作でリセットされるのを防ぐ)
         restoreScrollTop(this.element, ".usage-sheet-body", this._usageScrollTop);
@@ -562,6 +597,7 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
 
         const skillRefs = usage.skillRefs.filter((_, i) => i !== idx);
         await this._patchUsage({ skillRefs });
+        await this._enforceComboRequirements();
         this.render({ force: true });
     }
 
@@ -641,6 +677,7 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             return;
         }
         await this._patchUsage({ ignoreComboSkills: next });
+        await this._enforceComboRequirements();
         this.render({ force: true });
     }
 
@@ -702,14 +739,8 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
         await updateUsageActions(this._item, async (actions) => {
             const idx = actions.findIndex(a => a._id === this._usageId);
             if (idx === -1) return null;
-            const previous = foundry.utils.deepClone(actions[idx]);
             for (const [key, value] of Object.entries(patch)) {
                 foundry.utils.setProperty(actions[idx], key, value);
-            }
-            if (Object.keys(patch).some(key => key === "skillRefs" || key === "baseSkillRef" || key.startsWith("baseSkillRef."))) {
-                const siblings = await resolveUsageSiblingSkills(this._item);
-                const byId = new Map(siblings.map(item => [item.id, item]));
-                applyRegisteredSkillDefaults(previous, actions[idx], this._item.id, id => byId.get(id));
             }
             return actions;
         });
@@ -892,6 +923,8 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             position: { width: 400 },
             content,
             actions: {
+            migrateSettings: TnxUsageSheet._onMigrateSettings,
+            restoreSettings: TnxUsageSheet._onRestoreSettings,
                 trimToggle: (_event, target) => {
                     const pressed = target.getAttribute("aria-pressed") === "true";
                     target.setAttribute("aria-pressed", String(!pressed));
@@ -993,11 +1026,6 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
     }
     /** @override 組み立ての実体は usage-sheet-context.mjs(super はここでしか呼べない)。 */
     async _prepareContext(options) {
-        const usage = this.usage;
-        if (usage?.type === "parry" && !(usage.weaponRefs ?? []).length) {
-            const parryItemId = this._item.actor?.system?.weaponRefs?.parryItemId || "";
-            if (parryItemId) await this._patchUsage({ weaponRefs: [{ itemId: parryItemId }] });
-        }
         return prepareUsageContext(this, await super._prepareContext(options));
     }
 

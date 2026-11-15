@@ -7,7 +7,7 @@
  */
 
 import { SYSTEM_ID } from "../constants.mjs";
-import { synchronizeItemUsages } from "../core/usage-skill-sync.mjs";
+import { resolveUsageSettings, diagnoseUsageSettings } from "../rules/usage-skill-sync.mjs";
 import { TnxSkillUtils } from "../core/tnx-skill-utils.mjs";
 import { getComboSuits } from "../rules/tnx-check-engine.mjs";
 import { comboLockAnalysis, isComboRequired } from "../rules/skill-chain-resolution.mjs";
@@ -103,14 +103,25 @@ export function buildSkillBonusSourceOptions(usage, baseId, getItem) {
 
 /** @override */
 export async function prepareUsageContext(sheet, context) {
-    if (sheet._item.isOwner && !(sheet._item.pack && game.packs.get(sheet._item.pack)?.locked))
-        await synchronizeItemUsages(sheet._item);
     const usage = sheet.usage;
     if (!usage) {
         sheet.close();
         return context;
     }
 
+    const siblings = await resolveUsageSiblingSkills(sheet._item);
+    const byId = new Map(siblings.map(item => [item.id, item]));
+    const resolution = resolveUsageSettings(usage, sheet._item, id => byId.get(id));
+    context.settingsNeedsReview = diagnoseUsageSettings(usage).needsReview;
+    context.settingsCanRestore = !!usage.settingsBackup;
+    context.settingsDiagnostics = resolution.diagnostics;
+    context.skillCheckContributions = resolution.contributions.checkBonuses;
+    context.skillDamageContributions = resolution.contributions.damageBonuses.map(row => ({ ...row,
+        conditionLabel: row.targetCondition?.kind && row.targetCondition.kind !== "none"
+            ? `${TARGET_COND_KIND_LABELS[row.targetCondition.kind] ?? row.targetCondition.kind}${row.targetCondition.key ? `: ${row.targetCondition.key}` : ""} ${TARGET_COND_MODE_LABELS[row.targetCondition.mode] ?? ""}` : "条件なし",
+    }));
+    context.effectiveSettings = resolution.effective;
+    // Inputs remain the saved local settings; effective output is read-only.
     context.usage      = foundry.utils.deepClone(usage);
     context.item       = sheet._item;
     context.noCombo    = sheet._item.system?.noCombo === true; // 組み合わせ不可: コンボ(組み合わせ技能)の設定を抑止

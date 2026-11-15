@@ -1,3 +1,4 @@
+import { resolveUsageSettings } from "../../scripts/rules/usage-skill-sync.mjs";
 import { beforeAll, afterEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 
@@ -61,22 +62,27 @@ describe("用途作成時の自動入力", () => {
                 damageBonusSelf: "5", damageBonusSelfStackable: true,
                 damageBonusSelfCondition: { kind: "wet", mode: "exclude", key: "" } };
             const usage = await createUsage(undefined, { system });
-            expect(usage).toMatchObject({ type, allowRecheck: true, allowSuitChange: true,
-                checkBonusSelf: system.checkBonusSelf, checkBonusSelfStackable: true,
-                damageBonusSelf: "5", damageBonusSelfStackable: true, damageBonusSelfCondition: system.damageBonusSelfCondition });
-            expect(usage.damageType).toBe(type === "physicalAttack" ? "P" : "");
-            if (type === "physicalAttack") expect(usage.canStun).toBe(true);
-            expect(usage.damageBonusSelfCondition).not.toBe(system.damageBonusSelfCondition);
+            expect(usage.settingsVersion).toBe(1);
+            expect(usage.checkBonusSelf).toBeUndefined();
+            expect(usage.damageBonuses).toEqual([]);
+            const result = resolveUsageSettings(usage, { id: "parent-skill", type: "styleSkill", system });
+            expect(result.effective).toMatchObject({ type, allowRecheck: true, allowSuitChange: true });
+            expect(result.contributions.checkBonuses[0].formula).toBe(system.checkBonusSelf);
+            expect(result.contributions.damageBonuses[0]).toMatchObject({ formula: "5", stackable: true,
+                targetCondition: system.damageBonusSelfCondition });
+            expect(result.effective.damageType).toBe(type === "physicalAttack" ? "P" : "");
         });
 
-    it.each([["grant", true, false], ["modify", false, true]])("判定モード %s を用途へ複写する", async (checkMode, grantRecheck, modifyCheck) => {
-        const usage = await createUsage("check", { system: { checkMode, allowRecheck: true, allowSuitChange: true, checkBonusSelf: "3" } });
-        expect(usage).toMatchObject({ grantRecheck: false, modifyCheck, allowRecheck: grantRecheck, allowSuitChange: false, checkBonusSelf: "3" });
+    it("does not copy skill permissions into new local settings", async () => {
+        const usage = await createUsage("check", { system: { allowRecheck: true, checkBonusSelf: "3" } });
+        expect(usage.allowRecheck).toBeUndefined();
+        expect(usage.checkBonusSelf).toBeUndefined();
+        expect(usage.settingsVersion).toBe(1);
     });
 
     it("ダメージ特性オフでは保管されているダメージ設定を複写しない", async () => {
         const usage = await createUsage("physicalAttack", { system: { dealsDamage: false, damageBonusSelf: "99", damageType: "X" } });
-        expect(usage.damageBonusSelf).toBe("");
+        expect(usage.damageBonusSelf ?? "").toBe("");
         expect(usage.damageType).toBe("");
     });
 

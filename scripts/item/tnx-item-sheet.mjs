@@ -4,13 +4,13 @@ import { restoreEnchantmentEditValues } from "../rules/enchantment-attributes.mj
 import { captureScrollTop, restoreScrollTop } from "../ui/scroll-preserve.mjs";
 import { EffectsSheetMixin } from "../ui/effects-sheet-mixin.mjs";
 import { TnxUsageSheet, USAGE_TYPES } from "../app/tnx-usage-sheet.mjs";
-import { deriveUsageAutoFill, updateUsageActions } from "../core/usage-derivation.mjs";
+import { deriveUsageAutoFill, updateUsageActions, resolveUsageSiblingSkills } from "../core/usage-derivation.mjs";
 import { usageTypeLabelsFor, defaultUsageTypeFor } from "../rules/usage-types.mjs";
 import { defaultConfrontationForType, executionFormOf, usageDisplayName, usesVehicle } from "../rules/usage-types.mjs";
 import { resolveBunshinOwner } from "../flow/usage-consumption.mjs";
 import { attachEditorSectionToggles } from "../ui/editor-sections.mjs";
 import { activateItemCheck } from "../flow/item-activation.mjs";
-import { styleSkillAttackType, styleSkillUsageDefaults } from "../rules/style-skill-usage-defaults.mjs";
+import { styleSkillAttackType } from "../rules/style-skill-usage-defaults.mjs";
 
 const { HandlebarsApplicationMixin } = foundry.applications.api;
 const { ItemSheetV2 } = foundry.applications.sheets;
@@ -294,6 +294,7 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
         const newId = foundry.utils.randomID();
         const entry = {
             _id:         newId,
+            settingsVersion: 1,
             type,
             // 用途名の既定は空(2026-07-17 ユーザー確定): 空のときの実効名=「タイプ名（親アイテム名）」
             name:        "",
@@ -316,9 +317,11 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
             ...(isFixedCheck ? { fixedResult: 10 } : {}),
         };
 
-        if (this.item.type === "styleSkill" && !miracleOwnEffect) {
-            Object.assign(entry, styleSkillUsageDefaults(this.item.system, entry));
-        }
+
+
+        // Seed the initial parry weapon during explicit creation, never while rendering.
+        if (type === "parry" && this.item.actor?.system?.weaponRefs?.parryItemId)
+            entry.weaponRefs = [{ itemId: this.item.actor.system.weaponRefs.parryItemId }];
 
         // 自動入力の作成時一回適用: 判定系・宣言用途は親技能の固有値から
         // 発動パラメータと消費行を導出して初期値にする(以降の再導出はシートのボタンで明示的に。
@@ -343,6 +346,10 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
 
         // 作成直後に編集シートを開く
         const sheet = new TnxUsageSheet(this.item, newId);
+        if (sheet._enforceComboRequirements) {
+            sheet._siblingSkills = await resolveUsageSiblingSkills(this.item);
+            await sheet._enforceComboRequirements();
+        }
         sheet.render({ force: true });
     }
 

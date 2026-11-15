@@ -54,6 +54,8 @@ export class UsageTemplate extends SystemDataModel {
                     type:        new fields.StringField({ initial: "check" }),
                     name:        new fields.StringField({ initial: "" }),
                     description: new fields.StringField({ initial: "" }),
+                    settingsVersion: new fields.NumberField({ initial: 0, integer: true }),
+                    settingsBackup: new fields.ObjectField({ nullable: true, initial: null }),
                     skillSettingsSync: new fields.ObjectField({ initial: {} }),
                     damageTypeOptions: new fields.ArrayField(new fields.StringField(), { initial: [] }),
 

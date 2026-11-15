@@ -1,58 +1,11 @@
 import { describe, it, expect, vi, beforeAll } from "vitest";
 import { JSDOM } from "jsdom";
-import { syncUsageSkills } from "../../scripts/rules/usage-skill-sync.mjs";
 import { TargetSelectionDialog } from "../../scripts/ui/tnx-dialog.mjs";
-import { registerUsageSkillSync, synchronizeItemUsages } from "../../scripts/core/usage-skill-sync.mjs";
 
 const skill = (id, extra = {}) => ({ id, type: "styleSkill", system: {
     identificationKey: id, checkMode: "normal", checkBonusSelf: "@item.self.system.levelTotal",
     dealsDamage: true, damageBonusSelf: "2", allowRecheck: true, damageType: "P", ...extra,
 } });
-describe("live skill settings in combined usages", () => {
-    it("updates formulas, preserves manual rows, and removes departed contributions", () => {
-        const a = skill("a"), b = skill("b", { damageType: "S" });
-        const usage = { type: "physicalAttack", skillRefs: [{ itemId: "b" }],
-            checkBonuses: [{ source: "manual", formula: "1" }] };
-        const sync = () => syncUsageSkills(usage, a, id => id === "b" ? b : null);
-        sync();
-        expect(usage.checkBonuses).toHaveLength(2);
-        expect(usage.checkBonuses[1].formula).toBe("@item.b.system.levelTotal");
-        expect(usage.damageTypeOptions).toEqual(["P", "S"]);
-        a.system.checkBonusSelf = "4"; b.system.checkBonusSelf = "@item.self.system.levelTotal * 2";
-        sync(); sync();
-        expect(usage.checkBonusSelf).toBe("4");
-        expect(usage.checkBonuses).toHaveLength(2);
-        expect(usage.checkBonuses[1].formula).toContain(" * 2");
-        usage.skillRefs = [];
-        a.system.allowRecheck = false;
-        sync();
-        expect(usage.checkBonuses).toEqual([{ source: "manual", formula: "1" }]);
-        expect(usage.damageBonuses).toEqual([]);
-        expect(usage.allowRecheck).toBe(false);
-        expect(usage.damageTypeOptions).toEqual(["P"]);
-    });
-    it("keeps a shared flag until the last supplying skill is removed", () => {
-        const parent = { id: "base", type: "generalSkill", system: {} };
-        const skills = new Map(["a", "b"].map(id => [id, skill(id)]));
-        const usage = { type: "check", skillRefs: [{ itemId: "a" }, { itemId: "b" }] };
-        syncUsageSkills(usage, parent, id => skills.get(id));
-        usage.skillRefs.pop();
-        syncUsageSkills(usage, parent, id => skills.get(id));
-        expect(usage.allowRecheck).toBe(true);
-        usage.skillRefs = [];
-        syncUsageSkills(usage, parent, id => skills.get(id));
-        expect(usage.allowRecheck).toBe(false);
-    });
-    it("supports declarations and does not read another usage to obtain bonuses", () => {
-        const parent = skill("a");
-        Object.defineProperty(parent.system, "actions", { get() { throw Error("must not read usages"); } });
-        const usage = { type: "declaration" };
-        syncUsageSkills(usage, parent, () => null);
-        expect(usage.allowRecheck).toBe(true);
-        expect(usage.checkBonusSelf).toContain("levelTotal");
-    });
-});
-
 describe("recheck runtime choices", () => {
     let Flow, renderRecheckButton;
     beforeAll(async () => {
@@ -106,19 +59,41 @@ describe("recheck runtime choices", () => {
         const refresh = vi.spyOn(Flow, "_refreshDialog").mockImplementation(() => {});
         const ctx = { actorId: "actor", type: "skillCheck", isRecheck: true, sourceItemId: "a",
             baseSkillIds: ["a"], skillIds: ["a"], dialogAddedSkillIds: [], baseConsumeUses: [],
+            usageSettingsInput: { settingsVersion: 1, type: "physicalAttack", skillRefs: [] },
             attack: { isAttack: true, category: "physical", damageBonuses: [] } };
         Flow._context = ctx;
         expect(await Flow.addDialogSkill("b")).toBe(true);
         expect(ctx.skillIds).toEqual(["a", "b"]);
-        expect(ctx.checkBonuses.map(row => row.source)).toEqual(["b"]);
+        expect(ctx.checkBonuses.map(row => row.source)).toEqual(["a", "b"]);
         expect(ctx.attack.damageTypeOptions).toEqual(["P", "S"]);
+        expect(ctx.attack.damageType).toBe("P");
+        a.system.damageType = "I";
         expect(await Flow.removeDialogSkill("b")).toBe(true);
         expect(ctx.skillIds).toEqual(["a"]);
-        expect(ctx.checkBonuses).toEqual([]);
-        expect(ctx.attack.damageBonuses).toEqual([]);
+        expect(ctx.checkBonuses.map(row => row.source)).toEqual(["a"]);
+        expect(ctx.attack.damageBonuses.map(row => row.source)).toEqual(["a"]);
+        expect(ctx.attack.damageType).toBe("I");
+        expect(ctx.attack.damageTypeOptions).toEqual(["I"]);
         expect(ctx.consumeUses).toEqual([]);
         Flow._context = null;
         block.mockRestore(); refresh.mockRestore(); vi.unstubAllGlobals();
+    });
+    it("preserves legacy recheck values without inferring their provenance", async () => {
+        const a = skill("a", { suits: { spade: true } });
+        const actor = { id: "actor", system: {}, items: new Map([["a", a]]) };
+        vi.stubGlobal("game", { actors: new Map([["actor", actor]]), packs: new Map(), items: [], tnx: {} });
+        const attack = { isAttack: true, category: "physical", damageType: "X", damageTypeOptions: ["X", "S"],
+            damageBonuses: [{ source: "a", formula: "17" }], damageBonusSelfCondition: { kind: "wet", mode: "only", key: "" } };
+        const ctx = { actorId: "actor", type: "skillCheck", isRecheck: true, sourceItemId: "a",
+            baseSkillIds: ["a"], dialogAddedSkillIds: [], checkBonusSelf: "13", checkBonusSelfStackable: true,
+            checkBonuses: [{ source: "a", formula: "11" }], attack: structuredClone(attack) };
+        Flow._context = ctx;
+        await Flow._rebuildDialogSkillContext();
+        expect(ctx.checkBonusSelf).toBe("13");
+        expect(ctx.checkBonuses).toEqual([{ source: "a", formula: "11" }]);
+        expect(ctx.attack).toMatchObject(attack);
+        Flow._context = null;
+        vi.unstubAllGlobals();
     });
     it("merges current body bonuses once and consumes only the newly supplied plan", async () => {
         const a = skill("a", { suits: { spade: true } });
@@ -127,7 +102,8 @@ describe("recheck runtime choices", () => {
         const actor = { id: "actor", isOwner: true, system: {}, items: new Map([["a", a], ["b", b]]) };
         vi.stubGlobal("game", { user: { isGM: false }, actors: new Map([["actor", actor]]) });
         const rc = { actorId: "actor", type: "skillCheck", sourceItemId: "a", skillIds: ["a"], validSuits: ["spade"],
-            checkBonuses: [], checkBonusSelf: "old", attack: { isAttack: true, category: "physical", damageBonuses: [] } };
+            usageSettingsInput: { settingsVersion: 1, type: "physicalAttack", checkBonusSelf: "9", skillRefs: [] },
+            checkBonuses: [], checkBonusSelf: "9", attack: { isAttack: true, category: "physical", damageBonuses: [] } };
         const message = { id: "m", getFlag: () => rc };
         const block = vi.spyOn(Flow, "recheckBlockReason").mockReturnValue(null);
         const open = vi.spyOn(Flow, "open").mockResolvedValue();
@@ -135,45 +111,13 @@ describe("recheck runtime choices", () => {
         await Flow.startRecheck(message, { mergeSkill: b, consumeUses: plan });
         const context = open.mock.calls[0][0];
         expect(context.skillIds).toEqual(["a", "b"]);
-        expect(context.checkBonuses).toHaveLength(1);
-        expect(context.checkBonuses[0].source).toBe("b");
-        expect(context.checkBonusSelf).toContain("levelTotal");
-        expect(context.attack.damageBonuses).toHaveLength(1);
+        expect(context.checkBonuses).toHaveLength(2);
+        expect(context.checkBonuses[1].source).toBe("b");
+        expect(context.checkBonusSelf).toBe("9");
+        expect(context.attack.damageBonuses).toHaveLength(2);
         expect(context.attack.damageTypeOptions).toEqual(["P", "S"]);
         expect(context.consumeUses).toBe(plan);
         expect(rc.skillIds).toEqual(["a"]);
         open.mockRestore(); block.mockRestore(); vi.unstubAllGlobals();
-    });
-});
-
-describe("body updates refresh usages on other items", () => {
-    it("updates the dependent item and settles after schema key reordering", async () => {
-        const source = skill("source");
-        const target = { id: "target", type: "generalSkill", system: { actions: [
-            { type: "physicalAttack", skillRefs: [{ itemId: "source" }] },
-        ] } };
-        const items = [source, target];
-        const actor = { items };
-        for (const item of items) {
-            item.actor = actor; item.isOwner = true; item.uuid = `Actor.a.Item.${item.id}`;
-            item.update = vi.fn(async patch => {
-                item.system.actions = JSON.parse(JSON.stringify(patch["system.actions"], (_key, value) =>
-                    value && typeof value === "object" && !Array.isArray(value)
-                        ? Object.fromEntries(Object.entries(value).reverse()) : value));
-            });
-        }
-        foundry.utils.deepClone = structuredClone;
-        const hooks = new Map();
-        vi.stubGlobal("Hooks", { on: (name, callback) => hooks.set(name, callback) });
-        vi.stubGlobal("game", { user: { id: "u" } });
-        registerUsageSkillSync();
-        await hooks.get("updateItem")(source, {}, {}, "u");
-        source.system.checkBonusSelf = "7";
-        await hooks.get("updateItem")(source, {}, {}, "u");
-        expect(target.system.actions[0].checkBonuses[0].formula).toBe("7");
-        const count = target.update.mock.calls.length;
-        await synchronizeItemUsages(target);
-        expect(target.update).toHaveBeenCalledTimes(count);
-        vi.unstubAllGlobals();
     });
 });

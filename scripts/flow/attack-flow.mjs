@@ -92,7 +92,7 @@ export async function useAttack(item, usage) {
     // (合算能力の表現・2026-07-09。純ロジックは combineWeaponAttack)。
     // FA(フルオート)の自動加算は廃止(2026-07-18 ユーザー確定)——FA 値は用途のダメージボーナス式で
     // 手動参照(@item.<識別キー>.system.FAValueTotal)する。弾数の自動消費も廃止(用途の消費設定のみ)。
-    let weaponAttack = 0, damageType = "", attackSourceName = "", stunCapable = false;
+    let weaponAttack = 0, damageType = "", attackSourceName = "", stunCapable = false, weaponDamageType = "";
     if (category === "physical") {
         // 白兵/射撃の区分フラグで使用武器を絞る(2026-07-17 ユーザー確定)。生身(生身書き換え装備・
         // cyborg 含む)は白兵武器として扱う。射撃攻撃は純粋な生身では行えない=射撃武器フラグの
@@ -128,6 +128,10 @@ export async function useAttack(item, usage) {
         stunCapable = true;
         // 生身は value+mod が実効(AE はネイティブに value/mod へ乗る・UI 表示も value+mod)
         const baseAtk = actor.system.baseAttack ?? {};
+        weaponDamageType = combineWeaponAttack(weapons, "", {
+            value: (Number(baseAtk.value) || 0) + (Number(baseAtk.mod) || 0),
+            damageType: baseAtk.damageTypeTotal || baseAtk.damageType,
+        }).damageType;
         ({ weaponAttack, damageType, attackSourceName } =
             combineWeaponAttack(weapons, usage.damageType, {
                 value: (Number(baseAtk.value) || 0) + (Number(baseAtk.mod) || 0),
@@ -168,7 +172,7 @@ export async function useAttack(item, usage) {
             attackWeaponKind: category === "physical" ? (usage.attackWeaponKind === "ranged" ? "ranged" : "melee") : null,
             // 対決欄(2026-07-17): リアクション導線の正本(手段行・技能名行・不可マスク)
             confrontation: foundry.utils.deepClone(usage.confrontation ?? []),
-            category, damageType, weaponAttack, attackSourceName,
+            category, damageType, weaponDamageType, weaponAttack, attackSourceName,
             damageTypeOptions: usage.damageTypeOptions ?? [],
             damageBonuses: usage.damageBonuses ?? [],
             damageBonusSelf: usage.damageBonusSelf ?? "",

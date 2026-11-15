@@ -10,7 +10,7 @@
  */
 
 import { SYSTEM_ID } from "../constants.mjs";
-import { syncUsageSkills } from "../rules/usage-skill-sync.mjs";
+import { resolveUsageSettings } from "../rules/usage-skill-sync.mjs";
 import { OUTFIT_ITEM_TYPES } from "../data/helpers.mjs";
 import { isOutfitUnusable, isOutfitDestroyed } from "../data/item/helpers.mjs";
 import { TnxCheckFlow } from "./tnx-check-flow.mjs";
@@ -131,7 +131,10 @@ export async function activateItemCheck(actor, item, extraOpen = {}) {
         selectedUsage = openExtra.miracleFree ? withoutConsumption(selectedUsage) : withDefaultMiracleConsumption(selectedUsage);
     }
 
-    selectedUsage = syncUsageSkills(foundry.utils.deepClone(selectedUsage), item, id => actor.items.get(id));
+    const resolution = resolveUsageSettings(selectedUsage, item, id => actor.items.get(id));
+    const errors = resolution.diagnostics.filter(d => d.error);
+    if (errors.length) { ui.notifications.warn(errors.map(d => d.message).join("\n")); return false; }
+    selectedUsage = resolution.effective;
 
     // カバー(2026-07-16→2026-07-17 タイプ化): アイテムロールで使用したら「カバー待ち受け」に入り、
     // ダメージカードのカバーする対象クリックで判定を起動する(covering 文脈つきで本関数へ再入=下の

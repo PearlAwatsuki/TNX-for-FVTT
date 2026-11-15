@@ -73,13 +73,14 @@ export async function submitUsageForm(sheet, event, form, formData) {
     let modeUiChanged = false; // 判定モード/ダメージを修正の切替=式欄等の出し入れがあるため再描画する
     let condUiChanged = false; // ダメージ修正の対象条件の種類変更=サブセレクトの出し入れ(2026-09-01)
     if (executionFormOf(usage) === "check" && !Number.isFinite(usage.fixedResult)) {
-        update.checkBonuses = collectBonusRows(raw, "checkBonus");
+        update.checkBonuses = Object.keys(raw).some(k => k.startsWith("checkBonusFormula-"))
+            ? collectBonusRows(raw, "checkBonus") : usage.checkBonuses ?? [];
         update.checkBonusSelf = raw["checkBonusSelf"] ?? usage.checkBonusSelf ?? "";
-        update.checkBonusSelfStackable = [true, "true", "on"].includes(raw.checkBonusSelfStackable);
+        update.checkBonusSelfStackable = Object.hasOwn(raw, "checkBonusSelfStackable") ? [true, "true", "on"].includes(raw.checkBonusSelfStackable) : usage.checkBonusSelfStackable === true;
         if (usage.type === "parry") {
             update.guardBonuses = collectBonusRows(raw, "guardBonus");
             update.guardBonusSelf = raw["guardBonusSelf"] ?? usage.guardBonusSelf ?? "";
-            update.guardBonusSelfStackable = [true, "true", "on"].includes(raw.guardBonusSelfStackable);
+            update.guardBonusSelfStackable = Object.hasOwn(raw, "guardBonusSelfStackable") ? [true, "true", "on"].includes(raw.guardBonusSelfStackable) : usage.guardBonusSelfStackable === true;
         }
         // 旧モード指定は解除する。判定の修正はチャットのコンテキストメニューで行う。
         const prevCheckMode = usage.grantRecheck === true ? "grant"
@@ -94,10 +95,11 @@ export async function submitUsageForm(sheet, event, form, formData) {
         const isAtk = isAttackType(usage.type);
         const isModD = false;
         if (usage.type === "check") update.modifyDamage = isModD;
-        update.damageBonuses  = isAtk ? collectBonusRows(raw, "damageBonus", { withCondition: true }) : [];
+        update.damageBonuses = isAtk && Object.keys(raw).some(k => k.startsWith("damageBonusFormula-"))
+            ? collectBonusRows(raw, "damageBonus", { withCondition: true }) : usage.damageBonuses ?? [];
         // damageBonusSelf は攻撃の「ダメージ修正値」/ダメージを修正の「修正値」を兼ねる(2026-07-11)
         update.damageBonusSelf = isAtk ? (raw["damageBonusSelf"] ?? usage.damageBonusSelf ?? "") : (usage.damageBonusSelf ?? "");
-        update.damageBonusSelfStackable = [true, "true", "on"].includes(raw.damageBonusSelfStackable);
+        update.damageBonusSelfStackable = Object.hasOwn(raw, "damageBonusSelfStackable") ? [true, "true", "on"].includes(raw.damageBonusSelfStackable) : usage.damageBonusSelfStackable === true;
         // 自身の修正値の対象条件(2026-09-01 承認・UI は攻撃のみ。非攻撃は残骸をリセット)
         update.damageBonusSelfCondition = isAtk
             ? normalizeTargetCondition({
@@ -105,7 +107,7 @@ export async function submitUsageForm(sheet, event, form, formData) {
                 mode: raw["damageBonusSelfCondMode"] ?? usage.damageBonusSelfCondition?.mode,
                 key:  raw["damageBonusSelfCondKey"]  ?? usage.damageBonusSelfCondition?.key,
             })
-            : { kind: "none", mode: "exclude", key: "" };
+            : usage.damageBonusSelfCondition ?? { kind: "none", mode: "exclude", key: "" };
         // 条件の種類の変更=キー/極性セレクトの出し入れがあるため再描画する
         const prevRowKinds = (usage.damageBonuses ?? []).map(r => r.targetCondition?.kind ?? "none");
         condUiChanged = isAtk && (

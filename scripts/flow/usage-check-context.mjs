@@ -230,6 +230,7 @@ export async function buildUsageCheckContext(actor, item, usage, {
         bountyAvailable,
         consumeUses:     usesPlan,
         requestMessageId: null,
+        usageSettingsInput: usage.usageSettingsInput,
         checkBonuses:    usage.checkBonuses ?? [],
         checkBonusSelf:  usage.checkBonusSelf ?? "",
         checkBonusSelfStackable: usage.checkBonusSelfStackable === true,

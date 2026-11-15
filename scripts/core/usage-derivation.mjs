@@ -7,7 +7,6 @@
  * データの導出を得るために 2,328 行のシートを読み込む形になっていた。
  */
 import { runSerial } from "./serial-queue.mjs";
-import { syncUsageSkills } from "../rules/usage-skill-sync.mjs";
 
 import { resolveUsageSkills } from "../rules/skill-chain-resolution.mjs";
 import { deriveConsumeTargets } from "../flow/usage-consumption.mjs";
@@ -66,11 +65,6 @@ export async function updateUsageActions(item, mutate) {
         const actions = foundry.utils.deepClone(doc.system.actions ?? []);
         const result = await mutate(actions);
         if (result) {
-            if (doc.type === "styleSkill" || result.some(u => u.baseSkillRef?.itemId || u.skillRefs?.length || u.skillSettingsSync?.sources?.length)) {
-                const siblings = await resolveUsageSiblingSkills(doc);
-                const byId = new Map(siblings.map(i => [i.id, i]));
-                for (const usage of result) syncUsageSkills(usage, doc, id => byId.get(id));
-            }
             await doc.update({ "system.actions": result });
         }
     });

@@ -3,6 +3,25 @@
          ガード無しだと空コンテキストの selectOptions が例外を投げ、閉じられないゾンビ描画になる) --}}
     {{#if usage}}
 
+    <section class="usage-settings-resolution">
+        {{#if settingsNeedsReview}}
+        <p>要確認：旧用途の保存値を保持しています。技能の変更は自動反映されません。</p>
+        {{#if editable}}<button type="button" data-action="migrateSettings">設定の来歴を確認して移行</button>{{/if}}
+        {{else}}
+        <p>入力欄は用途固有の設定です。技能由来の設定は使用時に合成されます。</p>
+        <details><summary>技能由来の修正と実効設定</summary>
+            {{#each skillCheckContributions}}<p>判定：{{label}} — {{formula}}（重複{{#if stackable}}可{{else}}不可{{/if}}）</p>{{/each}}
+            {{#each skillDamageContributions}}<p>ダメージ：{{label}} — {{formula}}（重複{{#if stackable}}可{{else}}不可{{/if}}、{{conditionLabel}}）</p>{{/each}}
+            <p>再判定：{{#if effectiveSettings.allowRecheck}}可{{else}}なし{{/if}} ／ スート変更：{{#if effectiveSettings.allowSuitChange}}可{{else}}なし{{/if}}</p>
+            <p>ヴィークル準備：{{#if effectiveSettings.requiresVehicle}}必要{{else}}不要{{/if}}</p>
+            <p>割り込み：{{#if effectiveSettings.grantsInterrupt}}可（AR消費：{{#if effectiveSettings.interruptConsumesAr}}あり{{else}}なし{{/if}}）{{else}}なし{{/if}}</p>
+            <p>ダメージ種別候補：{{#each effectiveSettings.damageTypeOptions}}{{this}} {{/each}}</p>
+        </details>
+        {{/if}}
+        {{#each settingsDiagnostics}}{{#if error}}<p role="alert">{{message}}</p>{{/if}}{{/each}}
+        {{#if settingsCanRestore}}{{#if editable}}<button type="button" data-action="restoreSettings">移行前の用途全体を復元</button>{{/if}}{{/if}}
+    </section>
+
     {{!-- ヘッダー: 名前のみ(種別バッジは長いタイプ名が名前欄を圧迫するため全廃=2026-07-18 ユーザー指示。
          タイプは実効名「タイプ名（親アイテム名）」=placeholder・タイトルで示される) --}}
     <header class="usage-sheet-header">
@@ -454,7 +473,7 @@
                     <div class="usage-form-row">
                         <label class="usage-field-label">ダメージ種別</label>
                         <select name="damageType" {{#unless editable}}disabled{{/unless}}>
-                            <option value="">── 武器に従う ──</option>
+                            <option value="">{{#if settingsNeedsReview}}── 武器に従う ──{{else}}技能の候補に従う（なければ武器）{{/if}}</option>
                             {{#each damageTypeOptions}}
                                 <option value="{{this.value}}" {{#if this.selected}}selected{{/if}}>{{this.label}}</option>
                             {{/each}}

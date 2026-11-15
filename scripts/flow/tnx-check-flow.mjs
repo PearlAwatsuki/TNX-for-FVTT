@@ -17,9 +17,9 @@
 
 import { SYSTEM_ID } from "../constants.mjs";
 import { prepareCheckContext } from "./check-preparation.mjs";
-import { syncUsageSkills } from "../rules/usage-skill-sync.mjs";
+import { syncUsageSkills, resolveUsageSettings } from "../rules/usage-skill-sync.mjs";
 import { forcedDeletion } from "../core/forced-deletion.mjs";
-import { ghostCanInteract } from "../session/vehicle-state.mjs";
+import { ghostCanInteract, preparedVehicle } from "../session/vehicle-state.mjs";
 import { getCardCheckValue, calcSkillCheck, calcControlCheck, normalizeSuit, ALL_SUITS, SUIT_TO_ABILITY, getComboSuits, comboUsesBounty } from '../rules/tnx-check-engine.mjs';
 import { gatherCheckBonusSources, collectActorEffectBuffs, actorCardValueOverride, readFlag } from '../data/item/helpers.mjs';
 import { evaluateBonusRows, evaluateSelfBonus, createEffectBonusEvaluator } from '../rules/tnx-formula.mjs';
@@ -141,6 +141,17 @@ export class TnxCheckFlow {
         if (!context.appearance && !context.infoGathering && !ghostCanInteract(actor)) {
             return "ゴーストが判定するにはドローンで登場してください。";
         }
+        if (context.usageSettingsInput?.settingsVersion === 1) {
+            const parent = actor.items.get(context.sourceItemId);
+            if (parent) {
+                const resolution = resolveUsageSettings({ ...context.usageSettingsInput,
+                    skillRefs: (context.skillIds ?? []).map(itemId => ({ itemId })) }, parent, id => actor.items.get(id));
+                const error = resolution.diagnostics.find(d => d.error);
+                if (error) return error.message;
+                if (resolution.effective.requiresVehicle && !preparedVehicle(actor, resolution.effective.vehicleRef?.itemId || ""))
+                    return "準備済みのヴィークルが無いため、この判定は行えません。";
+            }
+        }
         const conds = TnxCheckFlow._gatherConditions(actor);
 
         if (context?.skillIds?.length) {
@@ -229,21 +240,26 @@ export class TnxCheckFlow {
         ctx.bountyAvailable = comboUsesBounty(systems) ? actorBounty : 0;
         if (ctx.isRecheck) {
             ctx.consumeUses = [...(ctx.baseConsumeUses ?? []), ...Object.values(ctx.dialogSkillConsumption ?? {}).flat()];
-            const supplied = { type: ctx.attack?.isAttack ? `${ctx.attack.category}Attack` : "check",
+            let supplied = { type: ctx.attack?.isAttack ? `${ctx.attack.category}Attack` : "check",
                 skillRefs: skillIds.map(itemId => ({ itemId })),
                 checkBonuses: ctx.checkBonuses ?? [], damageBonuses: ctx.attack?.damageBonuses ?? [],
-                skillSettingsSync: ctx.skillSettingsSync ?? {} };
+                checkBonusSelf: ctx.checkBonusSelf, checkBonusSelfStackable: ctx.checkBonusSelfStackable,
+                damageBonusSelf: ctx.attack?.damageBonusSelf, damageBonusSelfStackable: ctx.attack?.damageBonusSelfStackable,
+                damageBonusSelfCondition: ctx.attack?.damageBonusSelfCondition,
+                damageType: ctx.attack?.damageType, damageTypeOptions: ctx.attack?.damageTypeOptions };
             const parent = actor.items.get(ctx.sourceItemId) ?? { id: ctx.sourceItemId, type: "generalSkill", system: {} };
-            syncUsageSkills(supplied, parent, id => actor.items.get(id));
+            supplied = syncUsageSkills({ ...(ctx.usageSettingsInput ?? supplied),
+                skillRefs: skillIds.map(itemId => ({ itemId })) }, parent, id => actor.items.get(id));
             ctx.checkBonuses = supplied.checkBonuses;
             ctx.checkBonusSelf = supplied.checkBonusSelf ?? ctx.checkBonusSelf;
             ctx.checkBonusSelfStackable = supplied.checkBonusSelfStackable ?? ctx.checkBonusSelfStackable;
-            ctx.skillSettingsSync = supplied.skillSettingsSync;
+            // Keep the original local input; dialog membership is a transient override.
             if (ctx.attack) Object.assign(ctx.attack, {
                 damageBonuses: supplied.damageBonuses,
                 damageBonusSelf: supplied.damageBonusSelf ?? ctx.attack.damageBonusSelf,
                 damageBonusSelfStackable: supplied.damageBonusSelfStackable ?? ctx.attack.damageBonusSelfStackable,
                 damageBonusSelfCondition: supplied.damageBonusSelfCondition ?? ctx.attack.damageBonusSelfCondition,
+                damageType: supplied.damageType || ctx.attack.weaponDamageType || ctx.attack.damageType,
                 damageTypeOptions: supplied.damageTypeOptions,
             });
         }
@@ -1278,6 +1294,7 @@ ${ctx.allowSuitChange ? `<div class="form-group"><label>変更後のスート</l
             editableTargetValue: ctx.editableTargetValue === true,
             // 報酬点は「使えるか」だけ保存し、量は再判定時点の所持から取り直す(元判定の消費を反映)
             bountyAllowed:   (ctx.bountyAvailable ?? 0) > 0,
+            usageSettingsInput: ctx.usageSettingsInput,
             checkBonuses:    ctx.checkBonuses ?? [],
             checkBonusSelf:  ctx.checkBonusSelf ?? "",
             checkBonusSelfStackable: ctx.checkBonusSelfStackable === true,
@@ -1376,11 +1393,17 @@ ${ctx.allowSuitChange ? `<div class="form-group"><label>変更後のスート</l
         const bounty = rc.bountyAllowed
             ? (actor.system.bountyBase ?? 0) + (actor.system.bounty ?? 0)
             : 0;
-        const supplied = { type: rc.attack?.isAttack ? `${rc.attack.category}Attack` : "check",
+        let supplied = { type: rc.attack?.isAttack ? `${rc.attack.category}Attack` : "check",
             skillRefs: skillIds.map(itemId => ({ itemId })), checkBonuses: rc.checkBonuses ?? [],
-            damageBonuses: rc.attack?.damageBonuses ?? [] };
+            damageBonuses: rc.attack?.damageBonuses ?? [],
+            checkBonusSelfStackable: rc.checkBonusSelfStackable,
+            damageBonusSelfStackable: rc.attack?.damageBonusSelfStackable,
+            damageBonusSelfCondition: rc.attack?.damageBonusSelfCondition,
+            damageType: rc.attack?.damageType, damageTypeOptions: rc.attack?.damageTypeOptions };
         const parent = actor.items.get(rc.sourceItemId) ?? { id: rc.sourceItemId, type: "generalSkill", system: {} };
-        syncUsageSkills(supplied, parent, id => actor.items.get(id));
+        supplied = syncUsageSkills({ ...(rc.usageSettingsInput ?? { ...supplied,
+            checkBonusSelf: rc.checkBonusSelf, damageBonusSelf: rc.attack?.damageBonusSelf }),
+            skillRefs: skillIds.map(itemId => ({ itemId })) }, parent, id => actor.items.get(id));
         await TnxCheckFlow.open({
             type:            rc.type,
             actorId:         rc.actorId,
@@ -1393,7 +1416,7 @@ ${ctx.allowSuitChange ? `<div class="form-group"><label>変更後のスート</l
             consumeUses,     // 元判定の消費は済み。付与用途の消費プランのみ(通常の再判定は空)
             requestMessageId: rc.requestMessageId,
             checkBonuses:    supplied.checkBonuses,
-            skillSettingsSync: supplied.skillSettingsSync,
+            usageSettingsInput: supplied.usageSettingsInput,
             checkBonusSelf:  supplied.checkBonusSelf ?? rc.checkBonusSelf,
             checkBonusSelfStackable: (supplied.checkBonusSelfStackable ?? rc.checkBonusSelfStackable) === true,
             sourceItemId:    rc.sourceItemId,
@@ -1403,7 +1426,9 @@ ${ctx.allowSuitChange ? `<div class="form-group"><label>変更後のスート</l
             ...(rc.forcedFailure ? { forcedFailure: rc.forcedFailure } : {}),
             ...(rc.attack ? { attack: { ...rc.attack, damageBonuses: supplied.damageBonuses,
                 damageBonusSelf: supplied.damageBonusSelf ?? rc.attack.damageBonusSelf,
+                damageBonusSelfStackable: supplied.damageBonusSelfStackable ?? rc.attack.damageBonusSelfStackable,
                 damageBonusSelfCondition: supplied.damageBonusSelfCondition ?? rc.attack.damageBonusSelfCondition,
+                damageType: supplied.damageType || rc.attack.weaponDamageType || rc.attack.damageType,
                 damageTypeOptions: supplied.damageTypeOptions } } : {}),
             ...(rc.usageEffects ? { usageEffects: rc.usageEffects } : {}),
             // 継続文脈を再判定の実行 ctx へ引き継ぐ(_applyRecheckReplacement が種別ごとに再実行する・
