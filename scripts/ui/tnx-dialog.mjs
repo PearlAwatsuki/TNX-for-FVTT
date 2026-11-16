@@ -358,7 +358,10 @@ export class UsageSettingsMigrationDialog {
             <p>「技能から導出」を選ぶと保存値を用途固有の設定から外します。現在の参加技能から改めて導出されます。「保持」を選ぶと、その値と現在の技能由来の値が両方適用されます。元の用途全体を復元用に保存します。</p>`
             + entries.map(({ key, index, value }, i) => `<div><label>${esc(labels[key])}${index === undefined ? "" : ` ${index + 1}`}</label>
                 <pre>${esc(display(value))}</pre><select name="choice-${i}" required>
-                <option value="">扱いを選択</option value="keep">用途固有として保持</option value="skill">技能から導出</option></select></div>`).join("");
+                <option value="">扱いを選択</option>
+                <option value="keep">用途固有として保持</option>
+                <option value="skill">技能から導出</option>
+                </select></div>`).join("");
         return DialogV2.wait({ window: { title: "用途設定の個別移行" }, classes: ["tokyo-nova", "tnx-dialog"], content,
             buttons: [{ action: "migrate", label: "確認内容で移行", callback: (_event, _button, dialog) => {
                 const decisions = Object.fromEntries(fields.map(key => [key, { action: "keep" }]));
