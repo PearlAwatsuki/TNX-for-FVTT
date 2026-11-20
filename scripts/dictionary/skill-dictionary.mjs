@@ -382,22 +382,6 @@ export async function loadSkillEntries(packName, { refresh = false } = {}) {
 }
 
 /**
- * 全技能辞典(一般・スタイル・ワークス)の「識別キー → 所持する用途タイプの Set」索引を返す。
- * 対決欄の無印技能名行の吸収判定(その技能が手段のリアクション用途タイプを持つか)に使う。
- * アクター未所持の技能(辞典アイテムの編集時など)を参照するための辞典側の真実(2026-07-18)。
- * @returns {Promise<Map<string, Set<string>>>}
- */
-export async function loadSkillUsageTypeIndex() {
-  const map = new Map();
-  for (const packName of [SKILL_PACKS.general, SKILL_PACKS.style, SKILL_PACKS.works]) {
-    for (const e of await loadSkillEntries(packName)) {
-      map.set(e.identificationKey, new Set(e.usageTypes ?? []));
-    }
-  }
-  return map;
-}
-
-/**
  * 全技能辞典(一般・スタイル・ワークス)**とワールド直下**の技能を、チェーン解決・自動入力・
  * 候補表示に使える軽量な技能オブジェクト `{id, name, type, system}` の配列で返す(2026-07-18 統一・
  * ワールド直下の追加は 2026-08-12)。アクター非所持の用途のベース技能/組み合わせ候補はここを参照する
@@ -409,6 +393,7 @@ export async function loadSkillUsageTypeIndex() {
 export async function loadDictionarySkillItems() {
   const fields = [
     "system.identificationKey", "system.isAction", "system.isSubstitute", "system.substituteTarget",
+    "system.actionQualifications", "system.actions",
     "system.comboSkill", "system.confrontation", "system.target", "system.isFixedTarget",
     "system.range", "system.isFixedRange", "system.targetValue", "system.targetValueNumber",
     "system.timing", "system.suits", "system.level", "system.uses",

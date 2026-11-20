@@ -11,7 +11,7 @@
  * kind:
  * - generic:  判定/宣言(汎用)
  * - attack:   攻撃(attackCategory=系統。対決判定カードに攻撃項目を出す)
- * - reaction: リアクション(対決欄の「手段」行と 1:1。資格=このタイプの用途を持つ技能の所持)
+ * - reaction: リアクションの設定。手段・技能資格は action-qualifications.mjs で独立管理
  * - action:   その他の行動(移動・離脱・治療・改造・カバー)
  */
 
@@ -22,15 +22,6 @@ export const USAGE_TYPE_DEFS = Object.freeze({
     physicalAttack:      { label: "物理攻撃",                 kind: "attack", attackCategory: "physical" },
     mentalAttack:        { label: "精神攻撃",                 kind: "attack", attackCategory: "mental" },
     socialAttack:        { label: "社会攻撃",                 kind: "attack", attackCategory: "social" },
-    dodge:               { label: "ドッジ",                   kind: "reaction" },
-    parry:               { label: "パリー",                   kind: "reaction" },
-    mentalReaction:      { label: "リアクション（精神攻撃）", kind: "reaction" },
-    socialReaction:      { label: "リアクション（社会攻撃）", kind: "reaction" },
-    moveBlockReaction:   { label: "リアクション（移動妨害）", kind: "reaction", usesVehicle: true },
-    escapeBlockReaction: { label: "リアクション（離脱妨害）", kind: "reaction" },
-    // 汎用「リアクション」(2026-07-18 ユーザー確定): 系統フラグを持たず**あらゆる対決判定への
-    // リアクション資格**を持つ(適否は卓が都度判断・システムはブロックしない)。系統別タイプとは
-    // 統合しない——系統別の資格ゲート(一般則)は維持され、本タイプは細則(例外能力)の受け皿
     reaction:            { label: "リアクション",             kind: "reaction" },
     move:                { label: "移動",                     kind: "action", usesVehicle: true },
     escape:              { label: "離脱",                     kind: "action" },

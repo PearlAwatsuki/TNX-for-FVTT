@@ -174,7 +174,7 @@ export async function prepareUsageContext(sheet, context) {
     }
     // リアクションタイプ(2026-07-17): リアクション設定(範囲/攻撃を失敗させる/対決不可無視)を出す
     context.isReactionUsage    = isReactionType(usage.type);
-    context.isParry             = usage.type === "parry";
+    context.isParry             = usage.type === "reaction";
     // 治療タイプ(2026-07-17): 実行形式(判定/宣言)は用途の設定で固定・回復範囲の設定を持つ
     context.isTreatment        = usage.type === "treatment";
     if (context.isTreatment) {
@@ -530,7 +530,7 @@ export async function prepareUsageContext(sheet, context) {
     }
 
     // パリー用途の使用武器。戦闘タブは自動入力元のみで、表示・実行とも用途の weaponRefs が正本。
-    if (usage.type === "parry" && !context.isFixedCheck) {
+    if (usage.type === "reaction" && !context.isFixedCheck) {
         const actorItems = [...(sheet._item.actor?.items ?? [])];
         const refs = usage.weaponRefs ?? [];
         const refIds = new Set(refs.map(r => r.itemId).filter(Boolean));

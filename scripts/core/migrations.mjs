@@ -62,6 +62,8 @@ export const MIGRATIONS = Object.freeze([
             const migrateSkill = async (item) => {
                 if (item.type !== "generalSkill") return;
                 const src = item.toObject().system ?? {};
+                // 行動資格を持つ新形式に、旧正準名による初期値を再注入しない。
+                if (src.actionQualifications !== undefined) return;
                 const next = canonicalizeSkillActions(
                     { name: item.name, identificationKey: src.identificationKey ?? "", actions: src.actions ?? [] },
                     () => foundry.utils.randomID());

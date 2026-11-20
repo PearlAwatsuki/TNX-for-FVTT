@@ -1,3 +1,5 @@
+import { ACTION_QUALIFICATION_LABELS, reactionQualifications, reactionQualificationSummary } from "../rules/action-qualifications.mjs";
+import { ListSelectionDialog } from "../ui/tnx-dialog.mjs";
 import { isValueEntry, syncViewModeCheckboxes } from "../ui/sheet-input-state.mjs";
 import { bindListDragDrop } from "../ui/list-drag-drop.mjs";
 import { restoreEnchantmentEditValues } from "../rules/enchantment-attributes.mjs";
@@ -34,6 +36,7 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
         form: { submitOnChange: true },
         actions: {
             ...EffectsSheetMixin.ACTIONS,
+            editActionQualifications: TokyoNovaItemSheet._onEditActionQualifications,
             toggleEditMode: TokyoNovaItemSheet._onToggleEditMode,
             incrementField: TokyoNovaItemSheet._onIncrementField,
             decrementField: TokyoNovaItemSheet._onDecrementField,
@@ -46,6 +49,17 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
             usageDelete: TokyoNovaItemSheet._onActionDelete,
         },
     };
+
+    /** 一般・スタイル技能共通の行動資格編集。空配列も明示的な設定として保存する。 */
+    static async _onEditActionQualifications() {
+        if (!this._isEditMode || !this.item.isOwner) return;
+        const selected = reactionQualifications(this.item.system);
+        const picked = await ListSelectionDialog.prompt({ title: "リアクションの行動資格", multi: true,
+            note: "チェックなしのアクション技能は、リアクション用途がある場合に汎用リアクションを行えます。非アクションのスタイル技能は、必要な組み合わせ条件を満たして参加した判定にだけ資格を追加します。",
+            options: Object.entries(ACTION_QUALIFICATION_LABELS).map(([value, label]) => ({ value, label, checked: selected.includes(value) })) });
+        if (picked === null) return;
+        await this.item.update({ "system.actionQualifications": picked });
+    }
 
     /** 辞典のキャッシュにない既存文書を、新規作成として扱わせない。 */
     async _processSubmitData(event, form, submitData, options = {}) {
@@ -104,8 +118,6 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
 
         EffectsSheetMixin.prepareEffectsContext(this.item, context);
 
-        // 技能の役割(skillRoles)は廃止(2026-07-17 再編): 資格・候補の判定は用途タイプの所持のみ
-        // (ドッジ=ドッジ用途を持つ技能 等)。役割チェック UI は撤去した
         if (this.item.type === "generalSkill" || this.item.type === "styleSkill") {
             // 特性(2026-07-09): 散在していた真偽フラグを1セクションに集約。フラグがオンのとき
             // 各詳細セクションが表示される(wide=ラベルが長く1行占有)。detail は元の位置に残しゲート
@@ -130,6 +142,7 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
                 flags.push({ name: "system.levelRef.enabled", label: "他スタイル技能のレベルを参照", checked: !!system.levelRef?.enabled, wide: true });
             }
             context.traitFlags = flags;
+            context.reactionQualificationSummary = reactionQualificationSummary(system);
         }
 
         return context;
@@ -320,7 +333,7 @@ export class TokyoNovaItemSheet extends HandlebarsApplicationMixin(ItemSheetV2) 
 
 
         // Seed the initial parry weapon during explicit creation, never while rendering.
-        if (type === "parry" && this.item.actor?.system?.weaponRefs?.parryItemId)
+        if (type === "reaction" && this.item.actor?.system?.weaponRefs?.parryItemId)
             entry.weaponRefs = [{ itemId: this.item.actor.system.weaponRefs.parryItemId }];
 
         // 自動入力の作成時一回適用: 判定系・宣言用途は親技能の固有値から

@@ -29,6 +29,7 @@
  *   ベース技能は用途を所持するアイテム自身のため skillRefs に含まない。
  */
 
+import { migrateReactionUsages } from "../../../rules/action-qualifications.mjs";
 import { SystemDataModel } from "../../abstract.mjs";
 import { isAttackType, isReactionType, usesVehicle, defaultConfrontationForType } from "../../../rules/usage-types.mjs";
 import { ALL_CATEGORIES_KEY } from "../outfit-categories.mjs";
@@ -495,6 +496,8 @@ export class UsageTemplate extends SystemDataModel {
      * @override
      */
     static migrateData(source) {
+        // SkillBase より先に呼ばれるため、変換前のタイプから資格を抽出する。
+        migrateReactionUsages(source);
         if (Array.isArray(source.actions)) {
             source.actions = source.actions.map(a => {
                 let migrated = a._id ? a : { ...a, _id: foundry.utils.randomID() };

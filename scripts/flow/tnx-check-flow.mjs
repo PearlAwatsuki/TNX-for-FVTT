@@ -15,6 +15,7 @@
  * ルール正本: llm-wiki/01_Wiki/Game_Rules/Check_Rules.md
  */
 
+import { resolveReactionQualification, reactionConfrontation } from "../rules/reaction-qualification.mjs";
 import { SYSTEM_ID } from "../constants.mjs";
 import { prepareCheckContext } from "./check-preparation.mjs";
 import { syncUsageSkills, resolveUsageSettings } from "../rules/usage-skill-sync.mjs";
@@ -327,6 +328,36 @@ export class TnxCheckFlow {
 
 
 
+    /** 旧カードの再判定でも、能動側の判定情報を使ってAEの分類を解決する。 */
+    static _checkCriteria(actor, ctx, ability) {
+        if (!ctx.reaction) return checkCriteria(actor, ctx, ability);
+        const active = game.messages?.get(ctx.reaction.attackMessageId)?.getFlag(SYSTEM_ID, "attackCheck");
+        return checkCriteria(actor, { ...ctx, reaction: { ...ctx.reaction,
+            activeUsageType: ctx.reaction.activeUsageType || active?.usageType || "",
+            activeAttackCategory: ctx.reaction.activeAttackCategory || active?.category || "",
+        } }, ability);
+    }
+
+    /** カード・切り札の消費前に現在の組み合わせを検証する。ダイアログ編集中は不足を許容する。 */
+    static _reactionBlockReason(ctx) {
+        if (ctx.reaction) {
+            const actor = game.actors.get(ctx.actorId);
+            if (!actor) return "判定するキャストが見つかりません。";
+            const active = game.messages?.get(ctx.reaction.attackMessageId)?.getFlag(SYSTEM_ID, "attackCheck");
+            const parent = actor.items.get(ctx.sourceItemId);
+            const usage = (parent?.system.actions ?? []).find(u => u._id === ctx.sourceUsageId);
+            const vehicle = preparedVehicle(actor);
+            const skills = (ctx.skillIds ?? []).map(id => actor.items.get(id)).filter(Boolean);
+            const result = resolveReactionQualification({ base: actor.items.get(ctx.skillIds?.[0]), participants: skills, usage,
+                mode: ctx.reaction.selectionMode ?? (ctx.reaction.open ? "open" : ctx.reaction.mode),
+                rows: reactionConfrontation(ctx.reaction.confrontation ?? active?.confrontation ?? [], vehicle?.system.operateSkillKey),
+                hasVehicle: !!vehicle });
+            if (!result.ok) return result.reason;
+        }
+
+        return null;
+    }
+
     /**
      * 手札カードをクリックして判定を実行する（HUD _onPlayCard から呼ぶ）。
      * @param {string} cardId
@@ -335,6 +366,8 @@ export class TnxCheckFlow {
     static async executeFromHand(cardId) {
         const ctx = TnxCheckFlow._context;
         if (!ctx) return false;
+        const reason = TnxCheckFlow._reactionBlockReason(ctx);
+        if (reason) { ui.notifications.warn(reason); return false; }
 
         const userFlag = getUserFlagData(game.user);
         const hand     = userFlag.handPileId ? await fromUuid(userFlag.handPileId) : null;
@@ -415,6 +448,8 @@ export class TnxCheckFlow {
     static async executeFromDeck() {
         const ctx = TnxCheckFlow._context;
         if (!ctx) return;
+        const reason = TnxCheckFlow._reactionBlockReason(ctx);
+        if (reason) { ui.notifications.warn(reason); return false; }
 
         const deck    = await TnxActionHandler.getActiveDeck();
         const discard = await TnxActionHandler.getActiveDiscardPile();
@@ -742,7 +777,7 @@ ${ctx.allowSuitChange ? `<div class="form-group"><label>変更後のスート</l
         if (!actor) return { total: 0, sources: [] };
         const effects = collectActorEffectBuffs(actor);
 
-        const criteria = checkCriteria(actor, ctx, abilityKey);
+        const criteria = TnxCheckFlow._checkCriteria(actor, ctx, abilityKey);
         const sources = gatherCheckBonusSources(effects, criteria, createEffectBonusEvaluator(actor, formulaOptions));
 
         // コンディション(BS)由来の達成値修正を合流する(酩酊=上方判定 -n、萎縮/憎悪=攻撃判定。
@@ -874,6 +909,9 @@ ${ctx.allowSuitChange ? `<div class="form-group"><label>変更後のスート</l
             TnxCheckFlow.cancel();
             return false;
         }
+
+        const reactionError = TnxCheckFlow._reactionBlockReason(ctx);
+        if (reactionError) { ui.notifications.warn(reactionError); return false; }
 
         // 重圧(BS): 該当能力値を使う上方判定を完全にブロックする。
         // 判定に転送された(切り札リマップ後の) suit から能力値を拾う。カード実体は読まない。
@@ -1023,7 +1061,7 @@ ${ctx.allowSuitChange ? `<div class="form-group"><label>変更後のスート</l
         // 必要なため当面対象外(申し送り)
         const recheckCtx = TnxCheckFlow._buildRecheckContext(ctx);
         const nextCheckExpiry = { actorUuid: actor.uuid,
-            entries: matchNextCheckEffects(actor, ctx.nextCheckCandidates, checkCriteria(actor, ctx, SUIT_TO_ABILITY[suit])) };
+            entries: matchNextCheckEffects(actor, ctx.nextCheckCandidates, TnxCheckFlow._checkCriteria(actor, ctx, SUIT_TO_ABILITY[suit])) };
         result.nextCheckExpiry = nextCheckExpiry;
         // 攻撃はダメージ算出まで未解決。実体を残し、消費対象だけをカードへ運ぶ。
         if (ctx.attack?.isAttack) ctx.attack.nextCheckExpiry = nextCheckExpiry;

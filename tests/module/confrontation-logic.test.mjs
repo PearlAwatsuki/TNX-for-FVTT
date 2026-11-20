@@ -20,13 +20,13 @@ import {
 const row = (value, name = "") => ({ value, name, skillDict: "", skillGroup: "", skillSub: "" });
 
 describe("用途タイプ(行動種別・2026-07-17 確定)", () => {
-    it("リアクションタイプは対決欄の手段行と1:1(購入タイプ追加後=19種・2026-08-31。神業専用5種追加後=24種・2026-09-03)", () => {
-        expect(Object.keys(USAGE_TYPE_DEFS)).toHaveLength(24);
+    it("リアクション用途は1種、対決手段は独立した7種を維持", () => {
+        expect(Object.keys(USAGE_TYPE_DEFS)).toHaveLength(18);
         expect(USAGE_TYPE_DEFS.repair).toEqual({ label: "修理", kind: "action" });
         // 購入(16-3・2026-08-31 ユーザー裁定): デフォルト技能が決まっている性格=タイプで表現
         expect(USAGE_TYPE_DEFS.purchase).toEqual({ label: "購入", kind: "action" });
         // 汎用「リアクション」(2026-07-18): 系統フラグなし=あらゆる対決判定への資格(適否は卓)。
-        // kind=reaction のため対決欄の手段行にも自動で入る(明示的に汎用リアクションを許す用途向け)
+        // 対決手段は用途タイプから独立している。
         expect(USAGE_TYPE_DEFS.reaction).toEqual({ label: "リアクション", kind: "reaction" });
         expect(CONFRONTATION_REACTION_VALUES).toEqual(
             ["dodge", "parry", "mentalReaction", "socialReaction", "moveBlockReaction", "escapeBlockReaction", "reaction"]);
@@ -43,7 +43,7 @@ describe("用途タイプ(行動種別・2026-07-17 確定)", () => {
     });
 
     it("リアクション系タイプの既定対決は「なし」(2026-07-18 裁定=対決欄は全タイプが持つ)", () => {
-        for (const t of ["dodge", "parry", "mentalReaction", "socialReaction", "moveBlockReaction", "escapeBlockReaction", "reaction"]) {
+        for (const t of ["reaction"]) {
             expect(defaultConfrontationForType(t).map(r => r.value)).toEqual(["none"]);
         }
     });
@@ -146,20 +146,20 @@ describe("mergeConfrontationRows()（合算=追記・吸収。2026-07-17 確定�
 
     it("無印技能名行は、既にある手段行の用途タイプをその技能が持つなら吸収(ロール既定でなく技能の能力)", () => {
         // 〈回避〉がドッジ用途を持つ→ドッジ行があるので吸収。同条件なら〈回避〉以外でも吸収される
-        const skillHasReactionType = (key, type) => key === "kaihi" && type === "dodge";
+        const skillHasReactionQualification = (key, type) => key === "kaihi" && type === "dodge";
         const merged = mergeConfrontationRows(
             [row("dodge")],
             [row("skillName", "kaihi"), row("skillName", "other")],
-            { skillHasReactionType });
+            { skillHasReactionQualification });
         expect(merged.map(r => `${r.value}:${r.name}`)).toEqual(["dodge:", "skillName:other"]);
     });
 
     it("※(必須)行は手段行があっても吸収しない", () => {
-        const skillHasReactionType = () => true;
+        const skillHasReactionQualification = () => true;
         const merged = mergeConfrontationRows(
             [row("dodge")],
             [row("skillNameAsterisk", "kaihi")],
-            { skillHasReactionType });
+            { skillHasReactionQualification });
         expect(merged.map(r => r.value)).toEqual(["dodge", "skillNameAsterisk"]);
     });
 

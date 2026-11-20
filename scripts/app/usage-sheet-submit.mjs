@@ -77,7 +77,7 @@ export async function submitUsageForm(sheet, event, form, formData) {
             ? collectBonusRows(raw, "checkBonus") : usage.checkBonuses ?? [];
         update.checkBonusSelf = raw["checkBonusSelf"] ?? usage.checkBonusSelf ?? "";
         update.checkBonusSelfStackable = Object.hasOwn(raw, "checkBonusSelfStackable") ? [true, "true", "on"].includes(raw.checkBonusSelfStackable) : usage.checkBonusSelfStackable === true;
-        if (usage.type === "parry") {
+        if (usage.type === "reaction") {
             update.guardBonuses = collectBonusRows(raw, "guardBonus");
             update.guardBonusSelf = raw["guardBonusSelf"] ?? usage.guardBonusSelf ?? "";
             update.guardBonusSelfStackable = Object.hasOwn(raw, "guardBonusSelfStackable") ? [true, "true", "on"].includes(raw.guardBonusSelfStackable) : usage.guardBonusSelfStackable === true;
@@ -300,7 +300,7 @@ export async function submitUsageForm(sheet, event, form, formData) {
         update.damageType = raw["damageType"] ?? usage.damageType;
         attackKindChanged = update.attackWeaponKind !== prevKind;
     } else if (isAttackType(usage.type)) {
-        if (usage.type !== "parry") update.weaponRefs = [];
+        update.weaponRefs = [];
         update.damageType = "";
     }
 

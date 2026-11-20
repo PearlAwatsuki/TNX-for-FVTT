@@ -66,14 +66,16 @@ describe("UsageTemplate.defineSchema()（フェーズ11-6 追加フィールド�
       expect(entry.requiresVehicle.options.initial).toBe(false);
     });
 
-    it("migrateData: 移動/リアクション（移動妨害）で未設定なら既定オン・他タイプはオフのまま", () => {
+    it("migrateData: 移動の既定条件は維持し、移動妨害の条件は選択手段で判定する", () => {
       const src = UsageTemplate.migrateData({ actions: [
         { _id: "a", type: "move" },
         { _id: "b", type: "moveBlockReaction" },
         { _id: "c", type: "check" },
       ] });
       expect(src.actions[0].requiresVehicle).toBe(true);
-      expect(src.actions[1].requiresVehicle).toBe(true);
+      expect(src.actions[1].requiresVehicle).toBeUndefined();
+      expect(src.actions[1].type).toBe("reaction");
+      expect(src.actionQualifications).toEqual(["moveBlockReaction"]);
       expect(src.actions[2].requiresVehicle).toBeUndefined();
     });
 

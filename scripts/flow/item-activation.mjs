@@ -9,6 +9,7 @@
  * 呼ばれるべき階層へ移す(「起動関数を増やさない」規約は名前が 1 つであることを指す)。
  */
 
+import { findReactionCombination, resolveReactionQualification, reactionConfrontation } from "../rules/reaction-qualification.mjs";
 import { SYSTEM_ID } from "../constants.mjs";
 import { resolveUsageSettings } from "../rules/usage-skill-sync.mjs";
 import { OUTFIT_ITEM_TYPES } from "../data/helpers.mjs";
@@ -18,9 +19,9 @@ import { resolveConsumeRowsForActor, promptConsumption, applyConsumptionPlan } f
 import { useNpcAcquire } from "./npc-acquisition.mjs";
 import { useRecovery } from "./recovery-flow.mjs";
 import { useRepair } from "./repair-flow.mjs";
-import { buildUsageCheckContext } from "./usage-check-context.mjs";
+import { buildUsageCheckContext, resolveUsageSkillSet } from "./usage-check-context.mjs";
 import { buildParryGuardSnapshot } from "../rules/parry-weapons.mjs";
-import { useAttack, useOpposedCheck } from "./attack-flow.mjs";
+import { useAttack, useOpposedCheck, completeReactionFromCheck } from "./attack-flow.mjs";
 import { prepareUsageEffectPayload } from "./usage-effects.mjs";
 import { useMiracleWithoutUsage, postMiracleCard, resolveMiracleRewrite, useMiracleDamage, useMiracleDestroy, resolveMiracleCopyFromLog } from "./miracle-flow.mjs";
 import { withDefaultMiracleConsumption, withoutConsumption } from "../rules/miracle.mjs";
@@ -91,19 +92,26 @@ export async function activateItemCheck(actor, item, extraOpen = {}) {
     }
 
     const allUsages = (asOther?.source ?? item).system.actions ?? [];
+    const reaction = openExtra.reaction;
+    const reactionUsages = reaction ? allUsages.filter(usage => findReactionCombination({
+        base: item, skills: actor.items.filter(i => ["generalSkill", "styleSkill"].includes(i.type)), usage,
+        mode: reaction.selectionMode ?? (reaction.open ? "open" : reaction.mode),
+        rows: reactionConfrontation(reaction.confrontation ?? [], preparedVehicle(actor)?.system.operateSkillKey), hasVehicle: !!preparedVehicle(actor),
+    })) : allUsages;
 
     // 用途を決定（直接指定→カバー再入の引き継ぎ→1つなら自動選択→複数はピッカー表示）。
     // カバーの判定起動(covering)は、待ち受け開始時に確定した用途を再選択せず引き継ぐ。
     let selectedUsage;
     if (directUsageId) {
-        selectedUsage = allUsages.find(a => a._id === directUsageId) ?? null;
+        selectedUsage = reactionUsages.find(a => a._id === directUsageId) ?? null;
         if (!selectedUsage) return;
     } else if (openExtra.covering?.usageId) {
         selectedUsage = allUsages.find(a => a._id === openExtra.covering.usageId) ?? null;
         if (!selectedUsage) return;
     } else {
-        const selectableUsages = allUsages.filter(u => !u.hideFromUsageSelection);
+        const selectableUsages = reactionUsages.filter(u => !u.hideFromUsageSelection);
         if (!selectableUsages.length) {
+            if (reaction) { ui.notifications.warn("実行可能なリアクション用途がありません。"); return; }
             // 神業(17-1)は用途が無くても機能する: 残回数ゲート→使用回数の消費→神業カード。
             // 用途は前提条件でなく、固有の挙動(打ち消し・防御・ダメージ等)を足すためのもの
             // 《プリーズ！》で使わされる(openExtra.miracleFree)ときは残回数ゲートも消費も無い(17-4)
@@ -242,10 +250,38 @@ export async function activateItemCheck(actor, item, extraOpen = {}) {
         return;
     }
 
+    if (openExtra.reaction?.mode === "parry") {
+        const snapshot = buildParryGuardSnapshot(actor, selectedUsage, item);
+        if (!snapshot.weapons.length || snapshot.invalid.length) {
+            const details = snapshot.invalid.map(x => `${x.name ?? x.id}: ${x.reason}`).join("、");
+            ui.notifications.warn(details || "パリー用途に使用武器が設定されていません。");
+            return;
+        }
+        openExtra.reaction = {
+            ...openExtra.reaction,
+            parryWeapons: snapshot.weapons,
+            parryGuardBase: snapshot.base,
+            guardBonusSelf: selectedUsage.guardBonusSelf ?? "",
+            guardBonusSelfStackable: selectedUsage.guardBonusSelfStackable === true,
+            guardBonuses: selectedUsage.guardBonuses ?? [],
+            guardBonusSourceItemId: item.id,
+        };
+    }
+
     // 固定達成値の用途(フェーズ11-5・Check_Rules「固定値判定」): カードも出さず能力値も参照せず、
     // 記載の数値がそのまま達成値になる。エキストラが行える唯一の判定形(他アクターでも使用可)
     if (Number.isFinite(selectedUsage.fixedResult)) {
-        await postFixedCheckResult(actor, item, selectedUsage);
+        if (reaction) {
+            const { allSkillIds } = resolveUsageSkillSet(item, selectedUsage, actor);
+            const participants = allSkillIds.map(id => actor.items.get(id)).filter(Boolean);
+            const vehicle = preparedVehicle(actor);
+            const legality = resolveReactionQualification({ base: participants[0], participants, usage: selectedUsage,
+                mode: reaction.selectionMode ?? (reaction.open ? "open" : reaction.mode),
+                rows: reactionConfrontation(reaction.confrontation ?? [], vehicle?.system.operateSkillKey), hasVehicle: !!vehicle });
+            if (!legality.ok) { ui.notifications.warn(legality.reason); return; }
+        }
+        const result = await postFixedCheckResult(actor, item, selectedUsage);
+        if (reaction) await completeReactionFromCheck(openExtra.reaction, result);
         return;
     }
 
@@ -349,23 +385,6 @@ export async function activateItemCheck(actor, item, extraOpen = {}) {
         }
     }
 
-    if (openExtra.reaction?.mode === "parry") {
-        const snapshot = buildParryGuardSnapshot(actor, selectedUsage, item);
-        if (!snapshot.weapons.length || snapshot.invalid.length) {
-            const details = snapshot.invalid.map(x => `${x.name ?? x.id}: ${x.reason}`).join("、");
-            ui.notifications.warn(details || "パリー用途に使用武器が設定されていません。");
-            return;
-        }
-        openExtra.reaction = {
-            ...openExtra.reaction,
-            parryWeapons: snapshot.weapons,
-            parryGuardBase: snapshot.base,
-            guardBonusSelf: selectedUsage.guardBonusSelf ?? "",
-            guardBonusSelfStackable: selectedUsage.guardBonusSelfStackable === true,
-            guardBonuses: selectedUsage.guardBonuses ?? [],
-            guardBonusSourceItemId: item.id,
-        };
-    }
     // 判定起動の共通前段(エキストラ制限・不備検知・参加技能・報酬点・消費・適用効果・目標値)。
     // 攻撃/NPC取得/回復の専用フローも同じ前段を通る(2026-07-16 一本化)
     const base = await buildUsageCheckContext(actor, item, selectedUsage, {
@@ -470,6 +489,7 @@ export async function postFixedCheckResult(actor, item, usage) {
             },
         },
     });
+    return result;
 }
 
 /** 複数の用途を D&D スタイルの縦ボタンダイアログで選択させる */

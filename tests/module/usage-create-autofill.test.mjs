@@ -9,7 +9,6 @@ vi.mock("../../scripts/flow/item-activation.mjs", () => ({ activateItemCheck: vi
 vi.mock("../../scripts/dictionary/skill-dictionary.mjs", async importOriginal => ({
     ...await importOriginal(),
     loadDictionarySkillItems: async () => [],
-    loadSkillUsageTypeIndex: async () => new Map(),
 }));
 
 let TokyoNovaItemSheet;

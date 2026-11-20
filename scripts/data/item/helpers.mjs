@@ -404,6 +404,8 @@ export function checkChangeMatches(key, criteria) {
   // 白兵/射撃の攻撃種別は〈白兵〉〈射撃〉技能判定のキー(check.melee/check.ranged)と衝突するため、
   // 攻撃種別側を meleeAttack/rangedAttack とする(2026-09-24 ユーザー指示)。
   if (p.scope === "usageCheck") {
+    // リアクション分類は能動側の行動と選択済み手段で決まり、用途タイプに依存しない。
+    if (criteria.reactionCheckTypes?.includes(p.usageType)) return true;
     if (!criteria.usageType) return false;
     if (p.usageType === "reaction") {
       // check.reaction: kind="reaction" のあらゆる用途タイプのリアクション判定に合致

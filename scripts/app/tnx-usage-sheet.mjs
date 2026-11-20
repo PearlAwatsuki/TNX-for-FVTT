@@ -1,3 +1,4 @@
+import { migrateReactionUsages } from "../rules/action-qualifications.mjs";
 /**
  * @fileoverview TnxUsageSheet - 用途エントリの編集シート
  *
@@ -121,6 +122,7 @@ export class TnxUsageSheet extends HandlebarsApplicationMixin(ApplicationV2) {
             if (index < 0 || !actions[index].settingsBackup) return null;
             if (JSON.stringify(actions[index]) !== before) { ui.notifications.warn("確認中に用途が変更されました。再確認してください。"); return null; }
             actions[index] = restoreUsageSettings(actions[index]);
+            migrateReactionUsages({ actions: [actions[index]], actionQualifications: this._item.system.actionQualifications ?? [] });
             return actions;
         });
         this.render({ force: true });

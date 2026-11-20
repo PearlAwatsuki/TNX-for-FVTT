@@ -21,6 +21,8 @@
  * 合成アクターによるリアクションはフェーズ13 のトラッカー文脈で対応)。
  */
 
+import { REACTION_METHOD_LABELS } from "../rules/action-qualifications.mjs";
+import { findReactionCombination, reactionConfrontation } from "../rules/reaction-qualification.mjs";
 import { SYSTEM_ID } from "../constants.mjs";
 import { TnxCheckFlow } from "./tnx-check-flow.mjs";
 import { SUIT_TO_ABILITY } from "../rules/tnx-check-engine.mjs";
@@ -40,10 +42,8 @@ import { buildSkillOptions } from "../ui/skill-select.mjs";
 import { movementStagesFromAchievement } from "../rules/vehicle-move.mjs";
 import { USAGE_TYPE_LABELS, attackCategoryOf, usageDisplayName, executionFormOf } from "../rules/usage-types.mjs";
 import {
-    confrontationHasCannot, asteriskSkillKeys, isOpposedConfrontation,
-    confrontationReactionTypes, confrontationSkillRows,
+    confrontationHasCannot, isOpposedConfrontation,
 } from "../rules/confrontation.mjs";
-import { findItemByIdentificationKey, resolveItemNameByKey } from "../core/identification.mjs";
 
 import { keepTogether, nowrap } from "../chat/chat-text.mjs";
 import { cardField, cardResult } from "../chat/chat-card.mjs";
@@ -65,7 +65,7 @@ export const ATTACK_CATEGORY_LABELS = Object.freeze({
 // none=リアクションしない(スキップ=制御値受け・旧カード互換の表示にも使う)
 const MODE_LABELS = Object.freeze({
     ...Object.fromEntries(["dodge", "parry", "mentalReaction", "socialReaction",
-        "moveBlockReaction", "escapeBlockReaction"].map(k => [k, USAGE_TYPE_LABELS[k]])),
+        "moveBlockReaction", "escapeBlockReaction"].map(k => [k, REACTION_METHOD_LABELS[k]])),
     reaction: "リアクション",
     other:    "リアクション（その他）",
     none:     "リアクションしない",
@@ -1054,83 +1054,20 @@ function seedLegacyTarget(t) {
     }
 }
 
-/**
- * 対決欄とリアクターの状態から、リアクションに使用する技能を選ばせる(2026-07-18 大改修)。
- * 資格はここ=押下時に判定して弾く(導線は隠さない・2026-07-17 ユーザー確定):
- * - mode="dodge"/"parry": そのタイプの用途を持つ技能をレベル1以上で所持。
- * - mode="reaction"(統合ボタン): **該当行のタイプ∪汎用「リアクション」タイプ**の用途を持つ技能
- *   ∪ 無印技能名行の列挙技能(2026-07-18 ユーザー確定=系統タイプと汎用のどちらかの用途で起動できる)。
- * - mode="other": **資格ゲートなしの自由技能選択**(全技能から・不可マスクのみ通す。
- *   「対応する全ての種類のリアクションとして扱える」・2026-07-18 ユーザー確定)。
- * - ※(必須)行: その技能すべてをレベル1以上で所持していなければ不可。候補=※技能(その他を除く)。
- * - 「不可」マスク: 「対決不可にもリアクション可」(ignoresUnopposable)の用途を持つ技能のみ通る
- *   (その場合も下地の対決拘束は受ける)。
- * - **対決の特殊処理はヴィークル操縦時のみ**: 操縦中(準備済みヴィークル)のリアクターは、対決が
- *   自動的に「〈操縦〉※」になる(リアクター側状態由来・下地を置き換え・不可マスクは残る)。
- * @returns {Promise<?{skill: Item, usageId: ?string}>} null=不適格・キャンセル(警告はここで出す)
+/** 選択済みの手段を実行できるアクション技能を、成立し得る組み合わせまで含めて提示する。
+ * 実参加の資格はカード実行前に同じ純粋関数で再検証する。用途・技能は変更しない。
  */
 async function selectReactionSkill(reactor, confrontationRows, mode) {
-    let rows = confrontationRows ?? [];
     const vehicle = preparedVehicle(reactor);
-    if (vehicle?.system.operateSkillKey) {
-        rows = [
-            ...(confrontationHasCannot(rows) ? [{ value: "cannot", name: "" }] : []),
-            { value: "skillNameAsterisk", name: vehicle.system.operateSkillKey },
-        ];
-    }
+    const rows = reactionConfrontation(confrontationRows ?? [], vehicle?.system.operateSkillKey);
     const cannot = confrontationHasCannot(rows);
-    const levelOk = (s) => (Number(s.system.levelTotal ?? s.system.level) || 0) >= 1;
-    // 不可マスク下では「対決不可にもリアクション可」の用途だけが使える。types=null はタイプ不問
-    const usageEligible = (a, types) => executionFormOf(a) === "check"
-        && (!types || types.includes(a.type))
-        && (!cannot || a.ignoresUnopposable === true);
-    const skillEligible = (s, types) => levelOk(s) && (s.system.actions ?? []).some(a => usageEligible(a, types));
-    const isSkillItem = (i) => i.type === "generalSkill" || i.type === "styleSkill";
-
-    // モードごとの資格タイプ(null=タイプ不問)。統合「リアクション」は行のタイプ∪汎用(純ロジック)。
-    // "open"=オープンリアクションの1ボタン(2026-07-19 直接起動): 対決欄の**全**手段行タイプ∪汎用
-    const plan = reactionButtonPlan(rows);
-    const gateTypes = (mode === "dodge" || mode === "parry") ? [mode]
-        : mode === "reaction" ? (plan.reaction?.types ?? ["reaction"])
-            : mode === "open" ? [...new Set([...confrontationReactionTypes(rows), "reaction"])]
-                : null;
-
-    // ※(必須)技能: すべて所持していなければリアクション不可。候補は※技能そのもの
-    // (「必ずコンボに含める」=※技能を起点に判定する。コンボの構成はその用途の設定が担う)。
-    // その他(資格ゲートなし)は※の拘束も受けない=自由枠(卓判断)
-    const asterisks = mode === "other" ? [] : asteriskSkillKeys(rows);
-    let candidates;
-    if (asterisks.length) {
-        candidates = [];
-        for (const key of asterisks) {
-            const s = findItemByIdentificationKey(reactor, key);
-            if (!s || !levelOk(s)) {
-                const name = resolveItemNameByKey(reactor, key) || key;
-                ui.notifications.warn(`このリアクションには「${name}」（レベル1以上）が必要です。`);
-                return null;
-            }
-            candidates.push(s);
-        }
-        candidates = candidates.filter(s => (s.system.actions ?? []).some(a => usageEligible(a, null)));
-    } else if (mode === "other") {
-        // 資格ゲートなし: 全技能から選ぶ(不可マスクのみ通す)
-        candidates = reactor.items
-            .filter(i => isSkillItem(i) && skillEligible(i, null))
-            .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0));
-    } else {
-        // タイプ資格の候補 ∪ (統合/オープンのリアクション)無印技能名行の列挙技能
-        const byType = reactor.items
-            .filter(i => isSkillItem(i) && skillEligible(i, gateTypes))
-            .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0));
-        const enumeratedKeys = mode === "reaction" ? (plan.reaction?.skillKeys ?? [])
-            : mode === "open" ? confrontationSkillRows(rows).filter(r => !r.asterisk).map(r => r.key)
-                : [];
-        const enumerated = enumeratedKeys
-            .map(key => findItemByIdentificationKey(reactor, key))
-            .filter(s => s && skillEligible(s, null));
-        const seen = new Set();
-        candidates = [...byType, ...enumerated].filter(s => !seen.has(s.id) && seen.add(s.id));
-    }
+    const skills = reactor.items.filter(i => ["generalSkill", "styleSkill"].includes(i.type));
+    const eligibleUsages = skill => (skill.system.actions ?? []).filter(usage =>
+        !usage.hideFromUsageSelection && executionFormOf(usage) === "check"
+        && (mode === "other" || usage.type === "reaction")
+        && findReactionCombination({ base: skill, skills, usage, mode, rows, hasVehicle: !!vehicle }));
+    const candidates = skills.filter(s => s.system.isAction && eligibleUsages(s).length)
+        .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0));
 
     if (!candidates.length) {
         ui.notifications.warn(cannot
@@ -1149,13 +1086,8 @@ async function selectReactionSkill(reactor, confrontationRows, mode) {
     const skill = reactor.items.get(skillId);
     if (!skill) return null;
 
-    // 資格に合致する用途がただ1つなら直接起動する(複数なら通常のピッカーに委ねる)。
-    // 列挙技能(タイプ資格なし)はタイプ不問で数える
-    let usageId = null;
-    let matches = gateTypes ? (skill.system.actions ?? []).filter(a => usageEligible(a, gateTypes)) : [];
-    if (!matches.length) matches = (skill.system.actions ?? []).filter(a => usageEligible(a, null));
-    if (matches.length === 1) usageId = matches[0]._id;
-    return { skill, usageId };
+    const matches = eligibleUsages(skill);
+    return { skill, usageId: matches.length === 1 ? matches[0]._id : null, rows: confrontationRows ?? [] };
 }
 
 /**
@@ -1203,7 +1135,8 @@ export async function startReaction(reactionMsg, mode) {
         ...(sel.usageId ? { usageId: sel.usageId } : {}),
         reaction: {
             reactionMessageId: reactionMsg.id, attackMessageId: r.attackMessageId,
-            targetIndex: r.targetIndex, open: false, mode,
+            targetIndex: r.targetIndex, open: false, mode, confrontation: sel.rows,
+            activeUsageType: attackF.usageType ?? "", activeAttackCategory: attackF.category ?? "",
             reactorUuid: reactor.uuid, reactorName: reactor.name, isSelf: r.isSelf === true,
         },
     });
@@ -1238,7 +1171,8 @@ export async function handleOpenReactionClick(attackMsg) {
         ...(sel.usageId ? { usageId: sel.usageId } : {}),
         reaction: {
             reactionMessageId: null, attackMessageId: attackMsg.id, targetIndex: null,
-            open: true, mode: "reaction", parryGuard: 0,
+            open: true, mode: "reaction", selectionMode: "open", confrontation: sel.rows, parryGuard: 0,
+            activeUsageType: f.usageType ?? "", activeAttackCategory: f.category ?? "",
             reactorUuid: identity.uuid, reactorName: identity.name, isSelf: false,
         },
     });

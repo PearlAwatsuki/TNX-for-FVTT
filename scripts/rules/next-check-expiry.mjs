@@ -1,4 +1,5 @@
 /** 判定1回持続の対象を開始時に固定し、確定時に条件を照合する。 */
+import { reactionCheckTypes } from "./action-qualifications.mjs";
 import { SYSTEM_ID } from "../constants.mjs";
 import { checkChangeMatches, parseEffectTargetKey, evalEffectConditions } from "../data/item/helpers.mjs";
 
@@ -32,6 +33,7 @@ export function checkCriteria(actor, ctx, ability) {
     // 用途タイプ・タイミング・特殊判定情報を criteria へ付加(2026-09-24 usageCheck/timingCheck/specialCheck 対応)。
     const usageExtra = {
         usageType:       ctx.usageType ?? null,
+        reactionCheckTypes: reactionCheckTypes(ctx.reaction),
         usageKind:       ctx.usageKind ?? null,
         attackWeaponKind: ctx.attackWeaponKind ?? null,
         usageTiming:     ctx.usageTiming ?? null,

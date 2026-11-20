@@ -154,4 +154,16 @@ describe("migration dialog DOM interaction", () => {
         expect(sheet.usage).toEqual(action === "yes" ? original : beforeRestore);
         expect(item.system.actions[1]).toEqual({ _id: "other", name: "Untouched" });
     });
+    it("旧パリー用途のバックアップを復元しても統合タイプと技能資格を保持する", async () => {
+        const { item, sheet } = fixture();
+        item.system.actionQualifications = ["parry"];
+        const backup = { ...structuredClone(sheet.usage), type: "parry", weaponRefs: [{ itemId: "w" }], guardBonusSelf: "8" };
+        item.system.actions[0] = { ...structuredClone(backup), type: "reaction", guardBonusSelf: "99", settingsBackup: backup };
+        interact(({ click }) => click("yes"));
+        await Sheet._onRestoreSettings.call(sheet);
+        expect(sheet.usage).toEqual({ ...backup, type: "reaction" });
+        expect(item.system.actionQualifications).toEqual(["parry"]);
+        expect(backup.type).toBe("parry");
+    });
+
 });

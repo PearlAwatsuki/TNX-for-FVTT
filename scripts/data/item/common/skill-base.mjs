@@ -24,9 +24,7 @@ export class SkillBaseTemplate extends SystemDataModel {
         club:    new fields.BooleanField({ initial: false }),
       }),
       isAction: new fields.BooleanField({ initial: false }),
-      // 旧「役割」(skillRoles・2026-07-09)は廃止(2026-07-17 行動種別再編): 「この技能で
-      // ドッジ/治療等が行えるか」は**用途タイプの所持**で表す(ドッジ用途を持つ技能=ドッジ可)。
-      // スタイル技能の付与能力(〈電脳〉ドッジ等)もそのスタイル技能が該当タイプの用途を持つことで表す。
+      actionQualifications: new fields.ArrayField(new fields.StringField({ initial: "" })),
     };
   }
 

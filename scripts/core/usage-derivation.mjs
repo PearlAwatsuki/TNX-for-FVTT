@@ -6,12 +6,13 @@
  * インポート時の正規化はシステム起動側(tnx.mjs)から、自動入力はアイテムシートから呼ばれており、
  * データの導出を得るために 2,328 行のシートを読み込む形になっていた。
  */
+import { hasReactionQualification } from "../rules/action-qualifications.mjs";
 import { runSerial } from "./serial-queue.mjs";
 
 import { resolveUsageSkills } from "../rules/skill-chain-resolution.mjs";
 import { deriveConsumeTargets } from "../flow/usage-consumption.mjs";
 import { resolveAttackWeapons, resolveAttackRangeSpan } from "../rules/attack-weapons.mjs";
-import { loadSkillUsageTypeIndex, loadDictionarySkillItems } from "../dictionary/skill-dictionary.mjs";
+import { loadDictionarySkillItems } from "../dictionary/skill-dictionary.mjs";
 import { mergeConfrontationRows } from "../rules/confrontation.mjs";
 import { findItemByIdentificationKey } from "./identification.mjs";
 import { isAttackType, attackCategoryOf, isReactionType, executionFormOf, defaultConfrontationForType, effectiveBaseSkillId } from "../rules/usage-types.mjs";
@@ -283,12 +284,12 @@ export async function deriveUsageAutoFill(item, usage) {
     } else {
         // 吸収の技能参照(2026-07-18 是正): 従来はアクター所持アイテムしか見ておらず、辞典アイテム
         // 上の編集(actor 無し)では吸収が一切働かなかった。アクター所持ならその実体(手元の編集が正)、
-        // 未所持なら技能辞典の用途タイプ索引で判定する
-        const dictTypes = await loadSkillUsageTypeIndex();
-        const skillHasReactionType = (key, typeKey) => {
-            const it = actor ? findItemByIdentificationKey(actor, key) : null;
-            if (it) return (it.system?.actions ?? []).some(a => a.type === typeKey);
-            return dictTypes.get(key)?.has(typeKey) === true;
+        // 未所持なら技能辞典の行動資格で判定する
+        const dictionarySkills = await loadDictionarySkillItems();
+        const skillHasReactionQualification = (key, method) => {
+            const it = (actor ? findItemByIdentificationKey(actor, key) : null)
+                ?? dictionarySkills.find(s => s.system.identificationKey === key);
+            return it ? hasReactionQualification(it.system, method) : false;
         };
         patch.confrontation = mergeConfrontationRows(
             usage.confrontation ?? [],
@@ -296,12 +297,12 @@ export async function deriveUsageAutoFill(item, usage) {
                 ...defaultConfrontationForType(usage.type),
                 ...skillItems.filter(s => s.type === "styleSkill").flatMap(s => s.system.confrontation ?? []),
             ],
-            { skillHasReactionType }
+            { skillHasReactionQualification }
         );
     }
 
-    // パリー武器は戦闘タブを自動入力元として用途へ実体参照を保存する。実行時は用途だけを見る。
-    if (usage.type === "parry" && !(usage.weaponRefs ?? []).length) {
+    // リアクション用途のパリー武器は戦闘タブを自動入力元として用途へ実体参照を保存する。実行時は用途だけを見る。
+    if (usage.type === "reaction" && !(usage.weaponRefs ?? []).length) {
         const parryItemId = actor?.system?.weaponRefs?.parryItemId || "";
         if (parryItemId) patch.weaponRefs = [{ itemId: parryItemId }];
     }
