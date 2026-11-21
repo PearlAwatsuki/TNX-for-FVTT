@@ -336,6 +336,7 @@ export class UsageSettingsMigrationDialog {
         const labels = { checkBonusSelf: "用途自身の判定修正", checkBonusSelfStackable: "判定修正の重複可",
             checkBonuses: "判定修正行", damageBonusSelf: "用途自身のダメージ修正",
             damageBonusSelfStackable: "ダメージ修正の重複可", damageBonusSelfCondition: "自身のダメージ修正の対象条件",
+            guardBonusSelf: "用途自身の受け値修正", guardBonusSelfStackable: "受け値修正の重複可", guardBonuses: "受け値修正行",
             damageBonuses: "ダメージ修正行", allowRecheck: "再判定の許可", allowSuitChange: "スート変更の許可",
             canStun: "スタンの許可", grantsInterrupt: "割り込みの許可", requiresVehicle: "ヴィークル準備条件",
             interruptConsumesAr: "割り込みのAR消費", damageType: "選択したダメージ種別", damageTypeOptions: "旧ダメージ種別候補" };
@@ -352,7 +353,7 @@ export class UsageSettingsMigrationDialog {
             }
             return String(value) || "空欄";
         };
-        const entries = fields.flatMap(key => ["checkBonuses", "damageBonuses"].includes(key)
+        const entries = fields.flatMap(key => ["checkBonuses", "damageBonuses", "guardBonuses"].includes(key)
             ? (usage[key] ?? []).map((value, index) => ({ key, index, value })) : [{ key, value: usage[key] }]);
         const content = `<p>各保存値の扱いを選択してください。同じ式・供給元でも自動生成とは判定しません。</p>
             <p>「技能から導出」を選ぶと保存値を用途固有の設定から外します。現在の参加技能から改めて導出されます。「保持」を選ぶと、その値と現在の技能由来の値が両方適用されます。元の用途全体を復元用に保存します。</p>`
@@ -365,14 +366,14 @@ export class UsageSettingsMigrationDialog {
         return DialogV2.wait({ window: { title: "用途設定の個別移行" }, classes: ["tokyo-nova", "tnx-dialog"], content,
             buttons: [{ action: "migrate", label: "確認内容で移行", callback: (_event, _button, dialog) => {
                 const decisions = Object.fromEntries(fields.map(key => [key, { action: "keep" }]));
-                for (const key of ["checkBonuses", "damageBonuses"]) decisions[key] = { action: "replace", value: [] };
+                for (const key of ["checkBonuses", "damageBonuses", "guardBonuses"]) decisions[key] = { action: "replace", value: [] };
                 for (const [i, entry] of entries.entries()) {
                     const choice = dialog.element.querySelector(`[name="choice-${i}"]`).value;
                     if (!["keep", "skill"].includes(choice)) { ui.notifications.warn("すべての設定の扱いを選択してください。"); return false; }
                     if (entry.index !== undefined) {
                         if (choice === "keep") decisions[entry.key].value.push(entry.value);
                     } else if (choice === "skill") {
-                        const defaults = { checkBonusSelf: "", damageBonusSelf: "", damageType: "", damageTypeOptions: [],
+                        const defaults = { checkBonusSelf: "", damageBonusSelf: "", guardBonusSelf: "", damageType: "", damageTypeOptions: [],
                             interruptConsumesAr: true, damageBonusSelfCondition: { kind: "none", mode: "exclude", key: "" } };
                         decisions[entry.key] = { action: "replace", value: defaults[entry.key] ?? false };
                     }

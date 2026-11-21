@@ -34,16 +34,17 @@ describe("数値供給の現行挙動と不足箇所（仕様の承認ではな�
         expect(result.contributions.damageBonuses).toEqual([]);
         expect(result.effective.damageBonuses[0]).toMatchObject({ source: "s", formula: "7" });
     });
-    it("技能スキーマには受け値供給フィールドがなく、ダメージ修正を受け値に流用しない", () => {
+    it("技能スキーマに受け値供給を追加し、ダメージ修正とは分離する", () => {
         const schema = StyleSkillDataModel.defineSchema();
-        expect(schema).not.toHaveProperty("guardBonusSelf");
-        expect(schema).not.toHaveProperty("guardBonuses");
+        expect(schema).toHaveProperty("guardBonusSelf");
+        expect(schema).toHaveProperty("guardBonusSelfStackable");
         expect(styleSkillUsageDefaults(skill("s").system, { type: "reaction" })).not.toHaveProperty("damageBonusSelf");
     });
     it("用途固有の受け値行を保持し、自動の判定・ダメージ行に混ぜない", () => {
         const input = local({ type: "reaction", guardBonusSelf: "4", guardBonuses: [{ source: "s", formula: "8" }] });
         const result = resolveUsageSettings(input, base, () => skill("s"));
-        expect(result.effective.guardBonuses).toEqual(input.guardBonuses);
+        expect(result.effective.guardBonuses).toMatchObject(input.guardBonuses);
+        expect(result.effective.guardBonuses[0].origin.kind).toBe("usage");
         expect(result.effective.guardBonusSelf).toBe("4");
         expect(result.contributions.damageBonuses).toEqual([]);
         expect(result.contributions.checkBonuses.map(r => r.formula)).toEqual(["3"]);
@@ -100,7 +101,7 @@ describe("保存境界・来歴・評価までの回帰保護", () => {
         expect(result.sources).toEqual([{ name: "s", value: 0, note: expect.stringContaining("ウェット") }]);
         expect((await evaluateBonusRows(rows, actor, null, null, null, base)).total).toBe(5);
     });
-    it.fails("受け値行を送信しない部分編集でも用途固有の受け値行を保持すべき", async () => {
+    it("受け値行を送信しない部分編集でも用途固有の受け値行を保持すべき", async () => {
         const input = local({ type: "reaction", timing: {}, guardBonuses: [{ source: "s", formula: "8" }] });
         const sheet = { usage: input, _item: { system: {} }, _patchUsage: vi.fn(), _enforceComboRequirements: vi.fn(), render: vi.fn() };
         await submitUsageForm(sheet, {}, {}, { object: { name: "renamed" } });
@@ -159,13 +160,13 @@ describe("判定ダイアログの実フローでの再導出", () => {
         expect(ctx.checkBonuses.map(r => r.formula)).toEqual(["2"]);
         expect(ctx.attack.damageBonuses.map(r => r.formula)).toEqual(["7"]);
     });
-    // 確認済みの不足を期待失敗として固定する。修正後はfailsを外して通常の回帰テストにする。
-    it.fails("通常判定でも追加技能から判定修正を再導出すべき", async () => {
+    // KI-069修正後は通常判定でも同じ再導出を検証する。
+    it("通常判定でも追加技能から判定修正を再導出すべき", async () => {
         const ctx = await rebuild(false);
         expect(ctx.skillIds).toEqual(["base", "s"]);
         expect(ctx.checkBonuses.map(r => r.formula)).toEqual(["2", "3"]);
     });
-    it.fails("通常攻撃でも追加技能からダメージ修正を再導出すべき", async () => {
+    it("通常攻撃でも追加技能からダメージ修正を再導出すべき", async () => {
         const ctx = await rebuild(false);
         expect(ctx.attack.damageBonuses.map(r => r.formula)).toEqual(["7", "5"]);
     });

@@ -78,7 +78,8 @@ export async function submitUsageForm(sheet, event, form, formData) {
         update.checkBonusSelf = raw["checkBonusSelf"] ?? usage.checkBonusSelf ?? "";
         update.checkBonusSelfStackable = Object.hasOwn(raw, "checkBonusSelfStackable") ? [true, "true", "on"].includes(raw.checkBonusSelfStackable) : usage.checkBonusSelfStackable === true;
         if (usage.type === "reaction") {
-            update.guardBonuses = collectBonusRows(raw, "guardBonus");
+            update.guardBonuses = Object.keys(raw).some(k => k.startsWith("guardBonusFormula-"))
+                ? collectBonusRows(raw, "guardBonus") : usage.guardBonuses ?? [];
             update.guardBonusSelf = raw["guardBonusSelf"] ?? usage.guardBonusSelf ?? "";
             update.guardBonusSelfStackable = Object.hasOwn(raw, "guardBonusSelfStackable") ? [true, "true", "on"].includes(raw.guardBonusSelfStackable) : usage.guardBonusSelfStackable === true;
         }

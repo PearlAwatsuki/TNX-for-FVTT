@@ -115,6 +115,7 @@ export async function prepareUsageContext(sheet, context) {
     context.settingsNeedsReview = diagnoseUsageSettings(usage).needsReview;
     context.settingsCanRestore = !!usage.settingsBackup;
     context.settingsDiagnostics = resolution.diagnostics;
+    context.skillGuardContributions = resolution.contributions.guardBonuses;
     context.skillCheckContributions = resolution.contributions.checkBonuses;
     context.skillDamageContributions = resolution.contributions.damageBonuses.map(row => ({ ...row,
         conditionLabel: row.targetCondition?.kind && row.targetCondition.kind !== "none"

@@ -1,4 +1,4 @@
-import { executionFormOf, isAttackType } from "./usage-types.mjs";
+import { executionFormOf, isAttackType, attackCategoryOf } from "./usage-types.mjs";
 
 export const SKILL_ATTACK_METHODS = Object.freeze({
     physical: "物理", mental: "精神", social: "社会",
@@ -27,10 +27,18 @@ export function styleSkillUsageDefaults(system, usage) {
         // 移動用途などのタイプ既定を、未指定の false で消さない。
         if (system.requiresVehicle) patch.requiresVehicle = true;
     }
-    if (system.dealsDamage && isAttackType(usage.type)) {
-        for (const key of ["damageBonusSelf", "damageBonusSelfStackable"])
+    if (usage.type === "reaction") {
+        for (const key of ["guardBonusSelf", "guardBonusSelfStackable"])
             if (system[key] !== undefined) patch[key] = system[key];
-        if (system.damageBonusSelfCondition) patch.damageBonusSelfCondition = { ...system.damageBonusSelfCondition };
+    }
+    // 攻撃を発生させるフラグの意味は維持し、修正の提供先だけ独立に制限する。
+    if (system.dealsDamage && isAttackType(usage.type)) {
+        const applies = system.damageBonusCategories?.[attackCategoryOf(usage.type)] !== false;
+        if (applies) {
+            for (const key of ["damageBonusSelf", "damageBonusSelfStackable"])
+                if (system[key] !== undefined) patch[key] = system[key];
+            if (system.damageBonusSelfCondition) patch.damageBonusSelfCondition = { ...system.damageBonusSelfCondition };
+        }
         if (usage.type === "physicalAttack") {
             patch.damageType = system.damageType ?? "";
             patch.canStun = system.canStun === true;

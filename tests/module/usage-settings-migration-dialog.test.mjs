@@ -154,6 +154,29 @@ describe("migration dialog DOM interaction", () => {
         expect(sheet.usage).toEqual(action === "yes" ? original : beforeRestore);
         expect(item.system.actions[1]).toEqual({ _id: "other", name: "Untouched" });
     });
+    it.each(["keep", "skill"])("受け値の来歴を%sで明示し、手動行の保持と復元を確認する", async choice => {
+        const { item, sheet } = fixture();
+        Object.assign(sheet.usage, { type: "reaction", guardBonusSelf: "6", guardBonusSelfStackable: true,
+            guardBonuses: [{ source: "s", formula: "7" }, { source: "s", formula: "3" }] });
+        item.system.guardBonusSelf = "3";
+        const original = structuredClone(sheet.usage);
+        interact(({ keepAll, select, click }) => {
+            keepAll();
+            select("用途自身の受け値修正", choice);
+            select("受け値修正の重複可", choice);
+            select("受け値修正行 2", choice);
+            click("migrate");
+        });
+        await Sheet._onMigrateSettings.call(sheet);
+        const effective = resolveUsageSettings(sheet.usage, item).effective;
+        expect(effective.guardBonusSelf).toBe(choice === "keep" ? "6" : "");
+        expect(effective.guardBonusSelfStackable).toBe(choice === "keep");
+        expect(effective.guardBonuses.map(row => row.formula)).toEqual(choice === "keep" ? ["7", "3", "3"] : ["7", "3"]);
+        expect(sheet.usage.settingsBackup).toEqual(original);
+        interact(({ click }) => click("yes"));
+        await Sheet._onRestoreSettings.call(sheet);
+        expect(sheet.usage).toEqual(original);
+    });
     it("旧パリー用途のバックアップを復元しても統合タイプと技能資格を保持する", async () => {
         const { item, sheet } = fixture();
         item.system.actionQualifications = ["parry"];

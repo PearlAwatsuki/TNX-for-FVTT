@@ -100,6 +100,7 @@ export class TnxCheckFlow {
         TnxCheckFlow.cancel();
         context = await prepareCheckContext(context);
         if (!context) return;
+        TnxCheckFlow._refreshUsageModifiers(context, game.actors.get(context.actorId));
         TnxCheckFlow._context   = foundry.utils.deepClone(context);
         TnxCheckFlow._context.baseSkillIds = [...(TnxCheckFlow._context.skillIds ?? [])];
         TnxCheckFlow._context.dialogAddedSkillIds = [];
@@ -221,6 +222,36 @@ export class TnxCheckFlow {
         return true;
     }
 
+    /** 用途の固有入力から参加技能の数値だけを再解決する。消費や保存用途は変更しない。 */
+    static _refreshUsageModifiers(ctx, actor) {
+        if (ctx.usageSettingsInput?.settingsVersion !== 1 || !actor) return null;
+        const parent = actor.items.get(ctx.sourceItemId);
+        if (!parent) return null;
+        // 実効行には必ずoriginがある。入口が後から加えた行は別枠として保持する。
+        ctx.usageExtraCheckBonuses ??= structuredClone((ctx.checkBonuses ?? []).filter(row => !row.origin));
+        const resolution = resolveUsageSettings({ ...ctx.usageSettingsInput,
+            skillRefs: (ctx.skillIds ?? []).map(itemId => ({ itemId })) }, parent, id => actor.items.get(id));
+        const supplied = resolution.effective;
+        ctx.checkBonuses = [...supplied.checkBonuses, ...ctx.usageExtraCheckBonuses];
+        ctx.checkBonusSelf = supplied.checkBonusSelf;
+        ctx.checkBonusSelfStackable = supplied.checkBonusSelfStackable === true;
+        if (ctx.attack) Object.assign(ctx.attack, {
+            damageBonuses: supplied.damageBonuses,
+            damageBonusSelf: supplied.damageBonusSelf,
+            damageBonusSelfStackable: supplied.damageBonusSelfStackable === true,
+            damageBonusSelfCondition: supplied.damageBonusSelfCondition,
+            damageType: supplied.damageType || ctx.attack.weaponDamageType || ctx.attack.damageType,
+            damageTypeOptions: supplied.damageTypeOptions,
+        });
+        if (ctx.reaction?.mode === "parry") Object.assign(ctx.reaction, {
+            guardBonusSelf: supplied.guardBonusSelf ?? "",
+            guardBonusSelfStackable: supplied.guardBonusSelfStackable === true,
+            guardBonuses: supplied.guardBonuses,
+            guardBonusSourceItemId: parent.id,
+        });
+        return resolution.diagnostics.find(d => d.error)?.message ?? null;
+    }
+
     /** 開始時技能とダイアログ追加技能から、判定に使う導出値を再構築する。 */
     static async _rebuildDialogSkillContext() {
         const ctx = TnxCheckFlow._context;
@@ -241,29 +272,8 @@ export class TnxCheckFlow {
         ctx.bountyAvailable = comboUsesBounty(systems) ? actorBounty : 0;
         if (ctx.isRecheck) {
             ctx.consumeUses = [...(ctx.baseConsumeUses ?? []), ...Object.values(ctx.dialogSkillConsumption ?? {}).flat()];
-            let supplied = { type: ctx.attack?.isAttack ? `${ctx.attack.category}Attack` : "check",
-                skillRefs: skillIds.map(itemId => ({ itemId })),
-                checkBonuses: ctx.checkBonuses ?? [], damageBonuses: ctx.attack?.damageBonuses ?? [],
-                checkBonusSelf: ctx.checkBonusSelf, checkBonusSelfStackable: ctx.checkBonusSelfStackable,
-                damageBonusSelf: ctx.attack?.damageBonusSelf, damageBonusSelfStackable: ctx.attack?.damageBonusSelfStackable,
-                damageBonusSelfCondition: ctx.attack?.damageBonusSelfCondition,
-                damageType: ctx.attack?.damageType, damageTypeOptions: ctx.attack?.damageTypeOptions };
-            const parent = actor.items.get(ctx.sourceItemId) ?? { id: ctx.sourceItemId, type: "generalSkill", system: {} };
-            supplied = syncUsageSkills({ ...(ctx.usageSettingsInput ?? supplied),
-                skillRefs: skillIds.map(itemId => ({ itemId })) }, parent, id => actor.items.get(id));
-            ctx.checkBonuses = supplied.checkBonuses;
-            ctx.checkBonusSelf = supplied.checkBonusSelf ?? ctx.checkBonusSelf;
-            ctx.checkBonusSelfStackable = supplied.checkBonusSelfStackable ?? ctx.checkBonusSelfStackable;
-            // Keep the original local input; dialog membership is a transient override.
-            if (ctx.attack) Object.assign(ctx.attack, {
-                damageBonuses: supplied.damageBonuses,
-                damageBonusSelf: supplied.damageBonusSelf ?? ctx.attack.damageBonusSelf,
-                damageBonusSelfStackable: supplied.damageBonusSelfStackable ?? ctx.attack.damageBonusSelfStackable,
-                damageBonusSelfCondition: supplied.damageBonusSelfCondition ?? ctx.attack.damageBonusSelfCondition,
-                damageType: supplied.damageType || ctx.attack.weaponDamageType || ctx.attack.damageType,
-                damageTypeOptions: supplied.damageTypeOptions,
-            });
         }
+        TnxCheckFlow._refreshUsageModifiers(ctx, actor);
 
         const classByKey = await loadSkillClassByKey();
         ctx.societyClassByKey = Object.fromEntries(skills
@@ -910,6 +920,8 @@ ${ctx.allowSuitChange ? `<div class="form-group"><label>変更後のスート</l
             return false;
         }
 
+        const modifierError = TnxCheckFlow._refreshUsageModifiers(ctx, actor);
+        if (modifierError) { ui.notifications.warn(modifierError); return false; }
         const reactionError = TnxCheckFlow._reactionBlockReason(ctx);
         if (reactionError) { ui.notifications.warn(reactionError); return false; }
 
@@ -1333,6 +1345,7 @@ ${ctx.allowSuitChange ? `<div class="form-group"><label>変更後のスート</l
             // 報酬点は「使えるか」だけ保存し、量は再判定時点の所持から取り直す(元判定の消費を反映)
             bountyAllowed:   (ctx.bountyAvailable ?? 0) > 0,
             usageSettingsInput: ctx.usageSettingsInput,
+            usageExtraCheckBonuses: ctx.usageExtraCheckBonuses,
             checkBonuses:    ctx.checkBonuses ?? [],
             checkBonusSelf:  ctx.checkBonusSelf ?? "",
             checkBonusSelfStackable: ctx.checkBonusSelfStackable === true,
@@ -1455,6 +1468,8 @@ ${ctx.allowSuitChange ? `<div class="form-group"><label>変更後のスート</l
             requestMessageId: rc.requestMessageId,
             checkBonuses:    supplied.checkBonuses,
             usageSettingsInput: supplied.usageSettingsInput,
+            usageExtraCheckBonuses: rc.usageExtraCheckBonuses ?? (rc.usageSettingsInput?.settingsVersion === 1
+                ? (rc.checkBonuses ?? []).filter(row => !row.origin) : []),
             checkBonusSelf:  supplied.checkBonusSelf ?? rc.checkBonusSelf,
             checkBonusSelfStackable: (supplied.checkBonusSelfStackable ?? rc.checkBonusSelfStackable) === true,
             sourceItemId:    rc.sourceItemId,

@@ -4,6 +4,7 @@ export const USAGE_SETTINGS_VERSION = 1;
 const permissions = ["allowRecheck", "allowSuitChange", "canStun", "grantsInterrupt"];
 export const USAGE_SKILL_FIELDS = ["checkBonusSelf", "checkBonusSelfStackable", "checkBonuses",
     "damageBonusSelf", "damageBonusSelfStackable", "damageBonusSelfCondition", "damageBonuses",
+    "guardBonusSelf", "guardBonusSelfStackable", "guardBonuses",
     ...permissions, "requiresVehicle", "interruptConsumesAr", "damageType", "damageTypeOptions"];
 const copy = value => structuredClone(value);
 
@@ -20,7 +21,7 @@ export function resolveUsageSettings(usage, parent, getItem = () => null) {
     delete local.usageSettingsInput;
     const effective = copy(local);
     const diagnostics = [];
-    const contributions = { checkBonuses: [], damageBonuses: [] };
+    const contributions = { checkBonuses: [], damageBonuses: [], guardBonuses: [] };
     effective.usageSettingsInput = copy(local);
     if (diagnoseUsageSettings(local).needsReview) {
         diagnostics.push({ code: "legacy-settings", message: "旧用途の保存値を保持しています。技能由来と用途固有の設定を確認して個別移行してください。" });
@@ -30,7 +31,7 @@ export function resolveUsageSettings(usage, parent, getItem = () => null) {
         ...(local.skillRefs ?? []).map(ref => ref.itemId)].filter(Boolean))];
     const skills = ids.map(id => id === parent.id ? parent : getItem(id)).filter(item => item?.type === "styleSkill");
     const settings = skills.map(item => ({ item, data: styleSkillUsageDefaults(item.system, local) }));
-    for (const [self, rows] of [["checkBonusSelf", "checkBonuses"], ["damageBonusSelf", "damageBonuses"]]) {
+    for (const [self, rows] of [["checkBonusSelf", "checkBonuses"], ["damageBonusSelf", "damageBonuses"], ["guardBonusSelf", "guardBonuses"]]) {
         for (const { item, data } of settings) {
             const formula = String(data[self] ?? "").trim();
             if (!formula) continue;

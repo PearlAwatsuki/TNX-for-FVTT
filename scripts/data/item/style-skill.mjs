@@ -142,6 +142,14 @@ export class StyleSkillDataModel extends SystemDataModel.mixin(BaseTemplate, Usa
       requiresVehicle: new fields.BooleanField({ initial: false }),
       checkBonusSelf: new fields.StringField({ initial: "" }),
       checkBonusSelfStackable: new fields.BooleanField({ initial: false }),
+      // 未設定は従来の全系統への供給を維持する。攻撃方法とは独立した適用範囲。
+      damageBonusCategories: new fields.SchemaField({
+        physical: new fields.BooleanField({ initial: true }),
+        mental: new fields.BooleanField({ initial: true }),
+        social: new fields.BooleanField({ initial: true }),
+      }),
+      guardBonusSelf: new fields.StringField({ initial: "" }),
+      guardBonusSelfStackable: new fields.BooleanField({ initial: false }),
       damageBonusSelf: new fields.StringField({ initial: "" }),
       damageBonusSelfStackable: new fields.BooleanField({ initial: false }),
       acquisitionModification: new fields.StringField({ initial: "" }),

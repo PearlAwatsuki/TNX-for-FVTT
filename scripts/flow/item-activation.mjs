@@ -405,6 +405,7 @@ export async function activateItemCheck(actor, item, extraOpen = {}) {
         // 各入口が注入する追加文脈(reaction/treatment/movement/requestMessageId・目標値上書き等)を
         // 最後に合流(既定値を上書き可)。起動集約の要=各入口はここに文脈を載せるだけ(2026-07-15)
         ...restOpen,
+        usageExtraCheckBonuses: extraCheckBonuses ?? [],
         ...(extraCheckBonuses?.length
             ? { checkBonuses: [...(base.checkBonuses ?? []), ...extraCheckBonuses] }
             : {}),

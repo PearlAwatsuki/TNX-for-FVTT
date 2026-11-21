@@ -292,6 +292,14 @@
                     </div>
                     {{/if}}
                     <div class="form-group">
+                        <label>ダメージ修正の適用系統</label>
+                        <div class="form-fields">
+                            <label><input type="checkbox" name="system.damageBonusCategories.physical" {{checked system.damageBonusCategories.physical}}>物理</label>
+                            <label><input type="checkbox" name="system.damageBonusCategories.mental" {{checked system.damageBonusCategories.mental}}>精神</label>
+                            <label><input type="checkbox" name="system.damageBonusCategories.social" {{checked system.damageBonusCategories.social}}>社会</label>
+                        </div>
+                    </div>
+                    <div class="form-group">
                         <label>ダメージ修正（式）</label>
                         <input type="text" name="system.damageBonusSelf" value="{{system.damageBonusSelf}}" placeholder="式（例: @item.self.system.levelTotal + 2）">
                     </div>
@@ -310,6 +318,16 @@
                     </div>
                 </fieldset>
                 {{/if}}
+
+                <fieldset class="tnx-fieldset">
+                    <legend>パリーへの受け値修正</legend>
+                    <div class="form-group">
+                        <label>受け値修正（式）</label>
+                        <input type="text" name="system.guardBonusSelf" value="{{system.guardBonusSelf}}" placeholder="例: @outfit.weapon_key.guard.value">
+                    </div>
+                    <label class="usage-toggle-inline"><input type="checkbox" name="system.guardBonusSelfStackable" {{checked system.guardBonusSelfStackable}}>重複可</label>
+                    <p class="hint">参加したパリーに提供します。武器参照の weapon_key は使用武器の識別キーに置き換えてください。ダメージ軽減量の修正とは別です。</p>
+                </fieldset>
 
                 <fieldset class="tnx-fieldset">
                     <legend>使用回数</legend>
