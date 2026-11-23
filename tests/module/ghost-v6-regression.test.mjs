@@ -38,10 +38,13 @@ describe("v6 ゴースト回帰", () => {
     });
 
     it("ゴースト登場時は防具だけを準備解除し、ドローン準備を維持する", async () => {
-        const armor = { type: "armor", system: { isPrepared: true }, update: vi.fn(async p => { armor.system.isPrepared = p["system.isPrepared"]; }) };
-        const drone = { type: "vehicle", system: { isCarrying: true, isPrepared: true, minorCategory: "drone" }, update: vi.fn() };
+        const armor = { id: "armor", type: "armor", system: { isPrepared: true }, update: vi.fn(async p => { armor.system.isPrepared = p["system.isPrepared"]; }) };
+        const drone = { id: "drone", type: "vehicle", system: { isCarrying: true, isPrepared: true, minorCategory: "drone" }, update: vi.fn() };
         const actor = ghostActor([armor, drone]);
 
+        actor.updateEmbeddedDocuments = async (_type, patches) => {
+            for (const patch of patches) await actor.items.find(item => item.id === patch._id).update(patch);
+        };
         await normalizeGhostOutfitPreparation(actor);
         expect(armor.system.isPrepared).toBe(false);
         expect(drone.system.isPrepared).toBe(true);

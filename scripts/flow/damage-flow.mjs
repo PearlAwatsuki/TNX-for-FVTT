@@ -21,6 +21,7 @@
  *   (applyMessagePatch・2026-07-16 一本化)。
  */
 
+import { runSerial } from "../core/serial-queue.mjs";
 import { SYSTEM_ID } from "../constants.mjs";
 import { applyDamageChartResult } from "./condition-resolution.mjs";
 import { aggregateDefence, defenceForType, computeDamage, splitSharedBonusRows } from "../rules/damage.mjs";
@@ -389,10 +390,14 @@ async function playDamageCardFromDeck() {
  */
 async function resolveDamageCardValue(card) {
     if (card.suit === "joker" || card.value === 99) {
-        return promptWildcardValue();
+        const value = await promptWildcardValue();
+        return Number.isFinite(value) && value > 0 ? value : null;
     }
-    const v = getCardCheckValue({ numericValue: card.value });
-    return typeof v === "number" ? v : (Number(card.value) || 0);
+    if (!Number.isInteger(card.value) || card.value < 1 || card.value > 13) {
+        ui.notifications.warn("カードの数字が不正なため、ダメージを決定できません。");
+        return null;
+    }
+    return getCardCheckValue({ numericValue: card.value });
 }
 
 /** ジョーカーのワイルドカード数字を宣言させる。キャンセルは null。 */
@@ -753,7 +758,7 @@ export async function applyMiracleDamage(message) {
         const t = f.targets[i];
         // トークン uuid(未リンクのトループ等)はそのトークンのアクターへ解決する(通常の適用と同じ)
         const actor = await resolveTargetActor(t.uuid);
-        if (actor) rows.push({ actor, name: t.name });
+        if (actor) rows.push({ actor, name: t.name, srcIndex: i });
     }
     if (!rows.length) { ui.notifications.warn("対象が見つかりません。"); return; }
     if (!(game.user.isGM || rows.some(r => r.actor.isOwner))) {
@@ -761,7 +766,7 @@ export async function applyMiracleDamage(message) {
         return;
     }
     const applied = [];
-    for (const { actor, name } of rows) {
+    for (const { actor, name, srcIndex } of rows) {
         const label = miracleResultLabel(f.miracleResult, f.category, [actor.type]);
         const out = miracleTargetOutcome(f.miracleResult, actor.type, f.category);
         let text = "";
@@ -787,12 +792,14 @@ export async function applyMiracleDamage(message) {
                 }
             } else if (out.op === "chart") {
                 const stage = Math.min(out.value, 21);
-                await applyDamageChartResult(actor, f.category, out.value, { extraFlags: { fromMiracle: true } });
+                await applyDamageChartResult(actor, f.category, out.value, {
+                    extraFlags: { fromMiracle: true, damageApplication: `${message.id}:${srcIndex}` },
+                });
                 const kind = getDamageChartKind(f.category, stage);
                 const wound = kind ? conditionDisplayName(kind, { quote: true }) : "";
                 text = `${CATEGORY_LABELS[f.category] ?? f.category}ダメージチャート${wound}を適用（軽減なし）`;
                 const derived = kind ? CONDITION_KINDS[kind]?.derivedDamage : null;
-                if (derived) text += await applyDerivedDamage(actor, derived);
+                if (derived) text += await applyDerivedDamage(actor, derived, `${message.id}:${srcIndex}`);
             } else if (out.op === "annihilate") {
                 const cur = actor.system.heads?.value ?? 0;
                 await actor.update({ "system.heads.value": 0 });
@@ -974,18 +981,20 @@ async function promptBountyMitigation(message, targetIndex) {
         initialValue: 0, min: 0, max: available, okLabel: "軽減",
     });
     if (input === null) return;
-    const eligible = () => {
-        const current = message.getFlag(SYSTEM_ID, "damageRoll");
-        const target = current?.targets?.[targetIndex];
-        return current?.category === "social" && !current.applied && target?.uuid === t.uuid && target?.reactionEstablished === true;
-    };
-    const amount = await spendBounty(actor, Number(input), eligible);
-    if (!amount) return;
-    const targets = foundry.utils.deepClone(message.getFlag(SYSTEM_ID, "damageRoll")?.targets ?? []);
-    if (!targets[targetIndex]) return;
-    targets[targetIndex].mods = [...(targets[targetIndex].mods ?? []),
-        { label: "報酬点による軽減", value: -amount, bounty: true }];
-    await applyDamagePatch(message, { targets });
+    await runSerial(`damageMitigation:${message.id}`, async () => {
+        const eligible = () => {
+            const current = message.getFlag(SYSTEM_ID, "damageRoll");
+            const target = current?.targets?.[targetIndex];
+            return current?.category === "social" && !current.applied && target?.uuid === t.uuid && target?.reactionEstablished === true;
+        };
+        const amount = await spendBounty(actor, Number(input), eligible);
+        if (!amount) return;
+        const targets = foundry.utils.deepClone(message.getFlag(SYSTEM_ID, "damageRoll")?.targets ?? []);
+        if (!targets[targetIndex]) return;
+        targets[targetIndex].mods = [...(targets[targetIndex].mods ?? []),
+            { label: "報酬点による軽減", value: -amount, bounty: true }];
+        await applyDamagePatch(message, { targets });
+    });
 }
 
 /**
@@ -1434,7 +1443,7 @@ async function openMitigationDialog(message, applyCategory = null) {
         },
         close: () => null,
     });
-    if (!result) return;
+    if (!result || message.getFlag(SYSTEM_ID, "damageRoll")?.applied) return;
 
     // 適用効果はここでは付与しない(2026-07-18 ユーザー確定=ダメージ時効果もカードの
     // 「効果を適用」ボタンで手動適用。「1点でも」等の条件はコード化せず卓判断に委ねる)
@@ -1459,7 +1468,7 @@ async function openMitigationDialog(message, applyCategory = null) {
         // 別系統として適用する場合は説得の意味論が対応しないため付けない(元系統=精神の通常適用時のみ)
         const applyText = await applyDamageToTarget(r.actor, r.applyCategory, final, stage, {
             persuade: stun && category === "mental" && r.applyCategory === "mental",
-            extraFlags: f.insensibleBy ? { fromMiracle: true } : null, // 《不可知》のダメージ(17-6)
+            extraFlags: { damageApplication: `${message.id}:${r.srcIndex}`, ...(f.insensibleBy ? { fromMiracle: true } : {}) },
         });
         // 報酬点による軽減(bounty マーカー行)は適用済み表示で「報酬点 −N」に分離する(正の数で記録)
         const bountySum = (r.mods ?? []).filter(m => m.bounty === true)
@@ -1560,7 +1569,7 @@ export async function applyDamageToTarget(target, category, final, stage, { pers
     const derived = kind ? CONDITION_KINDS[kind]?.derivedDamage : null;
     let derivedText = "";
     if (derived && (target.type === "cast" || target.type === "guest")) {
-        derivedText = await applyDerivedDamage(target, derived);
+        derivedText = await applyDerivedDamage(target, derived, extraFlags?.damageApplication);
     }
     return `${CATEGORY_LABELS[category] ?? category}ダメージチャート${woundLabel ? `「${woundLabel}」` : ""}を適用${derivedText}`;
 }
@@ -1575,27 +1584,39 @@ export async function applyDamageToTarget(target, category, final, stage, { pers
 /**
  * 山札から n 枚めくって数字を合算する(派生ダメージ・《暴露》の「山札から2枚めくって合計」で共用・17-3)。
  * @param {number} n
- * @returns {Promise<{total: number, drawn: string[]}>}
+ * @returns {Promise<{total: number, drawn: string[]}|null>} 全枚数の数字が決まった場合のみ合計する。
  */
 export async function drawDamageValueFromDeck(n) {
     let total = 0;
     const drawn = [];
     for (let i = 0; i < Math.max(1, Number(n) || 1); i++) {
-        const card = await TnxActionHandler.flipFromDeck();
-        if (!card) break;
-        const v = await resolveDamageCardValue(card);
-        if (v === null) continue;
+        let card;
+        try {
+            card = await TnxActionHandler.flipFromDeck();
+        } catch (error) {
+            ui.notifications.warn(`ダメージドローを完了できません。山札と捨て札を確認してください（${error.message}）。`);
+            return null;
+        }
+        const v = card ? await resolveDamageCardValue(card) : null;
+        if (v === null) {
+            ui.notifications.warn(`必要な${n}枚の数字が揃わず、ダメージは未確定です。捨て札を確認してください。`);
+            return null;
+        }
         total += v;
         drawn.push(`${card.name}=${v}`);
     }
     return { total, drawn };
 }
 
-async function applyDerivedDamage(target, derived) {
-    const { total, drawn } = await drawDamageValueFromDeck(derived.cards);
+async function applyDerivedDamage(target, derived, parentApplication) {
+    const result = await drawDamageValueFromDeck(derived.cards);
+    if (!result) return "（派生ダメージは未解決）";
+    const { total, drawn } = result;
     const stage = Math.min(total, 21);
     // 軽減を挟まず直接チャート適用(applyDamageToTarget を再帰・型分岐/更なる派生も自然に連鎖)
-    const applyText = await applyDamageToTarget(target, derived.category, total, stage);
+    const applyText = await applyDamageToTarget(target, derived.category, total, stage, {
+        extraFlags: parentApplication ? { damageApplication: `${parentApplication}:derived` } : null,
+    });
     const label = CATEGORY_LABELS[derived.category] ?? derived.category;
     await ChatMessage.create({
         speaker: ChatMessage.getSpeaker({ actor: target }),

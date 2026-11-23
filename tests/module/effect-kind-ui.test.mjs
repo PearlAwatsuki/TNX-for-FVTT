@@ -21,7 +21,7 @@ function sheet(type, transfer, flags = {}) {
     const effect = { type, transfer, statuses: [], parent: { documentName: "Item" }, getFlag: (_scope, key) => flags[key] };
     render({ document: effect }, root);
     const input = key => root.querySelector(`[name="flags.${SYSTEM_ID}.${key}"]`);
-    return { root, parent: input("applyToParent"), self: input("applyToSelf"), transfer: root.querySelector('[name="transfer"]') };
+    return { root, parent: input("applyToParent"), target: input("applyToTarget"), self: input("applyToSelf"), transfer: root.querySelector('[name="transfer"]') };
 }
 
 describe("付与先チェックのフォーム制御", () => {
@@ -56,13 +56,15 @@ describe("付与先チェックのフォーム制御", () => {
         s.self.click();
         expect(s.self.checked).toBe(false);
     });
-    it("自動適用中は最後の選択を外さず、もう一方のチェックで切替", () => {
+    it("自動適用中は準備先か対象を指定し、宛先なしでは保存できない", () => {
         const s = sheet("enchantment", true, { applyToParent: true, applyToSelf: false });
         s.parent.click();
-        expect(s.parent.checked).toBe(true);
-        s.self.click();
+        expect(s.parent.validity.valid).toBe(false);
+        s.target.click();
         expect(s.parent.checked).toBe(false);
-        expect(s.self.checked).toBe(true);
+        expect(s.target.checked).toBe(true);
+        expect(s.parent.validity.valid).toBe(true);
+        expect(s.self.disabled).toBe(true);
     });
     it("両方オフから自動適用をオンにすると保存前に選択を要求", () => {
         const s = sheet("enchantment", false, { applyToParent: false, applyToSelf: false });

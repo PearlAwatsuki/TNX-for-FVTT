@@ -9,9 +9,10 @@
 
 import { SYSTEM_ID } from "../constants.mjs";
 import { defaultWeaponKindForCategory } from "../data/item/common/outfit-base.mjs";
-import { CONDITION_KINDS, getConditionKinds, buildInflictedEffectsData, applyDamageTagMods, readConditions, blocksMainProcess, actorCannotMainProcess } from "../rules/conditions.mjs";
+import { CONDITION_KINDS, getEffectiveConditions, getConditionKinds, buildInflictedEffectsData, applyDamageTagMods, readConditions, blocksMainProcess, actorCannotMainProcess } from "../rules/conditions.mjs";
 import { gatherDamageTagMods, parseEffectTargetKey, buildTransferredEffectData, planTransferCopySync, transferCopyIsCurrent, isOutfitItem, planCapabilityTransferCleanup } from "../data/item/helpers.mjs";
 import { runSerial } from "./serial-queue.mjs";
+import { isActorInStartedCombat } from "../data/helpers.mjs";
 import { registerOutfitPreparationHooks } from "./outfit-preparation.mjs";
 import { conditionNeedsDraw, postDrawPrompt, postControlNegatePrompt, promptWoundSkillSelection } from "../flow/condition-resolution.mjs";
 import { applyAsOtherEffectCopy } from "../flow/miracle-flow.mjs";
@@ -117,6 +118,29 @@ async function removeItemTransferCopies(actor, sourceUuids) {
 
 // 辞典ブラウザの起動ボタンを辞典サイドバータブ上部へ差し込む(フェーズ16-2・D&D と同配置)
 
+/** 負傷を受けた時点の現在 AR に一度だけ反映。記帳と減算を同じ Actor 更新で保存する。 */
+async function applyWoundActionRank(actor, effect, kinds) {
+    const sourceKey = e => e.flags?.[SYSTEM_ID]?.damageApplication ?? e.id;
+    const source = sourceKey(effect);
+    const combat = isActorInStartedCombat(actor) ? game.combat : null;
+    const round = combat?.round;
+    const losses = getEffectiveConditions(actor).filter(c => kinds.includes(c.kind)
+        && c.identity === `${effect.id}:${c.kind}` && c.active && !c.effectIgnored);
+    await runSerial(`woundAR:${actor.uuid}`, async () => {
+        const prior = actor.getFlag(SYSTEM_ID, "woundActionRanks") ?? [];
+        if (prior.includes(source)) return;
+        // 治療済みの負傷の記録は次回の付与時に整理する。
+        const live = new Set(Array.from(actor.effects, sourceKey));
+        const patch = { [`flags.${SYSTEM_ID}.woundActionRanks`]: [...prior.filter(id => live.has(id)), source] };
+        if (combat && game.combat === combat && combat.round === round && isActorInStartedCombat(actor) && losses.length) {
+            let current = actor.system.actionRank.value;
+            for (const { def } of losses) current = def.actionRankLoss === "all" ? 0 : Math.max(0, current - def.actionRankLoss);
+            patch["system.actionRank.value"] = current;
+        }
+        await actor.update(patch);
+    });
+}
+
 /** 転送の実体化に関わるフックを登録する(init から呼ぶ)。 */
 export function registerItemTransferHooks() {
     registerOutfitPreparationHooks();
@@ -128,6 +152,8 @@ export function registerItemTransferHooks() {
         if (game.user.id !== userId) return;
         const actor = effect.parent;
         if (!actor || actor.documentName !== "Actor") return;
+        const rankWounds = getConditionKinds(effect).filter(kind => CONDITION_KINDS[kind]?.actionRankLoss);
+        if (rankWounds.length && actor.system?.actionRank) await applyWoundActionRank(actor, effect, rankWounds);
 
         // 1. カスケード: inflicts の別状態を付与(状態のみ・hideFromList)。
         // 供給元が負傷(wound)の場合、その inflicts は「そのダメージチャートの効果」なので woundSource で

@@ -149,11 +149,10 @@ describe("computeItemEffectiveValues()（v2: total=base）", () => {
 
 describe("checkChangeMatches()", () => {
   it("技能(完全一致/プレフィックス)", () => {
-    // check.melee は usageCheck(白兵攻撃バフ)として扱われる(2026-09-24 予約語化)
-    // 白兵攻撃判定バフとして照合: usageType=physicalAttack + attackWeaponKind=melee
-    expect(checkChangeMatches("check.melee", { usageType: "physicalAttack", attackWeaponKind: "melee" })).toBe(true);
-    expect(checkChangeMatches("check.melee", { usageType: "physicalAttack", attackWeaponKind: "ranged" })).toBe(false);
-    expect(checkChangeMatches("check.melee", { type: "skill", skills: [{ key: "melee" }] })).toBe(false);
+    expect(checkChangeMatches("check.meleeAttack", { usageType: "physicalAttack", attackWeaponKind: "melee" })).toBe(true);
+    expect(checkChangeMatches("check.meleeAttack", { usageType: "physicalAttack", attackWeaponKind: "ranged" })).toBe(false);
+    expect(checkChangeMatches("check.melee", { type: "skill", skills: [{ key: "melee" }] })).toBe(true);
+    expect(checkChangeMatches("check.meleeAttack", { type: "skill", skills: [{ key: "melee" }] })).toBe(false);
     expect(checkChangeMatches("check.society_*", { type: "skill", skillKeys: ["society_police"] })).toBe(true);
   });
   it("グループ参照(スタイル/ワークス)は criteria.skills の style/organization で照合", () => {
@@ -520,6 +519,7 @@ describe("物理転送（itemChangeTargets / buildTransferredEffectData・2026-0
   it("対象を選択して適用（applyToTarget）: 選択したアウトフィットへ素のキーを転送", () => {
     const flags = { "tokyo-nova-axleration": { applyToTarget: true, targetItemId: weapon.id } };
     const e = effect([{ key: "system.attack.value", mode: 2, value: "2" }], flags);
+    e.type = "enchantment";
     const data = buildTransferredEffectData(e, weapon, optionBearer);
     expect(data.changes.map(c => c.key)).toEqual(["system.attack.value"]);
     expect(data.flags["tokyo-nova-axleration"]).toMatchObject({
@@ -777,8 +777,9 @@ describe("parseEffectTargetKey()（v2 system.<名前空間> 文法）", () => {
   it("判定: check.<能力値> / controlCheck.<能力値> / check.<技能>", () => {
     expect(parseEffectTargetKey("check.reason")).toMatchObject({ scope: "abilityCheck", ability: "reason" });
     expect(parseEffectTargetKey("controlCheck.reason")).toMatchObject({ scope: "controlCheck", ability: "reason" });
-    // check.melee は usageCheck の予約語(physicalAttack のエイリアス)(2026-09-24)
-    expect(parseEffectTargetKey("check.melee")).toMatchObject({ scope: "usageCheck", usageType: "melee" });
+    // 白兵技能と白兵攻撃は独立したキーで指定する。
+    expect(parseEffectTargetKey("check.melee")).toMatchObject({ scope: "skillCheck", selector: "melee" });
+    expect(parseEffectTargetKey("check.meleeAttack")).toMatchObject({ scope: "usageCheck", usageType: "meleeAttack" });
     expect(parseEffectTargetKey("check.society_*")).toMatchObject({ scope: "skillCheck", selector: "society_", prefix: true });
   });
 

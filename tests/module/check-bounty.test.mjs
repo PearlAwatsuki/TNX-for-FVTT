@@ -132,6 +132,33 @@ describe("報酬点の資格と消費確定", () => {
         expect(actor.system.bounty).toBe(0);
     });
 
+    it("同じ社会ダメージへの並行支払いを対象行に両方記帳する", async () => {
+        const { actor } = fixture();
+        const { renderDamageCard } = await import("../../scripts/flow/damage-flow.mjs");
+        const { AmountInputDialog } = await import("../../scripts/ui/tnx-dialog.mjs");
+        const { TnxSocketHandler } = await import("../../scripts/core/tnx-socket-handler.mjs");
+        const dom = new JSDOM('<div class="tnx-damage-ledger"></div><div class="tnx-damage-status"></div>');
+        vi.stubGlobal("document", dom.window.document);
+        vi.stubGlobal("fromUuidSync", () => actor);
+        vi.stubGlobal("fromUuid", async () => actor);
+        const roll = { category: "social", cards: [{ value: 8 }], targets: [{ uuid: actor.uuid, reactionEstablished: true }] };
+        const message = { id: "damage", getFlag: () => roll };
+        const patch = vi.spyOn(TnxSocketHandler, "applyMessagePatch").mockImplementation(async (_msg, data) => {
+            await new Promise(resolve => setTimeout(resolve, 10));
+            Object.assign(roll, data);
+        });
+        vi.spyOn(AmountInputDialog, "prompt").mockResolvedValue(3);
+        try {
+            renderDamageCard(message, document.body);
+            const button = document.querySelector('[title="クリックで報酬点による軽減"]');
+            button.click();
+            button.click();
+            await vi.waitFor(() => expect(patch.mock.settledResults.map(r => r.type)).toEqual(["fulfilled", "fulfilled"]));
+            expect(roll.targets[0].mods.map(row => row.value)).toEqual([-3, -1]);
+            expect(actor.system.bounty).toBe(-5);
+        } finally { dom.window.close(); }
+    });
+
     it.each([false, true])("元判定が0点でも、再判定時の参加技能で資格を得る（付与技能 %s）", async merge => {
         const { actor, ctx, execute, prompt, post, skill } = fixture();
         actor.system.bounty = -5;
@@ -166,5 +193,17 @@ describe("報酬点の資格と消費確定", () => {
         release();
         expect(await Promise.all([first, second])).toEqual([3, 1]);
         expect(actor.system.bounty).toBe(-5);
+    });
+
+    it("独立したクライアントのキューは相手の未配信の残高更新を検知できない", async () => {
+        const first = (await import("../../scripts/flow/bounty-spending.mjs")).spendBounty;
+        vi.resetModules();
+        const second = (await import("../../scripts/flow/bounty-spending.mjs")).spendBounty;
+        const writes = [];
+        const clientActor = () => ({ uuid: "Actor.shared", system: { bountyBase: 3, bounty: 0 }, effects: [], items: [],
+            async update(patch) { writes.push(patch["system.bounty"]); } });
+        const credited = await Promise.all([first(clientActor(), 3), second(clientActor(), 3)]);
+        expect(credited).toEqual([3, 3]);
+        expect(writes).toEqual([-3, -3]);
     });
 });

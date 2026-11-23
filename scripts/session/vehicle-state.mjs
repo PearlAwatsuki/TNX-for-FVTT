@@ -406,7 +406,6 @@ async function leave(vehicle, actor) {
     const member = vehicle.system.crew.find(c => c.actorUuid === actor.uuid);
     if (!member) return;
     const position = vehicleToken(vehicle);
-    const item = vehicleOutfit(vehicle);
     const before = vehicle.system.crew.map(c => ({ ...c }));
     if (member.operationMode !== "remote" && position && appearing(actor)) disembarkPositions.set(actor.uuid, {
         sceneId: position.parent.id, x: position.x, y: position.y, elevation: position.elevation,

@@ -352,20 +352,6 @@ export function miracleTargetOutcome(result, targetType, category) {
     return terminal ? { op: "terminal", kind: terminalKindFor(category) } : { op: "chart", value };
 }
 
-/**
- * 「受けたシーン」の同一性。状態は受けた時点のアクト id と上演中のシーン番号(sessionState.sceneNumber)を
- * 持つ(preCreateActiveEffect で刻む)。どちらかが不明なら比較できない=同じ扱い(検査できないものはゲートしない)。
- * @param {?{act?: string, number?: number}} received
- * @param {?{act?: string, number?: number}} current
- * @returns {boolean}
- */
-export function isSameReceivedScene(received, current) {
-    if (!received || !current) return true;
-    const missing = (v) => v === null || v === undefined;
-    if (missing(received.act) || missing(current.act) || missing(received.number) || missing(current.number)) return true;
-    return received.act === current.act && Number(received.number) === Number(current.number);
-}
-
 /** Keep the miracle-origin rule; effect selection and scene restrictions are table decisions. */
 export function recoveryCandidateAllowed(entry, _usage, { byMiracle }) {
     if (entry?.fromMiracle && !byMiracle) return false;

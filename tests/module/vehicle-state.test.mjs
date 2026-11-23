@@ -1,5 +1,5 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
-import { requestVehicleOperation, prepareVehicleAppearance, syncVehicleTokens, vehicleDefenceItems, crewTarget, droneTarget, ghostCanInteract } from "../../scripts/session/vehicle-state.mjs";
+import { requestVehicleOperation, prepareVehicleAppearance, syncVehicleTokens, vehicleDefenceItems, droneTarget, ghostCanInteract } from "../../scripts/session/vehicle-state.mjs";
 import { vehicleDamageCategory, validateCrew } from "../../scripts/rules/vehicle.mjs";
 import { aggregateDefence } from "../../scripts/rules/damage.mjs";
 import { syncTokensForActor } from "../../scripts/session/appearance-state.mjs";

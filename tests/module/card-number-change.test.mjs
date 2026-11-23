@@ -12,6 +12,34 @@ beforeAll(async () => {
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); Flow._context = null; });
 
 describe("post-card number and suit controls", () => {
+    it.each(["abilityCheck", "skillCheck"])("山札を引く前に確定できる禁止を再確認する (%s)", async type => {
+        const actor = { effects: [], items: new Map([["s", { system: { identificationKey: "stature" } }]]) };
+        vi.stubGlobal("game", { actors: new Map([["a", actor]]) });
+        const deck = vi.spyOn(TnxActionHandler, "getActiveDeck").mockResolvedValue(null);
+        vi.spyOn(TnxActionHandler, "getActiveDiscardPile").mockResolvedValue(null);
+        vi.spyOn(Flow, "_gatherConditions").mockReturnValue(type === "abilityCheck"
+            ? [{ active: true, name: "重圧", def: { type: "block", block: "abilityCheck" }, targetAbility: "reason" }]
+            : [{ active: true, kind: "soc-13", name: "口座凍結", def: { skillBlock: { skillKey: "stature" } } }]);
+        Flow._context = { actorId: "a", type, validSuits: ["spade"], skillIds: type === "skillCheck" ? ["s"] : [] };
+        expect(await Flow.executeFromDeck()).toBe(false);
+        expect(deck).not.toHaveBeenCalled();
+    });
+    it("重圧で山札判定を拒否した場合、引いた1枚だけを元の位置に戻す", async () => {
+        const card = { id: "c", suit: "spade", value: 7, recall: vi.fn().mockResolvedValue({ id: "c" }) };
+        const actor = { id: "a", effects: [], items: [], system: {} };
+        vi.stubGlobal("game", { actors: new Map([["a", actor]]) });
+        vi.spyOn(TnxActionHandler, "getActiveDeck").mockResolvedValue({ availableCards: [card] });
+        vi.spyOn(TnxActionHandler, "getActiveDiscardPile").mockResolvedValue({
+            draw: async () => [card], updateEmbeddedDocuments: async () => {}, cards: new Map([["c", card]]),
+        });
+        vi.spyOn(Flow, "_gatherConditions").mockReturnValue([{ kind: "pressure", targetAbility: "reason", active: true,
+            name: "重圧", def: { type: "block", block: "abilityCheck" } }]);
+        vi.spyOn(Flow, "_cardValueOverride").mockReturnValue(null);
+        const ctx = Flow._context = { actorId: "a", type: "skillCheck", validSuits: ["spade", "heart"] };
+        expect(await Flow.executeFromDeck()).toBe(false);
+        expect(card.recall).toHaveBeenCalledOnce();
+        expect(Flow.context).toBe(ctx);
+    });
     it("applies jamming to an upward check only", () => {
         const actor = { system: {}, items: [{ system: { isPrepared: true, majorCategory: "weapon",
             minorCategory: "melee", hack: { mode: "value", value: 2 } } }] };
@@ -118,6 +146,24 @@ describe("post-card number and suit controls", () => {
         expect(change).toHaveBeenCalledOnce();
         expect(execute.mock.calls[0][0]).toMatchObject({ fromDeck: true, cardCheckValue: 2, suit: "heart",
             cardOverride: { from: 13, to: 2, modifier: 3 } });
+    });
+    it("山札の絵札にもスート変更後の重圧を照合する", async () => {
+        const actor = { id: "a", items: [], effects: [], system: {} };
+        vi.stubGlobal("game", { actors: new Map([[actor.id, actor]]) });
+        const card = { id: "c", suit: "spades", value: 12, recall: vi.fn().mockResolvedValue({ id: "c" }) };
+        vi.spyOn(TnxActionHandler, "getActiveDeck").mockResolvedValue({ availableCards: [card] });
+        vi.spyOn(TnxActionHandler, "getActiveDiscardPile").mockResolvedValue({
+            draw: async () => [card], updateEmbeddedDocuments: async () => {}, cards: new Map([["c", card]]),
+        });
+        vi.spyOn(Flow, "_cardValueOverride").mockReturnValue(null);
+        vi.spyOn(Flow, "_resolveCardChange").mockResolvedValue({ suit: "heart", numericValue: 12, modifier: 0 });
+        vi.spyOn(Flow, "_gatherConditions").mockReturnValue([{ active: true, name: "重圧", targetAbility: "life",
+            def: { type: "block", block: "abilityCheck" } }]);
+        const post = vi.spyOn(Flow, "_postResultChat").mockResolvedValue({});
+        Flow._context = { actorId: "a", type: "skillCheck", validSuits: ["spade", "heart"] };
+        await Flow.executeFromDeck();
+        expect(card.recall).toHaveBeenCalledOnce();
+        expect(post).not.toHaveBeenCalled();
     });
     it.each([false, true])("shows one dialog with suit enabled=%s and working rank/spinner controls", async allowSuitChange => {
         const wait = vi.fn(async options => {

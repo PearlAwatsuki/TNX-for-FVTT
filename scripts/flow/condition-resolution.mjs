@@ -7,6 +7,7 @@
  * Foundry 連携(山札ドロー・チャット受付・制御判定)はその上に載せる。
  */
 
+import { runSerial } from "../core/serial-queue.mjs";
 import { SYSTEM_ID } from "../constants.mjs";
 import { getCardCheckValue, normalizeSuit } from '../rules/tnx-check-engine.mjs';
 import { TnxActionHandler } from '../cards/tnx-action-handler.mjs';
@@ -42,12 +43,16 @@ export async function applyDamageChartResult(actor, category, value, { persuade 
   // 社会/コネの選択(promptWoundSkillSelection)を担う(付与経路を問わない=2026-07-16 是正)。
   // 休眠(次シーン)は def.sceneDeferred から readConditions が導出する(フラグ設定不要)。
   // persuade=説得(精神)は、フック側で戦闘不能タグ(効果タグ)を付けない目印。BS は通常どおり付与。
-  const [eff] = await actor.createEmbeddedDocuments("ActiveEffect", [{
+  const data = {
     name: conditionDisplayName(kind), img: def?.img, statuses: [kind],
     flags: { [SYSTEM_ID]: { conditionKind: kind, hideFromList: true, woundValue: value, woundCategory: category,
       ...(persuade ? { persuade: true } : {}), ...(extraFlags ?? {}) } },
-  }]);
-  return eff ?? null;
+  };
+  const create = async () => (await actor.createEmbeddedDocuments("ActiveEffect", [data]))[0] ?? null;
+  const source = extraFlags?.damageApplication;
+  if (!source) return create();
+  return runSerial(`damageWound:${actor.uuid}:${source}`, () =>
+    actor.effects.find(e => e.flags?.[SYSTEM_ID]?.damageApplication === source) ?? create());
 }
 
 /**
@@ -125,18 +130,32 @@ export async function postConditionOutcome(speakerActor, { title, tag = "", stat
   });
 }
 
-/** 山札から1枚、捨て札へ引いてカードを返す(受付なし・即時)。山札空は null。 */
+/** 効果決定用に1枚引く。実カードを確定できなければ受付を未解決のまま残す。 */
 async function drawOneToDiscard() {
-  const deck = await TnxActionHandler.getActiveDeck();
-  const discard = await TnxActionHandler.getActiveDiscardPile();
-  if (!deck || !discard || !deck.availableCards?.length) return null;
-  // Cards#draw は「this へ from から引く」= 捨て札.draw(山札)。逆向き(deck.draw(discard))だと
-  // 捨て札から引こうとして "not available cards" エラーになる(2026-07-11 ユーザー報告で修正)。
-  // draw 直後は裏向き(face:-1)で suit が読めないため、表向きにして捨て札山から再取得する
-  const [drawn] = await discard.draw(deck, 1, { chatNotification: false });
-  if (!drawn) return null;
-  await discard.updateEmbeddedDocuments("Card", [{ _id: drawn.id, face: 0 }]);
-  return discard.cards.get(drawn.id) ?? drawn;
+  const pending = reason => {
+    ui.notifications.warn(`${reason} 効果は未解決です。`);
+    return null;
+  };
+  try {
+    const deck = await TnxActionHandler.getActiveDeck();
+    if (!deck) return pending("山札が見つかりません。");
+    const discard = await TnxActionHandler.getActiveDiscardPile();
+    if (!discard) return pending("捨て札が見つかりません。");
+    if (!deck.availableCards.length) return pending("山札が空です。");
+    const [drawn] = await discard.draw(deck, 1, { chatNotification: false });
+    if (!drawn) return pending("山札からカードを引けませんでした。");
+    await discard.updateEmbeddedDocuments("Card", [{ _id: drawn.id, face: 0 }]);
+    const card = discard.cards.get(drawn.id);
+    if (!card) return pending("捨て札のカードを確認できません。");
+    if (card.suit === "joker" || card.value === 99) return { joker: true };
+    const suit = typeof card.suit === "string" && normalizeSuit(card.suit);
+    if (!suit || !Number.isInteger(card.value) || card.value < 1 || card.value > 13) {
+      return pending("カードのスートまたは数字が不正です。捨て札を確認してください。");
+    }
+    return { suit, value: getCardCheckValue({ numericValue: card.value }) };
+  } catch (error) {
+    return pending(`ドローを完了できません。山札と捨て札を確認してください（${error.message}）。`);
+  }
 }
 
 /**
@@ -223,20 +242,14 @@ export function renderConditionDrawCard(message, html) {
 export async function executeConditionDraw(actor, effect, kind, message = null) {
   let suit, value, wild = false;
   const card = await drawOneToDiscard();
-  // スートは正規化して読む(Foundry 標準デッキは複数形 "spades" 等のため。未正規化のままだと
-  // SUIT_TO_ABILITY に合致せず対応能力値が「？」になる=2026-07-11 ユーザー報告で修正)。
-  // 正規化できないスートもジョーカー扱いでワイルドカード指定に流す
-  const normalized = card ? normalizeSuit(card.suit) : null;
-  const isJoker = !card || card.suit === "joker" || card.value === 99 || !normalized;
-  if (isJoker) {
+  if (!card) return;
+  if (card.joker) {
     const wildPick = await promptJokerWildcard(kind); // 引き直し or ワイルドカード指定
     if (wildPick === "redraw") return executeConditionDraw(actor, effect, kind, message);
     if (!wildPick) return; // キャンセル
     suit = wildPick.suit; value = wildPick.value; wild = true;
   } else {
-    suit = normalized;
-    const ncheck = getCardCheckValue({ numericValue: card.value });
-    value = typeof ncheck === "number" ? ncheck : Number(card.value) || 0;
+    ({ suit, value } = card);
   }
   const flags = drawResultFlags(kind, suit, value);
   await effect.setFlag(SYSTEM_ID, `conditions.${kind}`, flags);
@@ -279,7 +292,7 @@ async function promptJokerWildcard(kind) {
     buttons: [
       { action: "wild", icon: "fas fa-check", label: "この指定で確定",
         callback: (e, btn, dlg) => ({
-          suit: dlg.element.querySelector('[name="suit"]').value,
+          suit: needSuit ? dlg.element.querySelector('[name="suit"]').value : "",
           value: needValue ? (Number(dlg.element.querySelector('[name="value"]').value) || 1) : 0,
         }) },
       { action: "redraw", icon: "fas fa-rotate", label: "引き直す", callback: () => "redraw" },
@@ -466,22 +479,18 @@ async function resolvePoisonDraw(actor, effect, magnitude, message) {
     return ui.notifications.warn("このキャラクターを操作できないため、カードを引けません。");
   }
   const card = await drawOneToDiscard();
-  if (!card) return ui.notifications.warn("山札からカードを引けません。");
+  if (!card) return;
   let value = null;
   let suit = "";
   let wild = false;
-  const normalized = normalizeSuit(card.suit);
-  const isJoker = card.suit === "joker" || card.value === 99 || !normalized;
-  if (isJoker) {
+  if (card.joker) {
     const pick = await promptJokerWildcard("poison"); // 引き直し or 数字の指定
     if (pick === "redraw") return resolvePoisonDraw(actor, effect, magnitude, message);
     if (!pick) return; // キャンセル=押し直せる
     value = pick.value;
     wild = true;
   } else {
-    suit = normalized;
-    const ncheck = getCardCheckValue({ numericValue: card.value });
-    value = typeof ncheck === "number" ? ncheck : Number(card.value) || 0;
+    ({ suit, value } = card);
   }
   const total = value + (Number(magnitude) || 0);
   await applyDamageChartResult(actor, "physical", total);

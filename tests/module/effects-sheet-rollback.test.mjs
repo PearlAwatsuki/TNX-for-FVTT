@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { EffectsSheetMixin, buildNewEffectData } from "../../scripts/ui/effects-sheet-mixin.mjs";
 import { MIGRATIONS } from "../../scripts/core/migrations.mjs";
 import { SYSTEM_ID } from "../../scripts/constants.mjs";
@@ -35,7 +35,7 @@ describe("AE 型分離撤回後の既存データ", () => {
         expect(data.type).toBe("enchantment");
         expect(data.system).toEqual({});
         expect(data.transfer).toBe(true);
-        expect(data.flags[SYSTEM_ID]).toEqual({ applyToParent: false, applyToSelf: true });
+        expect(data.flags[SYSTEM_ID]).toEqual({ applyToParent: true, applyToTarget: false, applyToSelf: false, targetItemId: "" });
     });
 
     it("移行 v6 はワールドデータに触れず、版番号の枠だけ保持する", async () => {

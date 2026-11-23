@@ -1,14 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
-import { canRemainPreparedWithDrone, normalizeGhostOutfitPreparation } from "../../scripts/session/vehicle-state.mjs";
+import { mustUnprepareForDroneAppearance, normalizeGhostOutfitPreparation } from "../../scripts/session/vehicle-state.mjs";
 const item = (id, type, system = {}) => ({ id, uuid: `Actor.owner.Item.${id}`, type, system: { isPrepared: true, isCarrying: true, ...system } });
 describe("登場中のヴィークル準備", () => {
-    it("ドローン本体・その搭載兵器・全身義体だけを維持する", () => {
-        const drone = item("drone", "vehicle", { minorCategory: "drone" });
-        expect(canRemainPreparedWithDrone(drone, drone)).toBe(true);
-        expect(canRemainPreparedWithDrone(item("gun", "weapon", { minorCategory: "mounted", parentItemId: drone.id }), drone)).toBe(true);
-        expect(canRemainPreparedWithDrone(item("body", "cyborg", { minorCategory: "fullCyborg" }), drone)).toBe(true);
-        expect(canRemainPreparedWithDrone(item("other", "weapon", { minorCategory: "mounted", parentItemId: "other" }), drone)).toBe(false);
-        expect(canRemainPreparedWithDrone(item("armor", "armor", { minorCategory: "armor" }), drone)).toBe(false);
+    it("搭載分類は準備先を付け替えても維持し、本人の非搭載武器は解除する", () => {
+        for (const parentItemId of ["drone", "other", ""]) {
+            expect(mustUnprepareForDroneAppearance(item("gun", "weapon", { minorCategory: "mounted", parentItemId }))).toBe(false);
+        }
+        expect(mustUnprepareForDroneAppearance(item("gun", "weapon", { minorCategory: "ranged", parentItemId: "drone" }))).toBe(true);
     });
     it("不適格アウトフィットを一括で準備解除する", async () => {
         const drone = item("drone", "vehicle", { minorCategory: "drone" });

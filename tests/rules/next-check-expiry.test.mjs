@@ -52,16 +52,14 @@ describe("次の1回の判定まで", () => {
         expect(captureNextCheckEffects(actor).map(e => e.effectId)).toEqual(["active"]);
     });
     it("条件の合う技能判定だけを対象とし、制御判定と区別する", () => {
-        // check.melee は usageCheck(白兵攻撃バフ)になったため、技能判定 criteria では合致しない(2026-09-24)
-        // 技能判定バフのテストは check.melee 以外のキーで行い、check.melee は usageCheck 向けとして確認
         const actor = actorWith([
             effect("skill", "system.check.shooting"),  // 射撃技能バフ
-            effect("melee-usage", "system.check.melee"),  // 白兵攻撃usageCheckバフ
+            effect("melee-usage", "system.check.meleeAttack"),  // 白兵攻撃usageCheckバフ
             effect("all"), effect("control", "system.controlCheck.life")]);
         const entries = captureNextCheckEffects(actor);
         // shooting 技能判定には check.shooting と check.all が合致
         expect(matchNextCheckEffects(actor, entries, { type: "skill", skills: [{ key: "shooting" }] }).map(e => e.effectId)).toEqual(["skill", "all"]);
-        // 白兵攻撃判定には check.melee(usageCheck) と check.all が合致
+        // 白兵攻撃判定には check.meleeAttack(usageCheck) と check.all が合致
         expect(matchNextCheckEffects(actor, entries, { type: "skill", skills: [{ key: "shooting" }], usageType: "physicalAttack", attackWeaponKind: "melee" }).map(e => e.effectId)).toEqual(["skill", "melee-usage", "all"]);
         expect(matchNextCheckEffects(actor, entries, { type: "control", ability: "life" }).map(e => e.effectId)).toEqual(["control"]);
     });

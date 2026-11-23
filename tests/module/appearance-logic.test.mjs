@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   appearanceCheckParams,
+  canStartAppearanceCheck,
   appearanceCardInfo,
   hasNegativeDangerOutfit,
   isAppearanceSkillKey,

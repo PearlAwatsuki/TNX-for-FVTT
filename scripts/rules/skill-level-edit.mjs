@@ -34,7 +34,6 @@ export const SKILL_SUITS = ["spade", "club", "heart", "diamond"];
 /** 一時レベル枠で追加したスートの記録を正規化する。 */
 export function normalizeTemporarySuitState(state) {
   const baseSuits = SKILL_SUITS.filter(suit => state?.baseSuits?.includes?.(suit));
-  const addedSuits = SKILL_SUITS.filter(suit => state?.addedSuits?.includes?.(suit));
   // addedSuits は追加順を保つ必要があるため、入力順で再構成する。
   const orderedAdded = [...new Set(state?.addedSuits ?? [])].filter(suit => SKILL_SUITS.includes(suit));
   return { baseSuits, addedSuits: orderedAdded };
@@ -45,7 +44,7 @@ export function temporarySuitStateAfterChange({ state, suits, suitKey, checked, 
   const current = normalizeTemporarySuitState(state);
   const selectedBefore = SKILL_SUITS.filter(suit => suits?.[suit]);
   let baseSuits = current.baseSuits;
-  let addedSuits = current.addedSuits.filter(suit => suit !== suitKey);
+  const addedSuits = current.addedSuits.filter(suit => suit !== suitKey);
 
   const selectedAfterCount = selectedBefore.filter(suit => suit !== suitKey).length + (checked ? 1 : 0);
   if (checked && effectiveLevel > baseLevel && nextBaseLevel === baseLevel && selectedAfterCount > baseLevel) {

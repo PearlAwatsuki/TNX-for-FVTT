@@ -16,7 +16,7 @@ describe("ゴースト本人の非表示", () => {
         game.user = { id: "gm", isGM: true };
         game.scenes = { active: { id: "s" } };
         const actor = { id: "a", uuid: "Actor.a", type: "cast", system: {}, getFlag: () => false,
-            items: [], setFlag: vi.fn() };
+            items: [], setFlag: vi.fn(), unsetFlag: vi.fn() };
         actor.items.push({ type: "vehicle", actor, system: { isPrepared: true } });
         game.actors = { contents: [actor], get: () => actor };
         vi.stubGlobal("fromUuidSync", () => actor);
@@ -26,7 +26,7 @@ describe("ゴースト本人の非表示", () => {
         try {
             await expect(hooks.createToken({ actorId: "a", parent: { id: "s" } })).resolves.toBeUndefined();
             expect(ui.notifications.error).toHaveBeenCalledWith(expect.stringContaining("Foundry本体（サーバー）"));
-            expect(actor.setFlag).not.toHaveBeenCalled();
+            expect(actor.unsetFlag).toHaveBeenCalledWith("tokyo-nova-axleration", "appearing");
         } finally { log.mockRestore(); }
     });
 

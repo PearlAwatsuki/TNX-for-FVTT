@@ -9,7 +9,7 @@ function setup({ field = "title", selection = 2, missing = false, history = true
         classList: { toggle(_name, active) { tabs.find(t => t.dataset.tab === tab).active = active; } },
     }));
     const oldTab = { dataset: { group: "primary", tab: "history" }, classList: { contains: () => true } };
-    const before = { dataset: { id: "row-b", field }, value: "typing now",
+    const before = { tagName: "INPUT", dataset: { id: "row-b", field }, value: "typing now",
         selectionStart: selection, selectionEnd: selection, selectionDirection: "none", closest: () => inTab ? oldTab : null, matches: () => history };
     const after = { value: "old saved value", focus: vi.fn(), setSelectionRange: vi.fn() };
     const prior = { ownerDocument: { activeElement: before }, contains: () => true };
@@ -31,7 +31,7 @@ function setup({ field = "title", selection = 2, missing = false, history = true
 describe("履歴入力中の再描画", () => {
     it("保存した欄ではなく、Tabやクリックで移動した先の行と欄へフォーカスを戻す", () => {
         const { selector, after, state } = setup();
-        expect(selector).toBe('.history-input[data-id="row-b"][data-field="title"]');
+        expect(selector).toBe('input[data-id="row-b"][data-field="title"]');
         expect(after.focus).toHaveBeenCalledWith({ preventScroll: true });
         expect(state.scrollPositions).toEqual([100]);
     });

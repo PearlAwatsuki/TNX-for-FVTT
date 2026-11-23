@@ -1,3 +1,4 @@
+import { confirmDialog } from "../ui/tnx-dialog.mjs";
 import { updateInfoItems } from "../session/info-items.mjs";
 import { keyHandoutFields } from "../session/key-handouts.mjs";
 import { SYSTEM_ID } from "../constants.mjs";
@@ -24,7 +25,7 @@ import { normalizeAppearanceActors, groupCharacterChoices, DEFAULT_APPEARANCE_TA
 import { listSubScenes } from '../session/subscenes.mjs';
 import { attachEditorSectionToggles } from '../ui/editor-sections.mjs';
 
-const { HandlebarsApplicationMixin, DocumentSheetV2, DialogV2 } = foundry.applications.api;
+const { HandlebarsApplicationMixin, DocumentSheetV2 } = foundry.applications.api;
 
 export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2) {
 
@@ -681,8 +682,8 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
     static async _onDeleteScene(_event, target) {
         const sceneItem = target.closest('.scene-item');
         const { sceneId, phase } = sceneItem.dataset;
-        const confirmed = await DialogV2.confirm({
-            window: { title: "シーンの削除" },
+        const confirmed = await confirmDialog({
+            title: "シーンの削除",
             content: "<p>このシーンを削除しますか？</p>",
         });
         if (!confirmed) return;
@@ -721,8 +722,8 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
 
     static async _onDeleteInfoItem(_event, target) {
         const infoItemId = target.dataset.infoId;
-        const confirmed = await DialogV2.confirm({
-            window: { title: "情報の削除" },
+        const confirmed = await confirmDialog({
+            title: "情報の削除",
             content: "<p>この情報項目全体を削除しますか？</p>",
         });
         if (!confirmed) return;
@@ -975,8 +976,8 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
 
     static async _onDeleteHandout(_event, target) {
         const id = target.closest('.handout-item').dataset.id;
-        const confirmed = await DialogV2.confirm({
-            window: { title: "ハンドアウトの削除" },
+        const confirmed = await confirmDialog({
+            title: "ハンドアウトの削除",
             content: "<p>このハンドアウトを削除しますか？</p>",
         });
         if (!confirmed) return;
@@ -1003,8 +1004,8 @@ export class TnxScenarioSheet extends HandlebarsApplicationMixin(DocumentSheetV2
      * ここで消えるのは書き溜めた本文そのもののため)。
      */
     static async _onDeleteTextPreset(_event, target) {
-        const confirmed = await DialogV2.confirm({
-            window: { title: "テキストの削除" },
+        const confirmed = await confirmDialog({
+            title: "テキストの削除",
             content: "<p>このテキスト項目を削除しますか？</p>",
         });
         if (!confirmed) return;

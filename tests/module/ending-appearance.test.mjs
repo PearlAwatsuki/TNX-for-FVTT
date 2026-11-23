@@ -24,8 +24,7 @@ beforeEach(() => {
 describe("エンディングの自由登場", () => {
     it("判定を経ず、自分の担当キャラクターを通常登場させる", async () => {
         await startFreeAppearance();
-        expect(mock.setGhost).toHaveBeenCalledWith(actor, false);
-        expect(mock.setAppearing).toHaveBeenCalledWith(actor, true);
+        expect(mock.setAppearing).toHaveBeenCalledWith(actor, true, { ghost: false });
         expect(mock.appearance).not.toHaveBeenCalled();
     });
     it("既に登場中なら繰り返し適用しない", async () => {

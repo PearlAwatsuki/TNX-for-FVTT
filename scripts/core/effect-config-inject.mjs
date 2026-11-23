@@ -343,7 +343,6 @@ export function registerEffectConfigInjection() {
             typeGroup.innerHTML = `<label>AEの種類</label><div class="form-fields"><span class="form-readonly">${isEnchmnt ? "付与AE（アウトフィット）" : "通常AE"}</span></div>`;
             (transferGroup ?? anchor)?.before(typeGroup);
         }
-        const typeInput = null; // 型はシート上で変更しない: typeInput を null にして以下の参照を isEnchmnt で代替
         let parentGroup = null;
         let selfGroup = null;
         if (app.document?.parent?.documentName === "Item") {

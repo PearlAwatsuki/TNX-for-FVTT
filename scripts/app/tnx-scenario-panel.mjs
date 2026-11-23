@@ -1,3 +1,4 @@
+import { confirmDialog } from "../ui/tnx-dialog.mjs";
 import { openKeyHandoutApp } from "./tnx-key-handout-app.mjs";
 import { listKeyHandouts, keyHandoutData, getKeyHandoutRecord, requestKeyHandoutPublication, distributeKeyHandout } from "../session/key-handouts.mjs";
 /**
@@ -476,8 +477,8 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
         const st = getSessionState();
         if (st.actId === journal.id) return;
         if (st.actStarted) {
-            const confirmed = await DialogV2.confirm({
-                window: { title: "アクトの読み込み" },
+            const confirmed = await confirmDialog({
+                title: "アクトの読み込み",
                 content: "<p>進行中のアクトがあります。読み込み直すと現在の進行状態(シーン・チーム)は破棄されます。よろしいですか？</p>",
             });
             if (!confirmed) return;
@@ -486,8 +487,8 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
     }
 
     static async _onStartAct(_event, _target) {
-        const confirmed = await DialogV2.confirm({
-            window: { title: "アクトの開始" },
+        const confirmed = await confirmDialog({
+            title: "アクトの開始",
             content: "<p>アクトを開始しますか？</p><p>ハンドアウトに設定されたキャストへ報酬点と CS が自動設定され、最初のシーンが始まります。</p>",
         });
         if (!confirmed) return;
@@ -496,8 +497,8 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
     }
 
     static async _onEndAct(_event, _target) {
-        const confirmed = await DialogV2.confirm({
-            window: { title: "アクトの終了" },
+        const confirmed = await confirmDialog({
+            title: "アクトの終了",
             content: "<p>アクトを終了しますか？(現在のシーンの終了とチームの解散が行われます)</p>",
         });
         if (!confirmed) return;
@@ -538,8 +539,8 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
     static async _onSwitchScene(_event, target) {
         const sceneId = target.dataset.sceneId;
         if (!sceneId) return;
-        const confirmed = await DialogV2.confirm({
-            window: { title: "シーンの切替" },
+        const confirmed = await confirmDialog({
+            title: "シーンの切替",
             content: "<p>このシーンへ切り替えますか？(現在のシーンは終了します)</p>",
         });
         if (!confirmed) return;
@@ -559,8 +560,8 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
         // 巡回の継続はシーン開始ダイアログが確認を兼ねる(確認ダイアログを二重に出さない)
         if (next.row.id !== st.sceneId) {
             const name = normalizeSceneRow(next.row).name || "無題のシーン";
-            const confirmed = await DialogV2.confirm({
-                window: { title: "次のシーンへ" },
+            const confirmed = await confirmDialog({
+                title: "次のシーンへ",
                 content: `<p>「${foundry.utils.escapeHTML(name)}」へ進みますか？(現在のシーンは終了します)</p>`,
             });
             if (!confirmed) return;
@@ -622,8 +623,8 @@ export class TnxScenarioPanel extends HandlebarsApplicationMixin(ApplicationV2) 
         const first = Array.isArray(scenes?.climax) ? scenes.climax[0] : null;
         if (!first) return void ui.notifications.warn("台本にクライマックスのシーンがありません。");
         const name = normalizeSceneRow(first).name || "無題のシーン";
-        const confirmed = await DialogV2.confirm({
-            window: { title: "クライマックスへ" },
+        const confirmed = await confirmDialog({
+            title: "クライマックスへ",
             content: `<p>リサーチを終えて「${foundry.utils.escapeHTML(name)}」へ進みますか？(現在のシーンは終了します)</p>`,
         });
         if (!confirmed) return;

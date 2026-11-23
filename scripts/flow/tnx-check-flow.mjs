@@ -159,8 +159,12 @@ export class TnxCheckFlow {
                     return "準備済みのヴィークルが無いため、この判定は行えません。";
             }
         }
-        const conds = TnxCheckFlow._gatherConditions(actor);
+        return TnxCheckFlow._conditionBlockReason(context, actor);
+    }
 
+    static _conditionBlockReason(context, actor) {
+        if (!actor) return null;
+        const conds = TnxCheckFlow._gatherConditions(actor);
         if (context?.skillIds?.length) {
             const skillKeys = context.skillIds
                 .map(id => actor.items.get(id)?.system?.identificationKey)
@@ -489,7 +493,8 @@ export class TnxCheckFlow {
     static async executeFromDeck() {
         const ctx = TnxCheckFlow._context;
         if (!ctx) return;
-        const reason = TnxCheckFlow._reactionBlockReason(ctx);
+        const actor = ctx.actorId && game.actors.get(ctx.actorId);
+        const reason = TnxCheckFlow._reactionBlockReason(ctx) || TnxCheckFlow._conditionBlockReason(ctx, actor);
         if (reason) { ui.notifications.warn(reason); return false; }
 
         const deck    = await TnxActionHandler.getActiveDeck();
@@ -549,13 +554,14 @@ export class TnxCheckFlow {
 
         // 山札判定: 絵札 → FUMBLE（スート不一致チェックより先）
         const cardCheckValue = getCardCheckValue({ numericValue: cardNumeric, isFromDeck: true });
+        const effectiveSuit = changed.suit;
+        const suitChangedFrom = suit && effectiveSuit !== suit ? suit : null;
         if (cardCheckValue === "FUMBLE") {
-            return TnxCheckFlow._execute({ card, cardCheckValue, suit: suit ?? ctx.validSuits[0] ?? "spade", ctx, fromDeck: true, cardOverride });
+            return TnxCheckFlow._execute({ card, cardCheckValue, suit: effectiveSuit ?? ctx.validSuits[0] ?? "spade",
+                ctx, fromDeck: true, cardOverride, suitChangedFrom });
         }
 
         // 手札判定と同様、スート変更後に通常の成立可否を判定する。
-        const effectiveSuit = changed.suit;
-        const suitChangedFrom = suit && effectiveSuit !== suit ? suit : null;
         if (!effectiveSuit || !ctx.validSuits.includes(effectiveSuit)) {
             return TnxCheckFlow._execute({
                 card, cardCheckValue: null, suit: effectiveSuit ?? suit ?? "spade", ctx, fromDeck: true,
@@ -949,14 +955,26 @@ ${ctx.allowSuitChange ? `<div class="form-group"><label>変更後のスート</l
         // 重圧(BS): 該当能力値を使う上方判定を完全にブロックする。
         // 判定に転送された(切り札リマップ後の) suit から能力値を拾う。カード実体は読まない。
         // ブロック時はカードを出さず判定状態も維持し、別カードを選び直せるようにする。
-        if (!suitMismatch && ctx.type !== "controlCheck") {
+        let conditionError = TnxCheckFlow._conditionBlockReason(ctx, actor);
+        if (!conditionError && !suitMismatch && ctx.type !== "controlCheck") {
             const block = getCheckBlock(TnxCheckFlow._gatherConditions(actor), {
                 upward: true, ability: SUIT_TO_ABILITY[suit],
             });
             if (block.blocked) {
-                ui.notifications.warn(`「${block.by}」により、その能力値を使う判定はできません。別のスートのカードを使ってください。`);
-                return false;
+                conditionError = `「${block.by}」により、その能力値を使う判定はできません。別のスートのカードを使ってください。`;
             }
+        }
+        if (conditionError) {
+            if (fromDeck) {
+                try {
+                    if (!await card.recall()) throw new Error("元のカードが見つかりません");
+                } catch (error) {
+                    ui.notifications.error(`${conditionError} カードを戻せなかったため、RLは山札と捨て札を確認してください（${error.message}）。`);
+                    return false;
+                }
+            }
+            ui.notifications.warn(conditionError);
+            return false;
         }
 
         if (suitMismatch && !fromDeck) {

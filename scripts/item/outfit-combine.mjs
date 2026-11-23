@@ -1,4 +1,3 @@
-import { wrapMenu } from "../ui/menu-wrapper.mjs";
 /**
  * @fileoverview アウトフィットのコンバイン(2026-09-07 アウトフィットシートから移設)。
  *

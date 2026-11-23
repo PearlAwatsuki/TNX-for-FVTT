@@ -74,14 +74,13 @@ const MENTAL = {
   // 元資料は「恐慌」だが誤り(BS「恐慌」との名称衝突・エラッタ相当)。正=「茫然自失」(2026-07-15 ユーザー確定)
   "ment-10": { label: "茫然自失",   inflicts: [{ kind: "swoon", controlNegate: { ability: ABIL_PASSION } }] },
   "ment-11": { label: "自我危機",   inflicts: [{ kind: "stupor", controlNegate: { ability: ABIL_REASON, downgradeTo: "swoon" } }] },
-  // 驚愕: アクションランク -1。未自動化(AR 減算の付与時発火は13以降の接続候補)
-  "ment-12": { label: "驚愕" },
+  "ment-12": { label: "驚愕", actionRankLoss: 1 },
   "ment-13": { label: "硬直",       inflicts: [{ kind: "panic" }, { kind: "confusion" }] },
   "ment-14": { label: "幻惑",       inflicts: [{ kind: "doped-major" }] },
   "ment-15": { label: "バーサーク", inflicts: [{ kind: "panic", duration: "治療まで" }] },
   "ment-16": { label: "自我崩壊",   inflicts: [{ kind: "mind-break" }] },
-  // 士気喪失: アクションランク 0。可能なら戦闘中止。未自動化(AR 0 化の付与時発火は13以降の接続候補)
-  "ment-17": { label: "士気喪失" },
+  // 「可能なら戦闘中止」は卓で判断する。
+  "ment-17": { label: "士気喪失", actionRankLoss: "all" },
   "ment-18": { label: "パニック",   inflicts: [{ kind: "pressure", ability: ABIL_REASON }] },
   "ment-19": { label: "感情消失",   inflicts: [{ kind: "pressure", ability: ABIL_PASSION }] },
   "ment-20": { label: "覚めない夢", inflicts: [{ kind: "stupor" }] },

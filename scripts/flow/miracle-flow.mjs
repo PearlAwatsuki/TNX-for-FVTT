@@ -76,7 +76,9 @@ async function promptMiracleDamageResult(item, usage, category, targets = []) {
         if (!how) return null;
         if (how === "draw") {
             const { drawDamageValueFromDeck } = await import("./damage-flow.mjs");
-            const { total, drawn } = await drawDamageValueFromDeck(2);
+            const result = await drawDamageValueFromDeck(2);
+            if (!result) return null;
+            const { total, drawn } = result;
             return { kind: "chart", value: total, drawn };
         }
         const input = await AmountInputDialog.prompt({

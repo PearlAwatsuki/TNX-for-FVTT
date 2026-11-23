@@ -168,7 +168,7 @@ export class TnxRecordSheet extends HistoryInputStateMixin(HandlebarsApplication
         exportedAt: new Date().toISOString(),
         record: { history: flag.history, exp: flag.exp },
       };
-      const safeName = String(this.user.name || "record").replace(/[\/:*?"<>|]/g, "_");
+      const safeName = String(this.user.name || "record").replace(/[\\/:*?"<>|]/g, "_");
       const save = foundry.utils.saveDataToFile ?? globalThis.saveDataToFile;
       if (typeof save !== "function") throw new Error("ファイル保存機能を利用できません。");
       save(JSON.stringify(payload, null, 2), "application/json", `tnx-record-${safeName}.json`);

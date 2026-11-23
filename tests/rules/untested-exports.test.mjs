@@ -17,7 +17,6 @@ import { migrateUsesValueToSpent } from "../../scripts/data/item/helpers.mjs";
 import {
   isMajorLevelSlotMajor, MAJOR_LEVEL_SLOT_MAJORS, OUTFIT_CATEGORIES,
 } from "../../scripts/data/item/outfit-categories.mjs";
-import { isSameReceivedScene } from "../../scripts/rules/miracle.mjs";
 import { attackWeaponKindEligible } from "../../scripts/rules/attack-weapons.mjs";
 
 const typesOf = (pred) => Object.keys(USAGE_TYPE_DEFS).filter(pred);
@@ -142,36 +141,6 @@ describe("isMajorLevelSlotMajor()（大分類レベルでスロットを共有�
     expect(isMajorLevelSlotMajor("nosuch")).toBe(false);
     expect(isMajorLevelSlotMajor("")).toBe(false);
     expect(isMajorLevelSlotMajor(undefined)).toBe(false);
-  });
-});
-
-describe("isSameReceivedScene()（神業を受けたシーンの同一性）", () => {
-  const sc = (act, number) => ({ act, number });
-
-  it("アクトとシーン番号が両方一致すれば同じシーン", () => {
-    expect(isSameReceivedScene(sc("a1", 2), sc("a1", 2))).toBe(true);
-  });
-
-  it("どちらかが違えば別のシーン", () => {
-    expect(isSameReceivedScene(sc("a1", 2), sc("a1", 3))).toBe(false);
-    expect(isSameReceivedScene(sc("a1", 2), sc("a2", 2))).toBe(false);
-  });
-
-  it("シーン番号は数として比べる（文字列で入っていても同じ扱い）", () => {
-    expect(isSameReceivedScene(sc("a1", 2), sc("a1", "2"))).toBe(true);
-  });
-
-  it("検査できないものはゲートしない＝欠けていれば同じ扱い(true)", () => {
-    expect(isSameReceivedScene(null, sc("a1", 2))).toBe(true);
-    expect(isSameReceivedScene(sc("a1", 2), null)).toBe(true);
-    expect(isSameReceivedScene(sc(undefined, 2), sc("a1", 2))).toBe(true);
-    expect(isSameReceivedScene(sc("a1", null), sc("a1", 2))).toBe(true);
-    expect(isSameReceivedScene({}, {})).toBe(true);
-  });
-
-  it("シーン番号 0 は「欠けている」ではない（偽値の取りこぼしを作らない）", () => {
-    expect(isSameReceivedScene(sc("a1", 0), sc("a1", 0))).toBe(true);
-    expect(isSameReceivedScene(sc("a1", 0), sc("a1", 1))).toBe(false);
   });
 });
 

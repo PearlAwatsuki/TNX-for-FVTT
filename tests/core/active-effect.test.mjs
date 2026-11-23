@@ -66,7 +66,7 @@ describe("TNX ActiveEffect の v13 / v14 適用経路", () => {
     const skill = { id: "s1", documentName: "Item", type: "styleSkill", effects: [],
       system: { identificationKey: "eika", level: 3, levelTotal: 3 } };
     const weapon = { id: "w1", documentName: "Item", type: "weapon", effects: [],
-      system: { attack: { value: 4, total: 4 } } };
+      system: { isPrepared: true, attack: { value: 4, total: 4 } } };
     const levelEffect = makeEffect({ key: "system.level", mode: 2, type: "add", value: "2" });
     const attackEffect = makeEffect({ key: "system.attack.value", mode: 2, type: "add",
       value: "@item.eika.system.levelTotal + 2" });

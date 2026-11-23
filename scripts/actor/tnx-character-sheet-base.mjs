@@ -14,7 +14,6 @@ import { requestVehicleOperation } from "../session/vehicle-state.mjs";
 import { SYSTEM_ID } from "../constants.mjs";
 import { TnxSkillUtils } from '../core/tnx-skill-utils.mjs';
 import { bindListDragDrop } from "../ui/list-drag-drop.mjs";
-import { captureScrollTop, restoreScrollTop } from "../ui/scroll-preserve.mjs";
 import { EffectsSheetMixin } from "../ui/effects-sheet-mixin.mjs";
 import { OUTFIT_CATEGORIES, getMinorCategoryLabel } from '../data/item/outfit-categories.mjs';
 import { getPartSlotPreset, PartSlotPresetApp } from '../app/part-slot-preset-app.mjs';
@@ -371,10 +370,11 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
 
     // ─── レンダリング ──────────────────────────────────────────────────────────
 
-    async _preRender(_context, _options) {
+    async _preRender(context, options) {
+        await super._preRender?.(context, options);
+        this._scrollPositions = {};
         if (!this.element) return;
         this.element.classList.add("tnx-no-transitions");
-        this._scrollPositions = {};
         for (const sel of [
             ".profile-sidebar", ".sheet-body",
             ".tab[data-tab='abilities']", ".tab[data-tab='combat']",
@@ -409,14 +409,8 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         await this.actor.update({ "system.host": { uuid: "", name: "" } });
     }
 
-    async _preRender(context, options) {
-        await super._preRender?.(context, options);
-        this._scrollTop = captureScrollTop(this.element, ".sheet-body");
-    }
-
     _onRender(context, _options) {
         super._onRender(context, _options);
-        restoreScrollTop(this.element, ".sheet-body", this._scrollTop);
         bindListDragDrop(this);
         // 宿主のドロップ受け(RL のみ・トループの所有者欄と同方式・17-6)
         const hostZone = this.element.querySelector(".cast-host-dropzone");
@@ -581,7 +575,6 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
         this._scrollPositions = {};
         requestAnimationFrame(() => {
             for (const [sel, top] of Object.entries(saved)) {
-                if (!top) continue;
                 const target = this.element?.querySelector(sel);
                 if (target) target.scrollTop = top;
             }

@@ -1182,7 +1182,6 @@ export function parseEffectTargetKey(key) {
     // TnxSkillUtils.getSkillOptions().actions のキーをアクション名として認識する。
     // これらは技能識別キーとして使用禁止(予約語)。
     const TIMING_ACTION_NAMES = new Set(["major", "minor", "reaction", "move", "auto", "explanation", "other"]);
-    const SPECIAL_CHECK_KINDS = new Set(["appearance", "information"]);
     if (segs.length >= 3) {
       const sub = segs[2];
       if (TIMING_ACTION_NAMES.has(sub)) {
