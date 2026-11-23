@@ -69,7 +69,6 @@ export async function startInfoGatheringCheck(itemId) {
             skillLabel: res.label,
             validSuits: [...ALL_SUITS],
             targetValue: row.tn ?? null,
-            bountyAvailable: (actor.system.bountyBase ?? 0) + (actor.system.bounty ?? 0),
             infoGathering,
         });
     }

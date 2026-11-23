@@ -34,15 +34,13 @@ export const ALL_SUITS = Object.freeze(["spade", "club", "heart", "diamond"]);
  *   number    = 通常の判定値
  */
 export function getCardCheckValue({ numericValue, isJoker, fixedAt21 = false, declaredValue = null, isFromDeck = false }) {
-    if (isJoker || declaredValue !== null) {
-        return declaredValue ?? 0;
-    }
-
-    const isFaceCard = numericValue >= 11 && numericValue <= 13;
-    const isAce      = numericValue === 1;
+    const declared = isJoker || declaredValue !== null;
+    const rank = declared ? (declaredValue ?? 0) : numericValue;
+    const isFaceCard = rank >= 11 && rank <= 13;
+    const isAce      = rank === 1;
 
     if (isFaceCard) {
-        if (isFromDeck) return "FUMBLE";
+        if (isFromDeck && !declared) return "FUMBLE";
         return 10;
     }
 
@@ -51,7 +49,7 @@ export function getCardCheckValue({ numericValue, isJoker, fixedAt21 = false, de
         return 11;
     }
 
-    return numericValue;
+    return rank;
 }
 
 /**

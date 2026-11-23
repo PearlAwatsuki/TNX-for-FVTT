@@ -53,7 +53,7 @@ describe("computeNoCardPurchase()（カードなし特例=外界＋消費報酬�
 
     it("届かなければ失敗（報酬点 0 でも計算は成立する=失敗する権利）", () => {
         expect(computeNoCardPurchase({ mundaneTotal: 8, bountySpent: 0, targetValue: 10 }))
-            .toEqual({ achievement: 8, success: false, diff: -2 });
+            .toEqual({ achievement: 8, success: false, diff: null });
     });
 });
 

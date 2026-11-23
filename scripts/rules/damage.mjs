@@ -76,7 +76,7 @@ export function computeDamage({ damageCard = 0, attackPower = 0, modifier = 0, m
     const raw = (Number(damageCard) || 0) + (Number(attackPower) || 0) + (Number(modifier) || 0);
     // 恒久軽減(防御力・受け値)は算出の内(手順4)。スタン/説得の10上限はその後=算出の一番最後
     // (2026-07-16 ユーザー裁定・KI-024)。事後修正(算出後〜適用前)・適用時軽減はさらに後
-    const afterMitigation = raw - (Number(mitigation) || 0);
+    const afterMitigation = Math.max(0, raw - (Number(mitigation) || 0));
     const capped = stun === true && afterMitigation > 10;
     const calc = capped ? 10 : afterMitigation;
     const attack = calc + (Number(postModifier) || 0);

@@ -30,7 +30,8 @@ import { evaluateBonusRows, evaluateSelfBonus, createEffectBonusEvaluator } from
 import { selectFormulaContributions } from "../rules/formula-duplicates.mjs";
 import { applyConsumptionPlan } from "./usage-consumption.mjs";
 import { getDamageChartKind } from "../data/damage-chart.mjs";
-import { CONDITION_KINDS, conditionDisplayName, getEffectiveConditions, hasBountyBlock, isWetActor } from "../rules/conditions.mjs";
+import { CONDITION_KINDS, conditionDisplayName, isWetActor } from "../rules/conditions.mjs";
+import { availableBounty, spendBounty } from "./bounty-spending.mjs";
 import { keepTogether, nowrap } from "../chat/chat-text.mjs";
 import { cardField, cardResult } from "../chat/chat-card.mjs";
 import { applyAttackPatch } from "./attack-flow.mjs";
@@ -961,11 +962,7 @@ async function promptBountyMitigation(message, targetIndex) {
         return;
     }
     // 報酬点使用不可(口座凍結/信用失墜)は消費時点の状態でゲート(無視ゲート済みの行は数えない)
-    if (hasBountyBlock(getEffectiveConditions(actor).filter(c => !c.effectIgnored))) {
-        ui.notifications.warn(`「${actor.name}」は報酬点を使用できない状態です。`);
-        return;
-    }
-    const available = (actor.system.bountyBase ?? 0) + (actor.system.bounty ?? 0);
+    const available = availableBounty(actor);
     if (available <= 0) {
         ui.notifications.warn(`「${actor.name}」に使用できる報酬点がありません。`);
         return;
@@ -977,11 +974,14 @@ async function promptBountyMitigation(message, targetIndex) {
         initialValue: 0, min: 0, max: available, okLabel: "軽減",
     });
     if (input === null) return;
-    const amount = Math.max(0, Math.min(Number(input) || 0, available));
+    const eligible = () => {
+        const current = message.getFlag(SYSTEM_ID, "damageRoll");
+        const target = current?.targets?.[targetIndex];
+        return current?.category === "social" && !current.applied && target?.uuid === t.uuid && target?.reactionEstablished === true;
+    };
+    const amount = await spendBounty(actor, Number(input), eligible);
     if (!amount) return;
-    // 実減算(有効報酬点 = bountyBase + bounty。増減は bounty 側に載せる=シートの±ボタンと同じ着地)
-    await actor.update({ "system.bounty": (actor.system.bounty ?? 0) - amount });
-    const targets = foundry.utils.deepClone(f.targets ?? []);
+    const targets = foundry.utils.deepClone(message.getFlag(SYSTEM_ID, "damageRoll")?.targets ?? []);
     if (!targets[targetIndex]) return;
     targets[targetIndex].mods = [...(targets[targetIndex].mods ?? []),
         { label: "報酬点による軽減", value: -amount, bounty: true }];

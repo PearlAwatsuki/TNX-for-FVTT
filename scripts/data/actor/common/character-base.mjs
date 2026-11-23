@@ -29,6 +29,13 @@ export const ABILITY_KEYS = ["reason", "passion", "life", "mundane"];
 export class CharacterBaseDataModel extends SystemDataModel.mixin(
   BiographyTemplate, AttributesTemplate, ActorBaseTemplate
 ) {
+  /** 基礎ランクを保持し、ID剥奪が有効な間だけ実効ランクを変更する。 */
+  get effectiveCitizenRank() {
+    const wound = getEffectiveConditions(this.parent).find(c =>
+      c.active && !c.effectIgnored && !c.pendingScene && c.def?.citizenRankOverride);
+    return wound?.def.citizenRankOverride ?? this.citizenRank;
+  }
+
   /** @override */
   static defineSchema() {
     const fields = foundry.data.fields;

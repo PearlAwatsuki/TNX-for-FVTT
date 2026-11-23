@@ -293,12 +293,7 @@ export async function postAttackCard({ payload, result, suit, cardCheckValue = n
         // 非攻撃の対決判定は useOpposedCheck が対決欄ありのときだけ通すためここには来ない。
         // 《不可知》(17-6)の行動も同じ=「制御値のみが有効」(神業の回避は確定後もカードの回避で行える)
         if (entry.state === "pending" && (!opposed || result.insensibleBy)) {
-            const r = isAttack
-                ? resolveNoReaction(result.achievement ?? 0, entry.controlValue)
-                : { hit: true, diff: null };
-            entry.state = r.hit ? "hit" : "miss";
-            entry.resolution = "none";
-            entry.diff = r.diff;
+            Object.assign(entry, noReactionOutcome(result.achievement, entry.controlValue, isAttack));
         }
         targets.push(entry);
     }
@@ -521,10 +516,16 @@ export async function rebuildRecheckedTargets(prevTargets, next) {
             nt.reactionEstablished = false; // リアクション自体をやり直すため成立も初期化
             nt.selfDecision = null;         // 本人の決断・併存リアクションも仕切り直す(2026-07-18)
             nt.reactions = [];
+            if (next.controlOnly) Object.assign(nt, noReactionOutcome(next.achievement, nt.controlValue, next.isAttack));
         }
         out.push(nt);
     }
     return out;
+}
+
+function noReactionOutcome(achievement, controlValue, isAttack) {
+    const r = isAttack ? resolveNoReaction(achievement ?? 0, controlValue) : { hit: true, diff: null };
+    return { state: r.hit ? "hit" : "miss", resolution: "none", diff: r.diff };
 }
 
 /**

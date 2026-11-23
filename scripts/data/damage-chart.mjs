@@ -113,8 +113,7 @@ const SOCIAL = {
   "soc-17": { label: "逮捕令状", forcesExit: true, blocksAppearance: true, freeAfterScenes: 2 },
   "soc-18": { label: "権力剥奪",     inflicts: [{ kind: "pressure", ability: ABIL_MUNDANE, duration: "治療まで" }] },
   "soc-19": { label: "暗殺",         derivedDamage: { category: "physical", cards: 1 } },
-  // ID剥奪: 治療するまで X ランクに。未自動化(ランクの機構自体が未実装)
-  "soc-20": { label: "ID剥奪" },
+  "soc-20": { label: "ID剥奪", citizenRankOverride: "X" },
   "soc-21": { label: "guilty-有罪",  inflicts: [{ kind: "erased" }] },
 };
 

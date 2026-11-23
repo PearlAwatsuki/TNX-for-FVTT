@@ -27,11 +27,12 @@ export function decidePurchasePath(buy, mundaneTotal) {
 /**
  * カードなし特例の結果計算(達成値 = 外界 ＋ 消費報酬点・成否は目標値との比較)。
  * @param {{mundaneTotal: number, bountySpent: number, targetValue: number}} p
- * @returns {{achievement: number, success: boolean, diff: number}}
+ * @returns {{achievement: number, success: boolean, diff: number|null}}
  */
 export function computeNoCardPurchase({ mundaneTotal, bountySpent, targetValue }) {
     const achievement = (Number(mundaneTotal) || 0) + (Number(bountySpent) || 0);
-    return { achievement, success: achievement >= targetValue, diff: achievement - targetValue };
+    const success = achievement >= targetValue;
+    return { achievement, success, diff: success ? achievement - targetValue : null };
 }
 
 /**

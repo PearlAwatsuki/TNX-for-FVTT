@@ -785,6 +785,7 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
 
     _getCitizenRankData(context) {
         const currentRank = context.system.citizenRank;
+        context.effectiveCitizenRank = context.system.effectiveCitizenRank ?? currentRank;
         const rankMap = { "A": "A", "B+": "B+", "B": "B", "B-": "B-", "C+": "C+", "C": "C", "C-": "C-", "X": "X" };
         context.citizenRankOptionsForSelect = Object.entries(rankMap).map(([value]) => ({
             value,
@@ -1365,7 +1366,6 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             skillLabel:      ABILITY_LABELS[abilityKey] ?? abilityKey,
             validSuits:      suit ? [suit] : [...ALL_SUITS],
             targetValue:     null,
-            bountyAvailable: 0, // 能力値判定では報酬点を消費できない(2026-07-10 ユーザー確定)
             requestMessageId: null,
         });
     }
@@ -1384,7 +1384,6 @@ export class TnxCharacterSheetBase extends HandlebarsApplicationMixin(ActorSheet
             skillLabel:      abilityKey ? `${ABILITY_LABELS[abilityKey] ?? abilityKey}の制御` : "制御判定",
             validSuits:      suit ? [suit] : [...ALL_SUITS],
             targetValue:     null,
-            bountyAvailable: 0,
             requestMessageId: null,
         });
     }

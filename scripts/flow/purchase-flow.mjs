@@ -22,7 +22,7 @@ import {
     decidePurchasePath, computeNoCardPurchase, purchaseUnavailableReason,
     decidePreActPurchase, preActUnavailableReason,
 } from "../rules/purchase.mjs";
-import { hasBountyBlock } from "../rules/conditions.mjs";
+import { availableBounty, spendBounty } from "./bounty-spending.mjs";
 import { usageDisplayName } from "../rules/usage-types.mjs";
 import { DISABLED_TRIGGER_CLASS } from "../ui/ui-trigger-disable.mjs";
 import { TnxCheckFlow } from "./tnx-check-flow.mjs";
@@ -199,13 +199,9 @@ async function promptPurchaseMethod(actor, doc, uuid, targetValue, mundane) {
 
 /** カードなし特例: 達成値 = 外界 ＋ 消費報酬点。報酬点は一元ゲート＋実減算。 */
 async function noCardPurchase(actor, doc, uuid, targetValue, mundane) {
-    const blocked = hasBountyBlock(TnxCheckFlow._gatherConditions(actor));
-    const available = blocked ? 0 : (actor.system.bountyBase ?? 0) + (actor.system.bounty ?? 0);
-    const bountySpent = await TnxCheckFlow._promptBountyUsage(available, { baseAchievement: mundane });
+    const requested = await TnxCheckFlow._promptBountyUsage(availableBounty(actor), { baseAchievement: mundane });
+    const bountySpent = await spendBounty(actor, requested);
     const result = computeNoCardPurchase({ mundaneTotal: mundane, bountySpent, targetValue });
-    if (bountySpent > 0) {
-        await actor.update({ "system.bounty": (actor.system.bounty ?? 0) - bountySpent });
-    }
     let granted = false;
     if (result.success) granted = !!(await grantPurchasedItem(actor, uuid));
     await postPurchaseCard({

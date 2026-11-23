@@ -10,7 +10,7 @@
  * 固有ペイロード(attack/npcAcquire/recovery)だけを持ち、共通部は本モジュールを通す。
  */
 
-import { getComboSuits, comboUsesBounty } from "../rules/tnx-check-engine.mjs";
+import { getComboSuits } from "../rules/tnx-check-engine.mjs";
 import { resolveConsumeRowsForActor, promptConsumption } from "./usage-consumption.mjs";
 import { prepareUsageEffectPayload } from "./usage-effects.mjs";
 import { resolveUsageTargetValue } from "../rules/usage-target-value.mjs";
@@ -192,18 +192,12 @@ export async function buildUsageCheckContext(actor, item, usage, {
     if (resolvedTargetRefs === null) return null;
 
     // 参加技能(ベース＋コンボ)の解決
-    const { allSkillIds, allSkillSystems, validSuits } = resolveUsageSkillSet(item, usage, actor);
+    const { allSkillIds, validSuits } = resolveUsageSkillSet(item, usage, actor);
     // 技能名の表示は 〈〉 整形(2026-07-18 ユーザー確定): 例「〈白兵〉+〈運動〉」
     const skillLabel = allSkillIds
         .map(id => formatSkillName(actor.items.get(id)?.name ?? ""))
         .filter(Boolean)
         .join("+");
-
-    // 報酬点: 参加技能のいずれかが usesBounty なら可(ベース限定は誤り・2026-07-10 ユーザー確定)。
-    // 報酬点使用不可(口座凍結/信用失墜)は消費時点の状態で判定するため、ここでは見ない——
-    // TnxCheckFlow._execute の報酬点ダイアログ直前の一元ゲートが全経路(情報収集・再判定含む)を塞ぐ
-    const actorBounty = (actor.system.bountyBase ?? 0) + (actor.system.bounty ?? 0);
-    const bountyAvailable = comboUsesBounty(allSkillSystems) ? actorBounty : 0;
 
     // 使用回数の消費を確認(用途の消費先設定＝consumeTargets 由来・11-6。残量不足でチェック時は
     // ブロック)。分身は本体側カウンターへ差し替えて共有(Troops.md)。確定した平プランは判定実行時に適用
@@ -229,7 +223,6 @@ export async function buildUsageCheckContext(actor, item, usage, {
         // 目標値(2026-07-13 ユーザー確定): 数字=そのまま目標値・解説参照/その他=自由記入欄の
         // 式を評価(空/評価不能はなし)・制御値/達成値/登場目標値=別メカニクス(具体値は引かない)
         targetValue:     await resolveUsageTargetValue(usage, actor, item, targetValueExtra ?? {}),
-        bountyAvailable,
         consumeUses:     usesPlan,
         requestMessageId: null,
         usageSettingsInput: usage.usageSettingsInput,

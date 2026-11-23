@@ -64,7 +64,9 @@ describe("computeDamage()（攻撃側合計→恒久軽減→10上限→事後�
 
   it("下限0（軽減が生ダメージを上回る）", () => {
     expect(computeDamage({ damageCard: 3, attackPower: 0, modifier: 0, mitigation: 10 }))
-      .toEqual({ raw: 3, calc: -7, attack: -7, final: 0, stage: 0, capped: false });
+      .toEqual({ raw: 3, calc: 0, attack: 0, final: 0, stage: 0, capped: false });
+    expect(computeDamage({ damageCard: 5, mitigation: 10, postModifier: 8 }))
+      .toEqual({ raw: 5, calc: 0, attack: 8, final: 8, stage: 8, capped: false });
   });
 
   it("スタン/説得: 恒久軽減を引いた後＝算出の一番最後に10上限（2026-07-16 裁定=KI-024）", () => {

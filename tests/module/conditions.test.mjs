@@ -202,6 +202,26 @@ describe("gatherSkillUseWarnings()：特定技能の使用不可(skillBlock・�
   });
 });
 
+describe("ID剥奪の実効市民ランク", () => {
+  it("ID剥奪は実効ランクだけをXにし、最後の有効な負傷が消えると基礎ランクに戻る", async () => {
+    const { CharacterBaseDataModel } = await import("../../scripts/data/actor/common/character-base.mjs");
+    const wound = () => ({ statuses: ["soc-20"], flags: { "tokyo-nova-axleration": { woundCategory: "social" } } });
+    const model = Object.create(CharacterBaseDataModel.prototype);
+    model.citizenRank = "B+";
+    model.parent = { effects: [wound(), wound()] };
+    expect(model.effectiveCitizenRank).toBe("X");
+    model.parent.effects.pop();
+    expect(model.effectiveCitizenRank).toBe("X");
+    model.parent.effects[0].flags["tokyo-nova-axleration"].manuallyIgnored = true;
+    expect(model.effectiveCitizenRank).toBe("B+");
+    model.citizenRank = "C";
+    model.parent.effects[0].flags["tokyo-nova-axleration"].manuallyIgnored = false;
+    expect(model.effectiveCitizenRank).toBe("X");
+    model.parent.effects = [];
+    expect(model.effectiveCitizenRank).toBe("C");
+  });
+});
+
 describe("hasBountyBlock()：報酬点の使用不可(bountyBlock)", () => {
   const frozen = () => condRow({ kind: "soc-13", name: "口座凍結", def: { bountyBlock: true } });
 

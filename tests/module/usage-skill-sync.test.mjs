@@ -24,7 +24,7 @@ describe("recheck runtime choices", () => {
         Flow._clickState = { kind: "recheck", actorId: "a", skillItemId: "source", merge: false, consumeUses: [] };
         const message = { getFlag: () => ({ actorId: "a" }) };
         await Flow._onGrantAchievementClick(message);
-        expect(start).toHaveBeenCalledWith(message, { mergeSkill: null, consumeUses: [] });
+        expect(start).toHaveBeenCalledWith(message, { granted: true, mergeSkill: null, consumeUses: [] });
         expect(prompt).not.toHaveBeenCalled();
         expect(cancel).toHaveBeenCalledOnce();
         prompt.mockRestore(); block.mockRestore(); start.mockRestore(); cancel.mockRestore(); vi.unstubAllGlobals();

@@ -449,7 +449,6 @@ export class TnxRlRequestApp extends HandlebarsApplicationMixin(ApplicationV2) {
             skillLabel,
             validSuits:      flagSuits?.length ? [...flagSuits] : [...ALL_SUITS],
             targetValue:     targetValue ?? null,
-            bountyAvailable: 0,
             requestMessageId: messageId,
             // 制御判定要求が controlNegate(BS の無効/降格)由来の場合、完了継続で結果を適用する
             controlNegate:   flagData.controlNegate ?? null,

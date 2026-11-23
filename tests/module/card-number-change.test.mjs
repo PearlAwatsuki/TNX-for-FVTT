@@ -12,6 +12,46 @@ beforeAll(async () => {
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); Flow._context = null; });
 
 describe("post-card number and suit controls", () => {
+    it("applies jamming to an upward check only", () => {
+        const actor = { system: {}, items: [{ system: { isPrepared: true, majorCategory: "weapon",
+            minorCategory: "melee", hack: { mode: "value", value: 2 } } }] };
+        const conditions = [{ kind: "interference", active: true, magnitude: 3 }];
+        expect(Flow._computeJammingSource(actor, conditions, true)).toMatchObject({ value: -1 });
+        expect(Flow._computeJammingSource(actor, conditions, false)).toBeNull();
+    });
+    it.each([10, 11, 12, 13])("distinguishes a drawn joker declaring rank %s from a natural card", async rank => {
+        const card = { id: "c", value: 99, suit: "joker" };
+        vi.spyOn(TnxActionHandler, "getActiveDeck").mockResolvedValue({ availableCards: [card] });
+        vi.spyOn(TnxActionHandler, "getActiveDiscardPile").mockResolvedValue({
+            draw: async () => [card], updateEmbeddedDocuments: async () => {}, cards: new Map([[card.id, card]]),
+        });
+        vi.spyOn(Flow, "_cardValueOverride").mockReturnValue(null);
+        vi.spyOn(Flow, "_promptJokerDeclaration").mockResolvedValue({ suit: "spade", numericValue: rank });
+        const execute = vi.spyOn(Flow, "_execute").mockResolvedValue(true);
+        Flow._context = { type: "skillCheck", validSuits: ["spade"] };
+        await Flow.executeFromDeck();
+        expect(execute.mock.lastCall[0]).toMatchObject({ cardCheckValue: 10, suit: "spade", fromDeck: true });
+        Flow._context.validSuits = ["heart"];
+        await Flow.executeFromDeck();
+        expect(execute.mock.lastCall[0]).toMatchObject({ suitMismatch: true, cardCheckValue: null });
+        Object.assign(card, { suit: "heart", value: rank });
+        await Flow.executeFromDeck();
+        expect(execute.mock.lastCall[0].cardCheckValue).toBe(rank === 10 ? 10 : "FUMBLE");
+    });
+    it.each(["joker", "trump"])("uses the chosen fixed 21 for a declared ace from %s", async source => {
+        const card = { id: "c", suit: source === "joker" ? "joker" : "spade", value: source === "joker" ? 99 : 5 };
+        vi.stubGlobal("game", { user: { flags: { "tokyo-nova-axleration": { handPileId: "hand", trumpCardPileId: "trump" } } } });
+        vi.stubGlobal("fromUuid", async id => id === "hand" ? { cards: new Map([["c", card]]) } : { cards: { contents: [{ id: "t" }] } });
+        vi.spyOn(Flow, "_promptJokerDeclaration").mockResolvedValue({ suit: "heart", numericValue: 1 });
+        foundry.applications.api.DialogV2 = { wait: vi.fn().mockResolvedValue("fixed21") };
+        Flow._context = { type: "skillCheck", validSuits: ["heart"] };
+        Flow._trumpMode = source === "trump";
+        const execute = vi.spyOn(Flow, "_execute").mockResolvedValue(true);
+        await Flow.executeFromHand("c");
+        expect(execute.mock.lastCall[0]).toMatchObject({ cardCheckValue: "FIXED_21", suit: "heart" });
+        expect(!!execute.mock.lastCall[0].trumpUsed).toBe(source === "trump");
+        Flow._trumpMode = false;
+    });
     it.each([[1, "spade", false], [99, "joker", true]])("checks the suit of a drawn ace before offering fixed 21 (%s)", async (value, suit, mismatch) => {
         const card = { id: "ace", value, suit };
         vi.spyOn(TnxActionHandler, "getActiveDeck").mockResolvedValue({ availableCards: [card] });
@@ -29,7 +69,7 @@ describe("post-card number and suit controls", () => {
     });
     it.each(["cancel", "play"])("resolves a mismatched hand before spending cards or applying effects: %s", async decision => {
         const update = vi.fn();
-        const actor = { id: "a", uuid: "Actor.a", system: {}, items: new Map(), effects: [], getFlag: () => null, update };
+        const actor = { id: "a", uuid: "Actor.a", system: { bountyBase: 1 }, items: new Map(), effects: [], getFlag: () => null, update };
         vi.stubGlobal("game", { actors: new Map([["a", actor]]), tnx: {} });
         vi.spyOn(Flow, "_closeDialog").mockImplementation(() => {});
         const hand = vi.spyOn(TnxActionHandler, "playCard").mockResolvedValue();

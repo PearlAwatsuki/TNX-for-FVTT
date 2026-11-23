@@ -35,6 +35,7 @@
  */
 
 import { usesMaxTotalOf } from "../data/item/uses.mjs";
+import { availableBounty, spendBounty } from "./bounty-spending.mjs";
 import { ammoMaxTotalOf } from "../data/item/helpers.mjs";
 import { ListSelectionDialog } from "../ui/tnx-dialog.mjs";
 
@@ -156,7 +157,8 @@ export function resolveBunshinOwner(actor) {
 export function resolveConsumeRowsForActor(actor, parentItem, targets) {
     // AR は実行アクター自身の戦闘リソース(分身でも本体へ差し替えない)
     const actionRank = actor?.system?.actionRank ?? null;
-    const bountyData = { bountyBase: actor?.system?.bountyBase ?? 0, bounty: actor?.system?.bounty ?? 0 };
+    const bountyData = targets?.some(t => t.type === "bounty") && actor
+        ? { available: availableBounty(actor) } : null;
     const owner = resolveBunshinOwner(actor);
     if (!owner) {
         return resolveConsumeRows(targets, {
@@ -229,7 +231,7 @@ export function resolveConsumeRows(targets, { parentItem, getItem, actionRank = 
         if (type === "bounty") {
             const base = Number(bounty?.bountyBase ?? 0);
             const current = Number(bounty?.bounty ?? 0);
-            const effective = Math.max(0, base + current);
+            const effective = bounty?.available ?? Math.max(0, base + current);
             return {
                 type, kind: "bounty", amount, key: "@bounty", itemId: "@bounty",
                 label: "報酬点",
@@ -404,10 +406,12 @@ export async function applyConsumptionPlan(plan) {
         }
         // 報酬点の消費(kind="bounty")
         const bountyAmount = rows.filter(r => r.kind === "bounty").reduce((s, r) => s + (Number(r.amount) || 0), 0);
-        if (bountyAmount !== 0) {
+        if (bountyAmount > 0) {
+            await spendBounty(actor, bountyAmount);
+        } else if (bountyAmount < 0) {
             const base = actor.system.bountyBase ?? 0;
             const current = actor.system.bounty ?? 0;
-            // 有効報酬点 >= 0 でクランプ(没収等でも0を下回らない)
+            // 負値の行は回復。使用禁止の状態でも受け取れる。
             const next = Math.max(-base, current - bountyAmount);
             await actor.update({ "system.bounty": next });
         }
