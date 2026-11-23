@@ -15,7 +15,7 @@ import { CONDITION_KINDS, conditionDisplayName } from "../rules/conditions.mjs";
 import { ATTACK_DAMAGE_TYPES, readFlag } from "../data/item/helpers.mjs";
 import { OUTFIT_ITEM_TYPES } from "../data/helpers.mjs";
 import { buildCategoryKeyGroups, categoryKeyLabel, ALL_CATEGORIES_KEY } from "../data/item/outfit-categories.mjs";
-import { attackWeaponDisplayName, attackWeaponKindEligible } from "../rules/attack-weapons.mjs";
+import { attackWeaponDisplayName, attackWeaponKindEligible, weaponUnavailableReason } from "../rules/attack-weapons.mjs";
 import { effectiveGuardValue, effectiveUnarmedGuardValue, isParryWeaponEligible } from "../rules/parry-weapons.mjs";
 import { WEAPON_RANGE_MAX_OPTIONS } from "../data/item/weapon.mjs";
 import { loadSkillChoices, loadCascadeData, buildSkillCascadeSteps, SKILL_PACKS, STYLE_PACK, ORGANIZATION_PACK } from "../dictionary/skill-dictionary.mjs";
@@ -539,7 +539,7 @@ export async function prepareUsageContext(sheet, context) {
             ? refs.map((r, idx) => {
                 const w = actorItems.find(i => i.id === r.itemId) ?? (r.itemId === sheet._item.id ? sheet._item : null);
                 const guard = effectiveGuardValue(w);
-                return { idx, id: r.itemId, name: w?.name ?? `(削除済み: ${r.itemId})`, guardLabel: guard === null ? "受け値なし" : `受け値${guard}`, removable: true };
+                return { idx, id: r.itemId, name: w?.name ?? `(削除済み: ${r.itemId})`, guardLabel: weaponUnavailableReason(w) ?? (guard === null ? "受け値なし" : `受け値${guard}`), removable: true };
             })
             // ダメージ側と同じ既存規約: weaponRefs が空なら生身。生身は Item 検索へ流さない。
             : [{ idx: -1, id: "", name: "生身", guardLabel: `受け値${effectiveUnarmedGuardValue(sheet._item.actor)}`, removable: false }];
@@ -563,6 +563,9 @@ export async function prepareUsageContext(sheet, context) {
         const sheetWeaponId = sheetActor?.system?.weaponRefs?.attackItemId || "";
         const sheetWeapon = sheetWeaponId ? sheetActor?.items.get(sheetWeaponId) : null;
         const atkLabel = (w) => {
+            const unavailable = weaponUnavailableReason(w);
+            if (unavailable) return unavailable;
+            if (!attackWeaponKindEligible(w, context.attackWeaponKind)) return "攻撃区分が異なります";
             const atk = w?.system.attack ?? {};
             const val = Number(atk.total ?? atk.value) || 0;
             return `${atk.damageTypeTotal || atk.damageType || ""}${val >= 0 ? `+${val}` : val}`;

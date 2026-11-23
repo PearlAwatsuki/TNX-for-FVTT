@@ -69,7 +69,7 @@ export function registerUiInjections() {
                 icon: '<i class="fas fa-pen"></i>',
                 // スナップショット持ちのカードに限る: 継続処理系(移動/治療等)は達成値だけ書き換えると
                 // 適用済みの帰結と乖離し、事後修正のライブ描画もスナップショット持ちでしか動かない
-                visible: (li) => TnxCheckFlow.canManageCheckResult(msgOf(li)),
+                visible: (li) => TnxCheckFlow.canManageCheckResult(msgOf(li)) && !TnxCheckFlow.suitMismatchLocked(msgOf(li)),
                 onClick: (li) => TnxCheckFlow.manualEditAchievement(msgOf(li)),
             },
             {

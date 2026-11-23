@@ -13,9 +13,17 @@ function mockActor(items) {
 const suits = (spade, club, heart, diamond) => ({ spade, club, heart, diamond });
 
 describe("resolveUsageSkillSet()（参加技能の解決・旧 _resolveSkillSet）", () => {
+    it("武器を親にしてもベース技能のスートを使い、重複参照や装備を技能に含めない", () => {
+        const weapon = { id: "gun", type: "weapon", system: {} };
+        const skill = { id: "fire", type: "generalSkill", system: { suits: { heart: true } } };
+        const actor = mockActor([weapon, skill]);
+        const usage = { type: "physicalAttack", baseSkillRef: { itemId: "fire" }, skillRefs: [{ itemId: "gun" }, { itemId: "fire" }] };
+        expect(resolveUsageSkillSet(weapon, usage, actor)).toMatchObject({ allSkillIds: ["fire"], validSuits: ["heart"] });
+        expect(detectUsageDefect(weapon, { ...usage, baseSkillRef: { itemId: "gun" } }, actor)).toBe("ベース技能が見つかりません");
+    });
     it("ベース=baseSkillRef 優先・コンボ=skillRefs・共通スートの積", () => {
-        const base = { id: "base", system: { suits: suits(true, true, false, false) } };
-        const combo = { id: "combo", system: { suits: suits(true, false, true, false) } };
+        const base = { id: "base", type: "generalSkill", system: { suits: suits(true, true, false, false) } };
+        const combo = { id: "combo", type: "generalSkill", system: { suits: suits(true, false, true, false) } };
         const actor = mockActor([base, combo]);
         const usage = { baseSkillRef: { itemId: "base" }, skillRefs: [{ itemId: "combo" }] };
         const r = resolveUsageSkillSet(base, usage, actor);
@@ -25,7 +33,7 @@ describe("resolveUsageSkillSet()（参加技能の解決・旧 _resolveSkillSet�
     });
 
     it("baseSkillRef 未設定は親アイテムがベース", () => {
-        const parent = { id: "parent", system: { suits: suits(true, true, true, true) } };
+        const parent = { id: "parent", type: "generalSkill", system: { suits: suits(true, true, true, true) } };
         const actor = mockActor([parent]);
         const r = resolveUsageSkillSet(parent, { baseSkillRef: { itemId: "" }, skillRefs: [] }, actor);
         expect(r.baseSkillId).toBe("parent");
@@ -33,8 +41,8 @@ describe("resolveUsageSkillSet()（参加技能の解決・旧 _resolveSkillSet�
     });
 
     it("非ベースの親技能は自動的にコンボへ追加される(非アクション技能からの起動)", () => {
-        const base = { id: "base", system: { suits: suits(true, true, true, true) } };
-        const parent = { id: "parent", system: { suits: suits(true, true, false, false) } };
+        const base = { id: "base", type: "generalSkill", system: { suits: suits(true, true, true, true) } };
+        const parent = { id: "parent", type: "generalSkill", system: { suits: suits(true, true, false, false) } };
         const actor = mockActor([base, parent]);
         const usage = { baseSkillRef: { itemId: "base" }, skillRefs: [] };
         const r = resolveUsageSkillSet(parent, usage, actor);
@@ -43,7 +51,7 @@ describe("resolveUsageSkillSet()（参加技能の解決・旧 _resolveSkillSet�
     });
 
     it("所持していない skillRefs は無視する", () => {
-        const parent = { id: "parent", system: { suits: suits(true, true, true, true) } };
+        const parent = { id: "parent", type: "generalSkill", system: { suits: suits(true, true, true, true) } };
         const actor = mockActor([parent]);
         const usage = { baseSkillRef: { itemId: "parent" }, skillRefs: [{ itemId: "gone" }] };
         const r = resolveUsageSkillSet(parent, usage, actor);
@@ -53,29 +61,29 @@ describe("resolveUsageSkillSet()（参加技能の解決・旧 _resolveSkillSet�
 
 describe("detectUsageDefect()（用途不備検知・旧 _detectUsageDefect）", () => {
     it("check: ベース技能が解決できない → 不備", () => {
-        const parent = { id: "parent", system: { suits: suits(true, true, true, true) } };
+        const parent = { id: "parent", type: "generalSkill", system: { suits: suits(true, true, true, true) } };
         const actor = mockActor([parent]);
         const usage = { type: "check", baseSkillRef: { itemId: "gone" }, skillRefs: [] };
         expect(detectUsageDefect(parent, usage, actor)).toBe("ベース技能が見つかりません");
     });
 
     it("check: 参加技能に共通スートが無い → 不備", () => {
-        const base = { id: "base", system: { suits: suits(true, false, false, false) } };
-        const combo = { id: "combo", system: { suits: suits(false, true, false, false) } };
+        const base = { id: "base", type: "generalSkill", system: { suits: suits(true, false, false, false) } };
+        const combo = { id: "combo", type: "generalSkill", system: { suits: suits(false, true, false, false) } };
         const actor = mockActor([base, combo]);
         const usage = { type: "check", baseSkillRef: { itemId: "base" }, skillRefs: [{ itemId: "combo" }] };
         expect(detectUsageDefect(base, usage, actor)).toBe("参加技能に共通スートがありません");
     });
 
     it("check: 固定達成値の用途は不備検知の対象外", () => {
-        const parent = { id: "parent", system: {} };
+        const parent = { id: "parent", type: "generalSkill", system: {} };
         const actor = mockActor([parent]);
         const usage = { type: "check", fixedResult: 15, baseSkillRef: { itemId: "gone" }, skillRefs: [] };
         expect(detectUsageDefect(parent, usage, actor)).toBeNull();
     });
 
     it("check: 不備なし → null／他タイプは未検知 → null", () => {
-        const parent = { id: "parent", system: { suits: suits(true, true, true, true) } };
+        const parent = { id: "parent", type: "generalSkill", system: { suits: suits(true, true, true, true) } };
         const actor = mockActor([parent]);
         expect(detectUsageDefect(parent, { type: "check", baseSkillRef: { itemId: "parent" }, skillRefs: [] }, actor)).toBeNull();
         expect(detectUsageDefect(parent, { type: "declaration" }, actor)).toBeNull();
@@ -95,8 +103,8 @@ describe("enumerateRequestComboCandidates()（判定要求のコンボ候補列�
     const all = suits(true, true, true, true);
 
     it("指定技能をベース技能に含む他アイテムの判定用途を列挙する", () => {
-        const perception = { id: "p1", system: { identificationKey: "perception", suits: all } };
-        const style = { id: "s1", system: { identificationKey: "", suits: all, actions: [
+        const perception = { id: "p1", type: "generalSkill", system: { identificationKey: "perception", suits: all } };
+        const style = { id: "s1", type: "styleSkill", system: { identificationKey: "", suits: all, actions: [
             { _id: "u1", type: "check", baseSkillRef: { itemId: "p1" }, skillRefs: [] },
         ] } };
         const actor = mkActor([perception, style]);
@@ -105,8 +113,8 @@ describe("enumerateRequestComboCandidates()（判定要求のコンボ候補列�
     });
 
     it("組み合わせ技能(skillRefs)に含む場合も列挙する", () => {
-        const perception = { id: "p1", system: { identificationKey: "perception", suits: all } };
-        const melee = { id: "m1", system: { identificationKey: "melee", suits: all, actions: [
+        const perception = { id: "p1", type: "generalSkill", system: { identificationKey: "perception", suits: all } };
+        const melee = { id: "m1", type: "generalSkill", system: { identificationKey: "melee", suits: all, actions: [
             { _id: "u1", type: "check", baseSkillRef: { itemId: "m1" }, skillRefs: [{ itemId: "p1" }] },
         ] } };
         const actor = mkActor([perception, melee]);
@@ -115,7 +123,7 @@ describe("enumerateRequestComboCandidates()（判定要求のコンボ候補列�
     });
 
     it("指定技能自身(excludeItemId)の用途は除外する(従来のアイテム起動側が受け持つ)", () => {
-        const perception = { id: "p1", system: { identificationKey: "perception", suits: all, actions: [
+        const perception = { id: "p1", type: "generalSkill", system: { identificationKey: "perception", suits: all, actions: [
             { _id: "u1", type: "check", baseSkillRef: { itemId: "p1" }, skillRefs: [] },
         ] } };
         const actor = mkActor([perception]);
@@ -123,8 +131,8 @@ describe("enumerateRequestComboCandidates()（判定要求のコンボ候補列�
     });
 
     it("指定技能が参加しない用途は載らない", () => {
-        const perception = { id: "p1", system: { identificationKey: "perception", suits: all } };
-        const other = { id: "o1", system: { identificationKey: "melee", suits: all, actions: [
+        const perception = { id: "p1", type: "generalSkill", system: { identificationKey: "perception", suits: all } };
+        const other = { id: "o1", type: "generalSkill", system: { identificationKey: "melee", suits: all, actions: [
             { _id: "u1", type: "check", baseSkillRef: { itemId: "o1" }, skillRefs: [] },
         ] } };
         const actor = mkActor([perception, other]);
@@ -132,8 +140,8 @@ describe("enumerateRequestComboCandidates()（判定要求のコンボ候補列�
     });
 
     it("「判定」タイプ以外・通常判定へ流れない判定用途は候補にしない(2026-07-19 裁定=判定タイプ限定)", () => {
-        const perception = { id: "p1", system: { identificationKey: "perception", suits: all } };
-        const style = { id: "s1", system: { identificationKey: "", suits: all, actions: [
+        const perception = { id: "p1", type: "generalSkill", system: { identificationKey: "perception", suits: all } };
+        const style = { id: "s1", type: "styleSkill", system: { identificationKey: "", suits: all, actions: [
             { _id: "a", type: "physicalAttack", baseSkillRef: { itemId: "p1" }, skillRefs: [] },
             { _id: "b", type: "check", fixedResult: 10, baseSkillRef: { itemId: "p1" }, skillRefs: [] },
             { _id: "c", type: "check", grantRecheck: true, baseSkillRef: { itemId: "p1" }, skillRefs: [] },
@@ -151,8 +159,8 @@ describe("enumerateRequestComboCandidates()（判定要求のコンボ候補列�
     });
 
     it("不備のある用途(共通スート無し)は除外する", () => {
-        const perception = { id: "p1", system: { identificationKey: "perception", suits: suits(true, false, false, false) } };
-        const style = { id: "s1", system: { identificationKey: "", suits: suits(false, true, false, false), actions: [
+        const perception = { id: "p1", type: "generalSkill", system: { identificationKey: "perception", suits: suits(true, false, false, false) } };
+        const style = { id: "s1", type: "styleSkill", system: { identificationKey: "", suits: suits(false, true, false, false), actions: [
             { _id: "u1", type: "check", baseSkillRef: { itemId: "p1" }, skillRefs: [] },
         ] } };
         const actor = mkActor([perception, style]);

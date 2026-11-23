@@ -1,10 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { buildParryGuardSnapshot, effectiveGuardValue, effectiveUnarmedGuardValue, isParryWeaponEligible, resolveParryWeapons } from "../../scripts/rules/parry-weapons.mjs";
 
-const weapon = (id, value) => ({ id, uuid: `Actor.a.Item.${id}`, name: id, system: { guardValue: { mode: "value", total: value } } });
+const weapon = (id, value) => ({ id, type: "weapon", uuid: `Actor.a.Item.${id}`, name: id, system: { isPrepared: true, guardValue: { mode: "value", total: value } } });
 const actor = (items, baseGuard = { value: 0, mod: 0 }) => ({ items: new Map(items.map(i => [i.id, i])), system: { baseGuard } });
 
 describe("パリー用途の使用武器", () => {
+    it.each([{ isPreparedEffective: false }, { isDestroyed: true }, { isMalfunction: true }])("使用不能な武器の受け値を使わない %o", (state) => {
+        const blade = weapon("blade", 4);
+        Object.assign(blade.system, state);
+        const guard = buildParryGuardSnapshot(actor([blade]), { weaponRefs: [{ itemId: blade.id }] });
+        expect(guard.base).toBe(0);
+        expect(guard.invalid).toHaveLength(1);
+    });
 
     it("weaponRefs が空なら生身を武器として解決する", () => {
         const user = actor([], { value: 2, mod: 1 });

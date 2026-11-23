@@ -27,13 +27,15 @@ import { resolveUsageTargetRefs } from "./target-resolution.mjs";
 export function resolveUsageSkillSet(item, usage, actor) {
     // ベース id は共通リゾルバに集約(2026-07-18)。起動時の最終フォールバック(未永続の瞬間に親へ)。
     const baseSkillId = effectiveBaseSkillId(usage, item);
-    const baseSkill = actor?.items.get(baseSkillId) ?? null;
-    const comboSkillIds = (usage.skillRefs ?? [])
+    const isSkill = doc => ["generalSkill", "styleSkill"].includes(doc?.type);
+    const candidate = actor?.items.get(baseSkillId);
+    const baseSkill = isSkill(candidate) ? candidate : null;
+    const comboSkillIds = [...new Set((usage.skillRefs ?? [])
         .map(r => r.itemId)
-        .filter(id => id && actor?.items.has(id));
+        .filter(id => id !== baseSkillId && isSkill(actor?.items.get(id))))];
     // 用途を所持する技能がベースでない(非アクション技能からの起動)場合は自動的にコンボへ追加
-    if (item.id !== baseSkillId && !comboSkillIds.includes(item.id)) comboSkillIds.push(item.id);
-    const allSkillIds = [baseSkillId, ...comboSkillIds];
+    if (isSkill(item) && item.id !== baseSkillId && !comboSkillIds.includes(item.id)) comboSkillIds.push(item.id);
+    const allSkillIds = baseSkill ? [baseSkillId, ...comboSkillIds] : comboSkillIds;
     const allSkillSystems = allSkillIds.map(id => actor?.items.get(id)?.system).filter(Boolean);
     const validSuits = getComboSuits(allSkillSystems);
     return { baseSkillId, baseSkill, comboSkillIds, allSkillIds, allSkillSystems, validSuits };
@@ -245,6 +247,6 @@ export async function buildUsageCheckContext(actor, item, usage, {
         attackWeaponKind: null, // 白兵/射撃の区別は攻撃フローで上書き
         usageEffects,               // 付与効果ペイロード(null=効果なし)
         allowRecheck:    usage.allowRecheck === true, // 再判定可能(用途の設定・2026-07-11)
-        allowSuitChange: false, // 判定ダイアログで今回のスート変更可否を指定する。
+        allowSuitChange: usage.allowSuitChange === true,
     };
 }

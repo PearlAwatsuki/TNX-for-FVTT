@@ -11,7 +11,8 @@ import { runSerial } from "./serial-queue.mjs";
 
 import { resolveUsageSkills } from "../rules/skill-chain-resolution.mjs";
 import { deriveConsumeTargets } from "../flow/usage-consumption.mjs";
-import { resolveAttackWeapons, resolveAttackRangeSpan } from "../rules/attack-weapons.mjs";
+import { resolveAttackWeapons, resolveAttackRangeSpan, resolvePhysicalAttackWeapons } from "../rules/attack-weapons.mjs";
+import { buildParryGuardSnapshot } from "../rules/parry-weapons.mjs";
 import { loadDictionarySkillItems } from "../dictionary/skill-dictionary.mjs";
 import { mergeConfrontationRows } from "../rules/confrontation.mjs";
 import { findItemByIdentificationKey } from "./identification.mjs";
@@ -78,7 +79,19 @@ export async function updateUsageActions(item, mutate) {
  * 2026-07-16: 「近〜遠」等の幅を単一値に潰さず {range, rangeMax} で返す(rangeMax="none"=単点)。
  */
 export function resolveWeaponRangeSpan(usage, item, actor) {
-    const span = resolveAttackRangeSpan(resolveAttackWeapons(actor, usage, item));
+    let weapons;
+    if (usage.type === "physicalAttack") {
+        const selection = resolvePhysicalAttackWeapons(actor, usage, item);
+        if (selection.error) return { range: "weapon", rangeMax: "none" };
+        weapons = selection.weapons;
+    } else if (isReactionType(usage.type)) {
+        const selection = buildParryGuardSnapshot(actor, usage, item);
+        if (selection.invalid.length) return { range: "weapon", rangeMax: "none" };
+        weapons = selection.weapons.map(w => w.itemId === item?.id ? item : actor?.items.get(w.itemId));
+    } else {
+        weapons = resolveAttackWeapons(actor, usage, item);
+    }
+    const span = resolveAttackRangeSpan(weapons);
     return { range: span.min, rangeMax: span.max };
 }
 
@@ -214,6 +227,10 @@ export async function deriveUsageAutoFill(item, usage) {
     const skillItems = skills.filter(s => s.type === "generalSkill" || s.type === "styleSkill");
 
     const patch = {};
+    if (usage.type === "reaction" && !(usage.weaponRefs ?? []).length) {
+        const parryItemId = actor?.system?.weaponRefs?.parryItemId || "";
+        if (parryItemId) patch.weaponRefs = [{ itemId: parryItemId }];
+    }
     // 解説参照/その他は優先度最下位のフォールバック(KI-033・2026-07-19 裁定): 勝者になるのは
     // 有効値が無いときだけで、そのとき用途へは「その他」として写す(親が「その他」なら自由記入欄も複写)
     const t = resolveTarget(skillItems.map(s => ({
@@ -244,7 +261,7 @@ export async function deriveUsageAutoFill(item, usage) {
         // 武器が無い(生身)なら至近=生身の射程(ユーザー確定)。幅のある武器は幅のまま(2026-07-16)。
         // ※非物理攻撃は上で「武器」を除外済みなのでここには来ない
         if (r.range === "weapon") {
-            Object.assign(patch, resolveWeaponRangeSpan(usage, item, actor));
+            Object.assign(patch, resolveWeaponRangeSpan({ ...usage, weaponRefs: patch.weaponRefs ?? usage.weaponRefs }, item, actor));
         }
     }
 
@@ -299,12 +316,6 @@ export async function deriveUsageAutoFill(item, usage) {
             ],
             { skillHasReactionQualification }
         );
-    }
-
-    // リアクション用途のパリー武器は戦闘タブを自動入力元として用途へ実体参照を保存する。実行時は用途だけを見る。
-    if (usage.type === "reaction" && !(usage.weaponRefs ?? []).length) {
-        const parryItemId = actor?.system?.weaponRefs?.parryItemId || "";
-        if (parryItemId) patch.weaponRefs = [{ itemId: parryItemId }];
     }
 
     // 消費行: 導出結果で置き換え(既存自動入力と同じ「明示的な上書き」の意味論)

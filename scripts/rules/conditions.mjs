@@ -523,7 +523,8 @@ export function gatherConditionCheckSources(conditions, ctx) {
     }
     // 条件付き攻撃判定デバフ(萎縮/憎悪)
     if (c.def?.type === "attackTarget" && ctx?.isAttack) {
-      const hit = c.targetMode === "include" ? ctx.targetMatched : !ctx.targetMatched;
+      const matched = ctx.targetUuids ? ctx.targetUuids.includes(c.targetUuid) : ctx.targetMatched;
+      const hit = c.targetMode === "include" ? matched : !matched;
       if (hit) {
         entries.push({ identity: c.kind, stackable: c.stackable, name: c.name, value: -(c.def.penalty ?? 0) });
       }

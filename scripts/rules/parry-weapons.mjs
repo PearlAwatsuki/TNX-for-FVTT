@@ -1,3 +1,5 @@
+import { weaponUnavailableReason } from "./attack-weapons.mjs";
+
 /** パリー用途の使用武器と受け値を解決する。実行時の正本は usage.weaponRefs だけ。 */
 export function resolveParryWeapons(actor, usage, parentItem = null) {
     const refs = usage?.weaponRefs ?? [];
@@ -43,9 +45,10 @@ export function buildParryGuardSnapshot(actor, usage, parentItem = null) {
         if (unarmed) {
             return { itemId: "", uuid: "", name: "生身", guardValue: effectiveUnarmedGuardValue(actor), unarmed: true };
         }
-        if (!item) { invalid.push({ id, reason: "参照先が見つかりません" }); return null; }
+        const reason = weaponUnavailableReason(item);
+        if (reason) { invalid.push({ id, name: item?.name, reason }); return null; }
         const guardValue = effectiveGuardValue(item);
-        if (guardValue === null) { invalid.push({ id, name: item.name, reason: "受け値を持ちません" }); return null; }
+        if (!isParryWeaponEligible(item)) { invalid.push({ id, name: item.name, reason: "パリーに使える受け値を持ちません" }); return null; }
         return { itemId: id, uuid: item.uuid ?? "", name: item.name ?? "?", guardValue, unarmed: false };
     }).filter(Boolean);
     return { weapons, invalid, base: weapons.reduce((sum, w) => sum + w.guardValue, 0) };

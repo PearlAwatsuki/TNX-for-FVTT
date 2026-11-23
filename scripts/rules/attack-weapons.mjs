@@ -16,7 +16,7 @@
  * (resolveAttackRangeSpan)を追加。単一値解決はその上限と一致する(挙動不変)。
  */
 
-import { readFlag } from "../data/item/helpers.mjs";
+import { readFlag, isOutfitDestroyed, isOutfitMalfunctioning } from "../data/item/helpers.mjs";
 
 /** 射程の物理的な短さ順(usage-autofill-logic の RANGE_PHYSICAL と同値・複数武器の最短採用に使用)。 */
 const RANGE_ORDER = { close: 0, short: 1, middle: 2, long: 3, superLong: 4 };
@@ -41,6 +41,29 @@ export function resolveAttackWeapons(actor, usage, parentItem = null) {
         push(r.itemId === parentItem?.id ? parentItem : actor?.items.get(r.itemId));
     }
     return out;
+}
+
+export function weaponUnavailableReason(item) {
+    if (!item) return "参照先が見つかりません";
+    if (isOutfitDestroyed(item.system)) return "破壊されています";
+    if (isOutfitMalfunctioning(item.system)) return "故障しています";
+    if (!(item.system.isPreparedEffective ?? item.system.isPrepared) && !readFlag(item.system, "noPrepareRequired")) return "準備されていません";
+    return null;
+}
+
+/** 射程と攻撃力は同じ実物の武器を使う。参照切れを生身として扱わない。 */
+export function resolvePhysicalAttackWeapons(actor, usage, parentItem) {
+    const refs = [actor?.system?.weaponRefs?.attackItemId, ...(usage.weaponRefs ?? []).map(r => r.itemId)].filter(Boolean);
+    const items = resolveAttackWeapons(actor, usage, parentItem);
+    const missing = refs.find(id => !items.some(item => item.id === id));
+    const weapons = items.filter(item => attackWeaponKindEligible(item, usage.attackWeaponKind));
+    if (missing) return { weapons, error: "使用武器の参照先が見つかりません。" };
+    for (const weapon of weapons) {
+        const reason = weaponUnavailableReason(weapon);
+        if (reason) return { weapons, error: `「${weapon.name}」は${reason}。` };
+    }
+    if (usage.attackWeaponKind === "ranged" && !weapons.length) return { weapons, error: "準備している武器が無いため、射撃攻撃を行えません。" };
+    return { weapons, error: null };
 }
 
 /**

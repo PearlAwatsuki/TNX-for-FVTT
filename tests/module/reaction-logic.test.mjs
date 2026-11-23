@@ -10,6 +10,13 @@ const R = (over = {}) => ({
 });
 
 describe("resolveTargetDefense()（複数リアクション併存の防御合成・2026-07-18）", () => {
+  it("成立した攻撃が達成値0でも不成立のパリーは同値勝利を得ない", () => {
+    const defend = suitMismatch => resolveTargetDefense(0, { selfDecision: "reacted", reactions: [
+      { mode: "parry", achievement: 0, established: !suitMismatch, suitMismatch, parryGuard: 4 },
+    ] });
+    expect(defend(true)).toMatchObject({ state: "hit", parryGuard: 0, reactionEstablished: false });
+    expect(defend(false)).toMatchObject({ state: "miss", parryGuard: 4, reactionEstablished: true });
+  });
   it("本人未決断・リアクションなし= pending", () => {
     const r = resolveTargetDefense(15, { controlValue: 10, selfDecision: null, reactions: [] });
     expect(r.state).toBe("pending");

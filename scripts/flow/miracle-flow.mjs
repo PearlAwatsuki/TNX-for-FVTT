@@ -664,6 +664,7 @@ async function commitNegate(state, undo = null) {
 export async function handleNegateAchievementClick(message) {
     const ns = negateState();
     if (!ns) return;
+    if (TnxCheckFlow.suitMismatchLocked(message)) return;
     const checkF = message.getFlag(SYSTEM_ID, "checkResult");
     const attackF = message.getFlag(SYSTEM_ID, "attackCheck");
     if (!checkF && !attackF) return;

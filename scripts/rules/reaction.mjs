@@ -44,7 +44,7 @@ export function resolveTargetDefense(attackAchievement, { controlValue = 0, self
     const atk = Number(attackAchievement) || 0;
     const elements = [];
     if (selfDecision === "skipped") elements.push(resolveNoReaction(atk, controlValue));
-    for (const r of reactions) elements.push(resolveOpposed(atk, effAch(r)));
+    for (const r of reactions) elements.push(r.suitMismatch ? { hit: true, diff: atk } : resolveOpposed(atk, effAch(r)));
 
     // 適用リアクション=実効達成値が最高の1件(高い方が適用・2026-07-18 ユーザー提供ルール)
     let effective = null;

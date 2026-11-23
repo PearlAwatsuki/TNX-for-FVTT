@@ -36,8 +36,8 @@ import { resolveTargetDefense, resolveOpenReactions, reactionButtonPlan } from "
 import { evaluateBonusRows, evaluateSelfBonus } from "../rules/tnx-formula.mjs";
 import { selectFormulaContributions } from "../rules/formula-duplicates.mjs";
 import { buildCheckCardContext, suitSymbolOf } from "../chat/check-card-context.mjs";
-import { resolveAttackWeapons, attackWeaponDisplayName, attackWeaponKindEligible } from "../rules/attack-weapons.mjs";
-import { isOutfitUnusable, isOutfitDestroyed } from "../data/item/helpers.mjs";
+import { resolvePhysicalAttackWeapons, attackWeaponDisplayName } from "../rules/attack-weapons.mjs";
+import { readFlag } from "../data/item/helpers.mjs";
 import { buildSkillOptions } from "../ui/skill-select.mjs";
 import { movementStagesFromAchievement } from "../rules/vehicle-move.mjs";
 import { USAGE_TYPE_LABELS, attackCategoryOf, usageDisplayName, executionFormOf } from "../rules/usage-types.mjs";
@@ -93,22 +93,15 @@ export async function useAttack(item, usage) {
     // FA(フルオート)の自動加算は廃止(2026-07-18 ユーザー確定)——FA 値は用途のダメージボーナス式で
     // 手動参照(@item.<識別キー>.system.FAValueTotal)する。弾数の自動消費も廃止(用途の消費設定のみ)。
     let weaponAttack = 0, damageType = "", attackSourceName = "", stunCapable = false, weaponDamageType = "";
+    let attackWeaponIds = [];
+    let weaponCanStun = false;
     if (category === "physical") {
         // 白兵/射撃の区分フラグで使用武器を絞る(2026-07-17 ユーザー確定)。生身(生身書き換え装備・
         // cyborg 含む)は白兵武器として扱う。射撃攻撃は純粋な生身では行えない=射撃武器フラグの
         // 武器を準備していなければ「準備している武器が無い」扱いで判定不可
-        const kind = usage.attackWeaponKind === "ranged" ? "ranged" : "melee";
-        // 適格判定は attackWeaponKindEligible に一本化(用途シートの使用武器表示と同じ判定)
-        const usedWeapons = resolveAttackWeapons(actor, usage, item).filter(w => attackWeaponKindEligible(w, kind));
-        // 故障/破壊(2026-07-18): 使用武器が故障/破壊しているとその武器を使う攻撃は行えない。
-        const brokenWeapon = usedWeapons.find(w => isOutfitUnusable(w.system));
-        if (brokenWeapon) {
-            const state = isOutfitDestroyed(brokenWeapon.system) ? "破壊" : "故障";
-            ui.notifications.warn(`「${brokenWeapon.name}」は${state}しているため、攻撃に使用できません。`);
-            return;
-        }
-        if (kind === "ranged" && !usedWeapons.length) {
-            ui.notifications.warn("準備している武器が無いため、射撃攻撃を行えません。");
+        const { weapons: usedWeapons, error } = resolvePhysicalAttackWeapons(actor, usage, item);
+        if (error) {
+            ui.notifications.warn(error);
             return;
         }
         const referenceWeapon = usedWeapons.find(w => (w.system.attack?.damageTypeTotal || w.system.attack?.damageType) === "reference");
@@ -125,7 +118,9 @@ export async function useAttack(item, usage) {
                 attackValue: Number(w.system.attack?.total ?? w.system.attack?.value) || 0,
                 damageType:  w.system.attack?.damageTypeTotal || w.system.attack?.damageType || "",
             }));
-        stunCapable = true;
+        attackWeaponIds = weapons.map(w => w.itemId);
+        weaponCanStun = !usedWeapons.length || usedWeapons.some(w => readFlag(w.system, "canStun"));
+        stunCapable = weaponCanStun || usage.canStun === true;
         // 生身は value+mod が実効(AE はネイティブに value/mod へ乗る・UI 表示も value+mod)
         const baseAtk = actor.system.baseAttack ?? {};
         weaponDamageType = combineWeaponAttack(weapons, "", {
@@ -182,7 +177,9 @@ export async function useAttack(item, usage) {
             damageBonusSelfCondition: usage.damageBonusSelfCondition ?? null,
             noEffectVsWet: usage.noEffectVsWet === true,
             sourceItemId: item.id,
-            stunCapable,                       // 物理攻撃は常にスタンを選択可能
+            attackWeaponIds,
+            weaponCanStun,
+            stunCapable,
             stunDeclared: false,               // 判定ダイアログのトグルで宣言される(2026-07-15)
             skillLabel: base.skillLabel,
             usageName: usageDisplayName(usage, item.name),
@@ -510,6 +507,11 @@ export async function rebuildRecheckedTargets(prevTargets, next) {
             { achievement: next.achievement, fumble: next.fumble === true, suitMismatch: next.suitMismatch === true }
         );
         const nt = { ...t, state: st.state, resolution: st.resolution, diff: st.diff };
+        if (next.suitMismatch) {
+            nt.parryGuard = 0;
+            nt.reactionEstablished = false;
+            nt.reactionAchievement = null;
+        }
         if (st.targetValue !== undefined) {
             // 仕切り直し(リアクション未実施へ戻る): 対決系の保存値を初期化し、新スートの制御値を取り直す
             const actor = await fromUuid(t.uuid).catch(() => null);
@@ -1184,17 +1186,17 @@ export async function handleOpenReactionClick(attackMsg) {
  * リアクション不成立(ファンブル/スート不一致)は達成値 0 として扱う。
  * パリーは判定成立なら敗北でも受け値をダメージ軽減へ(parryGuard)。
  */
-export async function completeReactionFromCheck(payload, result, { suitMismatch = false, allowResolved = false, recheckCtx = null, render = null } = {}) {
+export async function completeReactionFromCheck(payload, result, { suitMismatch = result.suitMismatch, allowResolved = false, recheckCtx = null, render = null } = {}) {
     const attackMsg = game.messages.get(payload.attackMessageId);
     const reactionMsg = payload.reactionMessageId ? game.messages.get(payload.reactionMessageId) : null;
-    if (!attackMsg) return;
+    if (!attackMsg || TnxCheckFlow.suitMismatchLocked(attackMsg)) return;
     const f = attackMsg.getFlag(SYSTEM_ID, "attackCheck");
     if (!f) return;
 
     const ok = !result.fumble && !suitMismatch && !result.forcedFailure;
     const reactAch = ok ? (result.achievement ?? 0) : 0;
     // このリアクション自身の勝敗(特性フラグの発火・リアクションカードの成否表示用)
-    const { hit, diff } = resolveOpposed(f.achievement, reactAch);
+    const { hit, diff } = suitMismatch ? { hit: true, diff: f.achievement ?? 0 } : resolveOpposed(f.achievement, reactAch);
     let resolvedParryGuard = 0;
     let parryGuardBonusSources = [];
     if (payload.mode === "parry" && ok) {
@@ -1218,6 +1220,7 @@ export async function completeReactionFromCheck(payload, result, { suitMismatch 
         mode: payload.mode,
         achievement: result.achievement ?? 0,
         established: ok,
+        suitMismatch: suitMismatch === true,
         protectedTargetUuids: [...(payload.protectedTargetUuids ?? [])],
         failsAttack: payload.failsAttack === true,
         // 受け値はパリー成立時のみ有効(実効値は resolveTargetDefense が成立パリーの最大1つを採る)
@@ -1347,9 +1350,9 @@ export async function handleCoveringClick(attackMessage, targetIndex) {
  * @param {object} result 判定結果
  * @param {{suitMismatch?:boolean, coverer:Actor|null}} [opts]
  */
-export async function completeCoveringFromCheck(payload, result, { suitMismatch = false, coverer = null } = {}) {
+export async function completeCoveringFromCheck(payload, result, { suitMismatch = result.suitMismatch, coverer = null } = {}) {
     const attackMsg = game.messages.get(payload.attackMessageId);
-    if (!attackMsg) return;
+    if (!attackMsg || TnxCheckFlow.suitMismatchLocked(attackMsg)) return;
     const f = attackMsg.getFlag(SYSTEM_ID, "attackCheck");
     if (!f) return;
     if (f.damageRolled) { ui.notifications.warn("ダメージカードを出した後はカバーできません。"); return; }
@@ -1365,6 +1368,7 @@ export async function completeCoveringFromCheck(payload, result, { suitMismatch 
 
 /** 攻撃カードのフラグを更新する(全クライアントでライブ書き換え)。 */
 export async function applyAttackPatch(message, patch) {
+    if (TnxCheckFlow.suitMismatchLocked(message)) return;
     const current = message.getFlag(SYSTEM_ID, "attackCheck") ?? {};
     const resolved = reactionEffectPatch(current, patch);
     await TnxSocketHandler.applyMessagePatch(message, resolved, "attackCheck");

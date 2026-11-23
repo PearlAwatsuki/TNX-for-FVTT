@@ -103,7 +103,7 @@ describe("受け値の導出・保存境界・実行文脈", () => {
                 async evaluate() { this.total = Number(this.formula); }
             });
             const weapon = { id: "w", uuid: "Item.w", name: "Blade", type: "weapon",
-                system: { identificationKey: "blade", guardValue: { mode: "value", value: 6, total: 8 } } };
+                system: { isPrepared: true, identificationKey: "blade", guardValue: { mode: "value", value: 6, total: 8 } } };
             const s = skill({ guardBonusSelf: "@outfit.blade.guard.value", guardBonusSelfStackable: stackable });
             const actor = actorOf([base, s, weapon]);
             const input = usage({ type: "reaction", weaponRefs: [{ itemId: "w" }], guardBonuses: [{ source: "supplier", formula: "2" }, { source: "supplier", formula: "@outfit.blade.guard.value" }] });
@@ -118,5 +118,10 @@ describe("受け値の導出・保存境界・実行文脈", () => {
                 guardBonusSourceItemId: base.id, guardBonuses: resolved.guardBonuses, parryGuardBase: snapshot.base },
             { achievement: 10, fumble: !established });
             expect(patch.mock.calls[0][1].openReactions[0].parryGuard).toBe(expected);
+            active.openReactions = patch.mock.calls[0][1].openReactions;
+            await complete({ mode, open: true, attackMessageId: "attack", reactorUuid: actor.uuid,
+                parryGuardBase: snapshot.base, guardBonuses: resolved.guardBonuses },
+            { achievement: 0, fumble: false, suitMismatch: true }, { allowResolved: true });
+            expect(patch.mock.calls[1][1].openReactions[0]).toMatchObject({ established: false, parryGuard: 0, achievement: 0 });
         });
 });

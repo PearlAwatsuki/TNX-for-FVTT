@@ -1,10 +1,27 @@
 import { describe, it, expect } from "vitest";
 import "../setup.mjs";
 
-const { resolveAttackRangeValue, resolveAttackRangeSpan, attackWeaponDisplayName } =
+const { resolveAttackRangeValue, resolveAttackRangeSpan, attackWeaponDisplayName, resolvePhysicalAttackWeapons } =
   await import("../../scripts/rules/attack-weapons.mjs");
 
 const w = (min, max) => ({ system: { range: { min, max } } });
+
+it("射撃は選択した射撃武器の実体と射程を使い、準備・参照の不備は起動前に返す", async () => {
+  const { resolveWeaponRangeSpan } = await import("../../scripts/core/usage-derivation.mjs");
+  const gun = { id: "gun", type: "weapon", system: { ...w("short", "long").system, isRangedWeapon: true, isPrepared: true } };
+  const blade = { id: "blade", type: "weapon", system: { ...w("close", "none").system, isMeleeWeapon: true, isPrepared: true, guardValue: { mode: "value", value: 3 } } };
+  const actor = { system: { weaponRefs: { attackItemId: "gun" } }, items: new Map([[gun.id, gun], [blade.id, blade]]) };
+  const usage = { type: "physicalAttack", attackWeaponKind: "ranged", weaponRefs: [{ itemId: "blade" }] };
+  expect(resolvePhysicalAttackWeapons(actor, usage)).toEqual({ weapons: [gun], error: null });
+  expect(resolveWeaponRangeSpan(usage, null, actor)).toEqual({ range: "short", rangeMax: "long" });
+  expect(resolveWeaponRangeSpan({ ...usage, type: "reaction" }, null, actor)).toEqual({ range: "close", rangeMax: "none" });
+  gun.system.isPreparedEffective = false;
+  expect(resolvePhysicalAttackWeapons(actor, usage).error).toContain("準備");
+  gun.system.noPrepareRequired = true;
+  expect(resolvePhysicalAttackWeapons(actor, usage).error).toBeNull();
+  actor.items.delete(gun.id);
+  expect(resolvePhysicalAttackWeapons(actor, usage).error).toContain("参照先");
+});
 
 describe("resolveAttackRangeValue()（射程「武器」の実体解決・2026-07-13）", () => {
   it("実効射程=最長(max 優先・max='none' の単一射程は min)", () => {

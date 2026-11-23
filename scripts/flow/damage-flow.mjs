@@ -73,6 +73,10 @@ export function isDamageCardPending() {
 export async function executeDamageCardFromHand(cardId) {
     const ctx = _pending;
     if (!ctx) return false;
+    if (ctx.kind === "roll" && TnxCheckFlow.suitMismatchLocked(ctx.attackMessage)) {
+        await cancelPending();
+        return true;
+    }
     // フォームはカードを出す前に読む(確定後にダイアログを閉じるため)
     const form = ctx.kind === "roll" && ctx.dialog?.element
         ? readRollForm(ctx.dialog.element)
@@ -100,7 +104,6 @@ function readRollForm(el) {
     return {
         manualMod:  Number(el.querySelector('[name="manualMod"]')?.value) || 0,
         damageType: el.querySelector('[name="damageType"]')?.value,
-        stun: el.querySelector('[name="stun"]')?.checked === true,
     };
 }
 
@@ -112,6 +115,7 @@ function readRollForm(el) {
  * @param {ChatMessage} attackMessage 攻撃カードのメッセージ
  */
 export async function openDamageRollDialog(attackMessage) {
+    if (TnxCheckFlow.suitMismatchLocked(attackMessage)) return;
     const f = attackMessage.getFlag(SYSTEM_ID, "attackCheck");
     if (!f) return;
     if (f.damageRolled) { ui.notifications.info("この攻撃のダメージカードは出されています。"); return; }
@@ -160,8 +164,7 @@ export async function openDamageRollDialog(attackMessage) {
             targetName: hitTargets.map(t => `「${t.name}」`).join("・") || "（対象なし）",
             damageBonus: previewSum,
             damageBonusVaries: previewVaries,
-            stunOption: category === "physical" ? "スタン攻撃" : category === "mental" ? "説得" : null,
-            stun: f.stunDeclared === true,
+            declarationLabel: f.stunDeclared && category !== "social" ? (category === "mental" ? "説得" : "スタン攻撃") : null,
         }
     );
 
@@ -187,7 +190,7 @@ export async function openDamageRollDialog(attackMessage) {
     });
     if (_pending === ctx) _pending = null;
     if (ctx.done) return;   // HUD の手札クリックで確定済み
-    if (!chosen) return;    // キャンセル
+    if (!chosen || TnxCheckFlow.suitMismatchLocked(attackMessage)) return;
 
     // 山札から出す(=確定トリガー)。失敗・宣言キャンセル時は何も消費せず中断
     const played = await playDamageCardFromDeck();
@@ -241,6 +244,7 @@ async function evaluateDamageBonusesPerTarget(damageTargets, { f, attacker, pare
  */
 export async function finalizeDamageRoll(ctx, form, played) {
     const { attackMessage, f, attacker, category, attackPower, damageBonusRows, damageTargets, hitTargets } = ctx;
+    if (TnxCheckFlow.suitMismatchLocked(attackMessage)) return;
     const selectedDamageType = (f.damageTypeOptions ?? []).includes(form.damageType) ? form.damageType : f.damageType;
 
     // 用途の適用効果(2026-07-18 確定): 一般(命中時)効果は攻撃カードの効果セクションが担う。
@@ -289,8 +293,7 @@ export async function finalizeDamageRoll(ctx, form, played) {
                     cardValue: f.cardValue ?? null,   // 命中判定のカード値(式の @card 用)
                     cards: [played],
                     manualMod: form.manualMod,
-                    stun: (category === "physical" || category === "mental")
-                        && (form.stun ?? f.stunDeclared) === true,
+                    stun: (category === "physical" || category === "mental") && f.stunDeclared === true,
                     // 「ウェットの対象には効果がない」(用途・2026-09-01 承認): ウェットの対象行は
                     // ダメージ算出全体を 0 にする(対象ごと・内訳に「ウェット無効」)
                     noEffectVsWet: f.noEffectVsWet === true,

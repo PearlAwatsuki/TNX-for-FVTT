@@ -12,6 +12,42 @@ beforeAll(async () => {
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); Flow._context = null; });
 
 describe("post-card number and suit controls", () => {
+    it.each([[1, "spade", false], [99, "joker", true]])("checks the suit of a drawn ace before offering fixed 21 (%s)", async (value, suit, mismatch) => {
+        const card = { id: "ace", value, suit };
+        vi.spyOn(TnxActionHandler, "getActiveDeck").mockResolvedValue({ availableCards: [card] });
+        vi.spyOn(TnxActionHandler, "getActiveDiscardPile").mockResolvedValue({
+            draw: async () => [card], updateEmbeddedDocuments: async () => {}, cards: new Map([[card.id, card]]),
+        });
+        vi.spyOn(Flow, "_cardValueOverride").mockReturnValue(null);
+        vi.spyOn(Flow, "_promptJokerDeclaration").mockResolvedValue({ suit: "heart", numericValue: 1 });
+        const ace = vi.spyOn(Flow, "_handleAceChoice").mockResolvedValue(true);
+        const execute = vi.spyOn(Flow, "_execute").mockResolvedValue(true);
+        Flow._context = { type: "skillCheck", validSuits: ["spade"] };
+        await Flow.executeFromDeck();
+        expect(ace).toHaveBeenCalledTimes(mismatch ? 0 : 1);
+        if (mismatch) expect(execute.mock.calls[0][0]).toMatchObject({ suitMismatch: true, fromDeck: true });
+    });
+    it.each(["cancel", "play"])("resolves a mismatched hand before spending cards or applying effects: %s", async decision => {
+        const update = vi.fn();
+        const actor = { id: "a", uuid: "Actor.a", system: {}, items: new Map(), effects: [], getFlag: () => null, update };
+        vi.stubGlobal("game", { actors: new Map([["a", actor]]), tnx: {} });
+        vi.spyOn(Flow, "_closeDialog").mockImplementation(() => {});
+        const hand = vi.spyOn(TnxActionHandler, "playCard").mockResolvedValue();
+        const trump = vi.spyOn(TnxActionHandler, "useTrump").mockResolvedValue();
+        vi.spyOn(TnxActionHandler, "autoReplenishHand").mockResolvedValue();
+        const bonus = vi.spyOn(Flow, "_computeCheckBonus");
+        const post = vi.spyOn(Flow, "_postResultChat").mockResolvedValue({});
+        foundry.applications.api.DialogV2 = { wait: vi.fn().mockResolvedValue(decision) };
+        const ctx = Flow._context = { actorId: "a", type: "skillCheck", validSuits: ["club"], targetValue: 0,
+            consumeUses: [{ actorId: "a", kind: "bounty", amount: 1 }], manualMod: 50 };
+        await Flow._execute({ ctx, card: { id: "c" }, cardCheckValue: null, suit: "heart",
+            trumpUsed: true, trumpCardId: "t", suitMismatch: true });
+        expect(Flow.context).toBeNull();
+        expect(bonus).not.toHaveBeenCalled();
+        const count = decision === "play" ? 1 : 0;
+        for (const action of [hand, trump, update, post]) expect(action).toHaveBeenCalledTimes(count);
+        if (count) expect(post.mock.calls[0][0].result).toMatchObject({ achievement: 0, success: false, diff: null, suitMismatch: true });
+    });
     it.each([false, true])("passes selected rank/suit and modifier from hand (joker=%s)", async joker => {
         const card = { id: "c", value: joker ? 99 : 4, suit: joker ? "joker" : "spade" };
         vi.stubGlobal("game", { user: { flags: { "tokyo-nova-axleration": { handPileId: "hand" } } } });
@@ -77,7 +113,7 @@ describe("post-card number and suit controls", () => {
         expect(wait).not.toHaveBeenCalled();
     });
     it("retains checkboxes, not the last chosen rank/modifier, for a reroll", () => {
-        Flow._context = { type: "skillCheck" };
+        Flow._context = { type: "skillCheck", suitChangePermitted: true };
         Flow.setAllowNumberChange(true);
         Flow.setAllowSuitChange(true);
         const rc = Flow._buildRecheckContext(Flow._context);

@@ -99,7 +99,11 @@ export class TnxCheckDialog extends HandlebarsApplicationMixin(ApplicationV2) {
             // 通常判定=達成値へ加算・制御判定=制御値(成功条件)へ加算。代用判定・再判定の
             // 引き継ぎ値(ctx.manualMod)が初期値に入る
             manualMod:      ctx.manualMod ?? 0,
+            declarationLabel: !ctx.isRecheck && ctx.attack?.isAttack
+                ? (ctx.attack.category === "mental" ? "説得" : ctx.attack.stunCapable ? "スタン攻撃" : null) : null,
+            stunDeclared: ctx.attack?.stunDeclared === true,
             canSelectSuit: ctx.type !== "controlCheck",
+            suitChangePermitted: ctx.suitChangePermitted === true,
             allowSuitChange: ctx.allowSuitChange === true,
             allowNumberChange: ctx.allowNumberChange === true,
             manualModLabel: ctx.type === "controlCheck" ? "制御値への修正（手動）" : "修正値（手動）",
@@ -117,6 +121,10 @@ export class TnxCheckDialog extends HandlebarsApplicationMixin(ApplicationV2) {
             TnxCheckFlow.setManualMod(Number(input.value) || 0);
         });
         const skillAdd = this.element.querySelector('[data-dialog-skill-add]');
+        const declaration = this.element.querySelector('[name="stunDeclared"]');
+        declaration?.addEventListener("change", () => {
+            if (TnxCheckFlow.context?.attack) TnxCheckFlow.context.attack.stunDeclared = declaration.checked;
+        });
         const suitToggle = this.element.querySelector('[name="allowSuitChange"]');
         suitToggle?.addEventListener("change", () => TnxCheckFlow.setAllowSuitChange(suitToggle.checked));
         const numberToggle = this.element.querySelector('[name="allowNumberChange"]');

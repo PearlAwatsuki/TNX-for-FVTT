@@ -32,6 +32,9 @@ describe("suit selection after playing a card", () => {
   it("updates and resets the current selection", () => {
     Flow._context = {};
     Flow.setAllowSuitChange(true);
+    expect(Flow._context.allowSuitChange).toBe(false);
+    Flow._context.suitChangePermitted = true;
+    Flow.setAllowSuitChange(true);
     expect(Flow._context.allowSuitChange).toBe(true);
     Flow.setAllowSuitChange(false);
     expect(Flow._context.allowSuitChange).toBe(false);

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeAll } from "vitest";
 import { JSDOM } from "jsdom";
-import { TargetSelectionDialog } from "../../scripts/ui/tnx-dialog.mjs";
+import { ListSelectionDialog, TargetSelectionDialog } from "../../scripts/ui/tnx-dialog.mjs";
 
 const skill = (id, extra = {}) => ({ id, type: "styleSkill", system: {
     identificationKey: id, checkMode: "normal", checkBonusSelf: "@item.self.system.levelTotal",
@@ -50,19 +50,22 @@ describe("recheck runtime choices", () => {
         block.mockRestore(); start.mockRestore(); vi.unstubAllGlobals();
         dom.window.close();
     });
-    it("adds and removes body modifiers through the recheck dialog", async () => {
+    it.each([false, true])("adds and removes skill modifiers and limited uses (recheck=%s)", async isRecheck => {
         const a = skill("a", { suits: { spade: true } });
-        const b = skill("b", { suits: { spade: true }, damageType: "S" });
+        const b = skill("b", { suits: { spade: true }, damageType: "S", uses: { isLimit: true, max: 2, spent: 0 } });
         const actor = { id: "actor", system: {}, items: new Map([["a", a], ["b", b]]) };
         vi.stubGlobal("game", { actors: new Map([["actor", actor]]), packs: new Map(), items: [], tnx: {} });
         const block = vi.spyOn(Flow, "_activationBlockReason").mockReturnValue(null);
         const refresh = vi.spyOn(Flow, "_refreshDialog").mockImplementation(() => {});
-        const ctx = { actorId: "actor", type: "skillCheck", isRecheck: true, sourceItemId: "a",
+        const consumption = vi.spyOn(ListSelectionDialog, "prompt").mockResolvedValue(["b:uses"]);
+        const ctx = { actorId: "actor", type: "skillCheck", isRecheck, sourceItemId: "a",
             baseSkillIds: ["a"], skillIds: ["a"], dialogAddedSkillIds: [], baseConsumeUses: [],
             usageSettingsInput: { settingsVersion: 1, type: "physicalAttack", skillRefs: [] },
             attack: { isAttack: true, category: "physical", damageBonuses: [] } };
         Flow._context = ctx;
         expect(await Flow.addDialogSkill("b")).toBe(true);
+        expect(ctx.consumeUses).toEqual([{ actorId: actor.id, itemId: "b", kind: "uses", amount: 1 }]);
+        consumption.mockRestore();
         expect(ctx.skillIds).toEqual(["a", "b"]);
         expect(ctx.checkBonuses.map(row => row.source)).toEqual(["a", "b"]);
         expect(ctx.attack.damageTypeOptions).toEqual(["P", "S"]);
@@ -102,6 +105,7 @@ describe("recheck runtime choices", () => {
         const actor = { id: "actor", isOwner: true, system: {}, items: new Map([["a", a], ["b", b]]) };
         vi.stubGlobal("game", { user: { isGM: false }, actors: new Map([["actor", actor]]) });
         const rc = { actorId: "actor", type: "skillCheck", sourceItemId: "a", skillIds: ["a"], validSuits: ["spade"],
+            usageKind: "attack", usageType: "physicalAttack", attackWeaponKind: "ranged", usageTiming: { value: "major" },
             usageSettingsInput: { settingsVersion: 1, type: "physicalAttack", checkBonusSelf: "9", skillRefs: [] },
             checkBonuses: [], checkBonusSelf: "9", attack: { isAttack: true, category: "physical", damageBonuses: [] } };
         const message = { id: "m", getFlag: () => rc };
@@ -110,6 +114,9 @@ describe("recheck runtime choices", () => {
         const plan = [{ itemId: "b", amount: 1 }];
         await Flow.startRecheck(message, { mergeSkill: b, consumeUses: plan });
         const context = open.mock.calls[0][0];
+        expect(Flow._buildRecheckContext(context)).toMatchObject({
+            usageKind: "attack", usageType: "physicalAttack", attackWeaponKind: "ranged", usageTiming: { value: "major" },
+        });
         expect(context.skillIds).toEqual(["a", "b"]);
         expect(context.checkBonuses).toHaveLength(2);
         expect(context.checkBonuses[1].source).toBe("b");

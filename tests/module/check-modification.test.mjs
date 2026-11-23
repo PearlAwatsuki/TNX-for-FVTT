@@ -24,6 +24,47 @@ function fixture(achievement = 8, extra = {}) {
     return { dom, message, patch, emit };
 }
 describe("manual result correction", () => {
+    it("writes rechecked damage contributions to the attack used for damage resolution", async () => {
+        const { dom, message, patch } = fixture(8, { attackCheck: { state: "open", targets: [],
+            damageType: "I", damageBonuses: [{ formula: "1" }] } });
+        game.messages = new Map([[message.id, message]]);
+        const previous = foundry.applications.handlebars;
+        foundry.applications.handlebars = { renderTemplate: vi.fn().mockResolvedValue("attack") };
+        try {
+            const rows = [{ formula: "5", source: "skill" }];
+            await Flow._applyRecheckReplacement({ ctx: { recheckMessageId: message.id, actorId: "a",
+                attack: { isAttack: true, category: "physical", damageType: "X", damageBonuses: rows, damageTypeOptions: ["X"] } },
+                suit: "spade", result: { achievement: 12, fumble: false }, cardCheckValue: 5 });
+            const updated = patch.mock.calls[0][1];
+            expect(updated["flags.tokyo-nova-axleration.attackCheck.damageBonuses"]).toEqual(rows);
+            expect(updated["flags.tokyo-nova-axleration.attackCheck.damageType"]).toBe("X");
+            expect(updated["flags.tokyo-nova-axleration.attackCheck.achievement"]).toBe(12);
+        } finally { foundry.applications.handlebars = previous; dom.window.close(); }
+    });
+    it.each(["flag", "legacy"])("blocks mismatch before consumption, edits or rerolls (%s)", async format => {
+        const { dom, message, patch, emit } = fixture(0, { checkResult: { result: {
+            achievement: 0, success: false, ...(format === "flag" ? { suitMismatch: true } : {}),
+        } } });
+        if (format === "legacy") message.content += '<span class="cr-badge cr-badge--mismatch">スート不一致</span>';
+        vi.stubGlobal("ui", { notifications: { warn: vi.fn() } });
+        const prompt = vi.spyOn(AmountInputDialog, "prompt");
+        expect(Flow.recheckBlockReason(message)).toContain("スート不一致");
+        await Flow.startRecheck(message);
+        await Flow.manualEditAchievement(message);
+        await Flow._applyCheckModify(message, { manual: { mod: 12, overrideTo: 12 } });
+        await Flow._applyCheckModify(message, { consumeUses: [{ itemId: "limited" }] });
+        expect(prompt).not.toHaveBeenCalled();
+        expect(patch).not.toHaveBeenCalled();
+        expect(emit).not.toHaveBeenCalled();
+        dom.window.close();
+    });
+    it("keeps an established zero editable", async () => {
+        const { dom, message, patch } = fixture(0);
+        expect(Flow.recheckBlockReason(message)).toBeNull();
+        await Flow._applyCheckModify(message, { manual: { mod: 12, label: "manual" } });
+        expect(patch.mock.calls[0][1]["flags.tokyo-nova-axleration.checkResult.result.success"]).toBe(true);
+        dom.window.close();
+    });
     it.each([[8, 4, true, 2], [12, -5, false, null]])("updates %s by %s in flags, content and request", async (old, mod, success, diff) => {
         const { dom, message, patch, emit } = fixture(old);
         await Flow._applyCheckModify(message, { manual: { mod, label: "manual" } });

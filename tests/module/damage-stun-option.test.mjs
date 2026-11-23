@@ -7,7 +7,7 @@ afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe("stun and persuasion as basic damage operations", () => {
     it.each([["physical", "スタン攻撃"], ["mental", "説得"], ["social", null]])(
-        "offers the category option without capability flags: %s", async (category, label) => {
+        "shows the attack declaration in the damage dialog: %s", async (category, label) => {
             vi.stubGlobal("game", { user: { isGM: true } });
             vi.stubGlobal("fromUuid", vi.fn().mockResolvedValue(null));
             const f = { category, stunCapable: false, stunDeclared: true, targets: [] };
@@ -18,23 +18,23 @@ describe("stun and persuasion as basic damage operations", () => {
                 // The same form reader is used by the deck button and the hand-card route.
                 const dom = new JSDOM('<input name="stun" type="checkbox" checked>');
                 const element = dom.window.document.body;
-                expect(options.buttons[0].callback(null, null, { element }).stun).toBe(true);
+                expect(options.buttons[0].callback(null, null, { element }).stun).toBeUndefined();
                 element.querySelector("input").checked = false;
-                expect(options.buttons[0].callback(null, null, { element }).stun).toBe(false);
+                expect(options.buttons[0].callback(null, null, { element }).stun).toBeUndefined();
                 dom.window.close();
                 return false;
             }) };
             try {
                 await openDamageRollDialog({ getFlag: () => f });
-                expect(render.mock.calls[0][1]).toMatchObject({ stunOption: label, stun: true });
+                expect(render.mock.calls[0][1]).toMatchObject({ declarationLabel: label });
             } finally { foundry.applications.handlebars = original; }
         }
     );
     it.each([
-        ["physical", false, true, true], ["physical", true, false, false],
-        ["mental", false, true, true], ["mental", true, false, false],
+        ["physical", false, true, false], ["physical", true, false, true],
+        ["mental", false, true, false], ["mental", true, false, true],
         ["social", false, true, false], ["physical", true, undefined, true],
-    ])("saves the damage-dialog choice (%s, old=%s, selected=%s)", async (category, old, selected, expected) => {
+    ])("keeps the attack declaration (%s, declared=%s, damage input=%s)", async (category, old, selected, expected) => {
         const create = vi.fn();
         vi.stubGlobal("ChatMessage", { create, getSpeaker: () => ({}) });
         const original = foundry.applications.handlebars;

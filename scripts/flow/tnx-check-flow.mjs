@@ -16,13 +16,14 @@
  */
 
 import { resolveReactionQualification, reactionConfrontation } from "../rules/reaction-qualification.mjs";
+import { weaponUnavailableReason } from "../rules/attack-weapons.mjs";
 import { SYSTEM_ID } from "../constants.mjs";
 import { prepareCheckContext } from "./check-preparation.mjs";
 import { syncUsageSkills, resolveUsageSettings } from "../rules/usage-skill-sync.mjs";
 import { forcedDeletion } from "../core/forced-deletion.mjs";
 import { ghostCanInteract, preparedVehicle } from "../session/vehicle-state.mjs";
 import { getCardCheckValue, calcSkillCheck, calcControlCheck, normalizeSuit, ALL_SUITS, SUIT_TO_ABILITY, getComboSuits, comboUsesBounty } from '../rules/tnx-check-engine.mjs';
-import { gatherCheckBonusSources, collectActorEffectBuffs, actorCardValueOverride, readFlag } from '../data/item/helpers.mjs';
+import { gatherCheckBonusSources, collectActorEffectBuffs, actorCardValueOverride, actorHasSuitChangeBuff, readFlag } from '../data/item/helpers.mjs';
 import { evaluateBonusRows, evaluateSelfBonus, createEffectBonusEvaluator } from '../rules/tnx-formula.mjs';
 import { canonicalFormulaReference, selectFormulaContributions, appendFormulaContribution } from '../rules/formula-duplicates.mjs';
 import { getEffectiveConditions, gatherConditionCheckSources, getCheckBlock, gatherSkillUseWarnings, computeJammingPenalty, hasBountyBlock } from '../rules/conditions.mjs';
@@ -100,7 +101,11 @@ export class TnxCheckFlow {
         TnxCheckFlow.cancel();
         context = await prepareCheckContext(context);
         if (!context) return;
-        TnxCheckFlow._refreshUsageModifiers(context, game.actors.get(context.actorId));
+        const actor = game.actors.get(context.actorId);
+        context.usageAllowsSuitChange ??= context.allowSuitChange === true;
+        context.suitChangePermitted = context.type !== "controlCheck" && (context.usageAllowsSuitChange || (actor && actorHasSuitChangeBuff(actor)));
+        context.allowSuitChange = context.suitChangePermitted && (!context.isRecheck || context.allowSuitChange === true);
+        TnxCheckFlow._refreshUsageModifiers(context, actor);
         TnxCheckFlow._context   = foundry.utils.deepClone(context);
         TnxCheckFlow._context.baseSkillIds = [...(TnxCheckFlow._context.skillIds ?? [])];
         TnxCheckFlow._context.dialogAddedSkillIds = [];
@@ -197,12 +202,12 @@ export class TnxCheckFlow {
             return false;
         }
 
-        if (ctx.isRecheck) {
-            const rows = resolveConsumeRowsForActor(actor, skill, deriveConsumeTargets(skill.id, [skill]));
-            const plan = rows.length ? await promptConsumption(actor, rows, { title: `使用回数の消費: ${skill.name}` }) : [];
-            if (plan === null || TnxCheckFlow._context !== ctx) return false;
-            (ctx.dialogSkillConsumption ??= {})[skillId] = plan;
-        }
+        const rows = resolveConsumeRowsForActor(actor, skill, deriveConsumeTargets(skill.id, [skill]))
+            .filter(row => !(ctx.baseConsumeUses ?? []).some(p => p.actorId === (row.targetActorId ?? actor.id)
+                && p.itemId === row.itemId && p.kind === row.kind && p.amount >= row.amount));
+        const plan = rows.length ? await promptConsumption(actor, rows, { title: `使用回数の消費: ${skill.name}` }) : [];
+        if (plan === null || TnxCheckFlow._context !== ctx) return false;
+        (ctx.dialogSkillConsumption ??= {})[skillId] = plan;
         ctx.dialogAddedSkillIds = [...addedIds, skillId];
         await TnxCheckFlow._rebuildDialogSkillContext();
         TnxCheckFlow._refreshDialog();
@@ -232,6 +237,10 @@ export class TnxCheckFlow {
         const resolution = resolveUsageSettings({ ...ctx.usageSettingsInput,
             skillRefs: (ctx.skillIds ?? []).map(itemId => ({ itemId })) }, parent, id => actor.items.get(id));
         const supplied = resolution.effective;
+        const permitted = ctx.type !== "controlCheck" && (supplied.allowSuitChange === true || actorHasSuitChangeBuff(actor));
+        if (!permitted || !ctx.suitChangePermitted) ctx.allowSuitChange = permitted;
+        ctx.usageAllowsSuitChange = supplied.allowSuitChange === true;
+        ctx.suitChangePermitted = permitted;
         ctx.checkBonuses = [...supplied.checkBonuses, ...ctx.usageExtraCheckBonuses];
         ctx.checkBonusSelf = supplied.checkBonusSelf;
         ctx.checkBonusSelfStackable = supplied.checkBonusSelfStackable === true;
@@ -242,7 +251,10 @@ export class TnxCheckFlow {
             damageBonusSelfCondition: supplied.damageBonusSelfCondition,
             damageType: supplied.damageType || ctx.attack.weaponDamageType || ctx.attack.damageType,
             damageTypeOptions: supplied.damageTypeOptions,
+            ...(ctx.attack.category === "physical" && ctx.attack.weaponCanStun !== undefined
+                ? { stunCapable: ctx.attack.weaponCanStun || supplied.canStun === true } : {}),
         });
+        if (ctx.attack?.category === "physical" && !ctx.attack.stunCapable && !ctx.isRecheck) ctx.attack.stunDeclared = false;
         if (ctx.reaction?.mode === "parry") Object.assign(ctx.reaction, {
             guardBonusSelf: supplied.guardBonusSelf ?? "",
             guardBonusSelfStackable: supplied.guardBonusSelfStackable === true,
@@ -270,9 +282,7 @@ export class TnxCheckFlow {
         ctx.skillLabel = skills.map(item => formatSkillName(item.name ?? "")).filter(Boolean).join("+");
         const actorBounty = (actor.system.bountyBase ?? 0) + (actor.system.bounty ?? 0);
         ctx.bountyAvailable = comboUsesBounty(systems) ? actorBounty : 0;
-        if (ctx.isRecheck) {
-            ctx.consumeUses = [...(ctx.baseConsumeUses ?? []), ...Object.values(ctx.dialogSkillConsumption ?? {}).flat()];
-        }
+        ctx.consumeUses = [...(ctx.baseConsumeUses ?? []), ...Object.values(ctx.dialogSkillConsumption ?? {}).flat()];
         TnxCheckFlow._refreshUsageModifiers(ctx, actor);
 
         const classByKey = await loadSkillClassByKey();
@@ -350,10 +360,33 @@ export class TnxCheckFlow {
 
     /** カード・切り札の消費前に現在の組み合わせを検証する。ダイアログ編集中は不足を許容する。 */
     static _reactionBlockReason(ctx) {
+        if (ctx.recheckMessageId) {
+            const original = game.messages.get(ctx.recheckMessageId);
+            if (!original) return "再判定する元のカードが見つかりません。";
+            const blocked = TnxCheckFlow.recheckBlockReason(original);
+            if (blocked) return blocked;
+        }
+        const attackIds = ctx.attack?.attackWeaponIds;
+        const parryIds = ctx.reaction?.parryWeapons?.filter(w => !w.unarmed).map(w => w.itemId);
+        if (attackIds || parryIds) {
+            const actor = game.actors.get(ctx.actorId);
+            for (const id of (attackIds ?? parryIds)) {
+                const item = actor?.items.get(id);
+                const reason = weaponUnavailableReason(item);
+                if (reason) return `使用武器「${item?.name ?? id}」: ${reason}。`;
+            }
+            if (attackIds && ctx.attack.category === "physical") {
+                const captured = TnxCheckFlow._gatherConditions(actor).find(c => c.active && !c.pendingScene && c.kind === "capture"
+                    && (c.targetWeapon ? attackIds.includes(c.targetWeapon) : !attackIds.length));
+                if (captured) return "捕縛されている武器で攻撃することはできません。";
+            }
+        }
         if (ctx.reaction) {
             const actor = game.actors.get(ctx.actorId);
             if (!actor) return "判定するキャストが見つかりません。";
-            const active = game.messages?.get(ctx.reaction.attackMessageId)?.getFlag(SYSTEM_ID, "attackCheck");
+            const attackMessage = game.messages?.get(ctx.reaction.attackMessageId);
+            if (TnxCheckFlow.suitMismatchLocked(attackMessage)) return "スート不一致で不成立の攻撃にはリアクションできません。";
+            const active = attackMessage?.getFlag(SYSTEM_ID, "attackCheck");
             const parent = actor.items.get(ctx.sourceItemId);
             const usage = (parent?.system.actions ?? []).find(u => u._id === ctx.sourceUsageId);
             const vehicle = preparedVehicle(actor);
@@ -494,11 +527,6 @@ export class TnxCheckFlow {
                 ? { from: declared.numericValue, to: numericValue, modifier: changed.modifier } : null;
             const suitChangedFrom = declared.suit !== declaredSuit ? declared.suit : null;
 
-            // A → Ace 選択ダイアログ（制御判定を除く）
-            if (numericValue === 1 && ctx.type !== "controlCheck") {
-                return TnxCheckFlow._handleAceChoice(card, declaredSuit, ctx, { fromDeck: true, cardOverride, suitChangedFrom });
-            }
-
             const cardCheckValue = getCardCheckValue({ numericValue, isFromDeck: true });
 
             // 絵札宣言 → FUMBLE（山札引き特有ルール）
@@ -513,6 +541,9 @@ export class TnxCheckFlow {
                 });
             }
 
+            if (numericValue === 1 && ctx.type !== "controlCheck") {
+                return TnxCheckFlow._handleAceChoice(card, declaredSuit, ctx, { fromDeck: true, cardOverride, suitChangedFrom });
+            }
             return TnxCheckFlow._execute({ card, cardCheckValue, suit: declaredSuit, ctx, cardOverride, suitChangedFrom, fromDeck: true });
         }
 
@@ -539,8 +570,7 @@ export class TnxCheckFlow {
             });
         }
 
-        // 従来どおり、山札の A 選択はスートを実際に変更した経路でのみ行う。
-        if (suitChangedFrom && cardNumeric === 1 && ctx.type !== "controlCheck") {
+        if (cardNumeric === 1 && ctx.type !== "controlCheck") {
             return TnxCheckFlow._handleAceChoice(card, effectiveSuit, ctx, { fromDeck: true, suitChangedFrom, cardOverride });
         }
         return TnxCheckFlow._execute({ card, cardCheckValue, suit: effectiveSuit, ctx, fromDeck: true, suitChangedFrom, cardOverride });
@@ -632,7 +662,7 @@ export class TnxCheckFlow {
     }
 
     static setAllowSuitChange(value) {
-        if (TnxCheckFlow._context) TnxCheckFlow._context.allowSuitChange = value === true;
+        if (TnxCheckFlow._context) TnxCheckFlow._context.allowSuitChange = value === true && TnxCheckFlow._context.suitChangePermitted === true;
     }
 
     static setAllowNumberChange(value) {
@@ -736,23 +766,20 @@ ${ctx.allowSuitChange ? `<div class="form-group"><label>変更後のスート</l
             ? { from: declared.numericValue, to: numericValue, modifier: changed.modifier } : null;
         const suitChangedFrom = declared.suit !== declaredSuit ? declared.suit : null;
 
-        // 切り札を消費（RL切り札捨て場へ）
-        await TnxActionHandler.useTrump(trumpCard.id);
-
         // スート不一致 → 判定不成立による失敗
         if (!ctx.validSuits.includes(declaredSuit)) {
             return TnxCheckFlow._execute({
-                card, cardCheckValue: null, suit: declaredSuit, ctx, cardOverride, suitChangedFrom, suitMismatch: true, trumpUsed: true,
+                card, cardCheckValue: null, suit: declaredSuit, ctx, cardOverride, suitChangedFrom, suitMismatch: true, trumpUsed: true, trumpCardId: trumpCard.id,
             });
         }
 
         // A → Ace 選択ダイアログ（制御判定を除く）
         if (numericValue === 1 && ctx.type !== "controlCheck") {
-            return TnxCheckFlow._handleAceChoice(card, declaredSuit, ctx, { trumpUsed: true, cardOverride, suitChangedFrom });
+            return TnxCheckFlow._handleAceChoice(card, declaredSuit, ctx, { trumpUsed: true, trumpCardId: trumpCard.id, cardOverride, suitChangedFrom });
         }
 
         const cardCheckValue = getCardCheckValue({ numericValue });
-        return TnxCheckFlow._execute({ card, cardCheckValue, suit: declaredSuit, ctx, cardOverride, suitChangedFrom, trumpUsed: true });
+        return TnxCheckFlow._execute({ card, cardCheckValue, suit: declaredSuit, ctx, cardOverride, suitChangedFrom, trumpUsed: true, trumpCardId: trumpCard.id });
     }
 
     /**
@@ -800,7 +827,8 @@ ${ctx.allowSuitChange ? `<div class="form-group"><label>変更後のスート</l
             .filter(Boolean);
         const condSources = gatherConditionCheckSources(conditions, {
             upward,
-            isAttack:      ctx.isAttack === true,
+            isAttack:      ctx.attack?.isAttack === true || ctx.isAttack === true,
+            targetUuids:   ctx.attack?.targets?.map(t => t.uuid),
             targetMatched: ctx.targetMatched === true,
             skillKeys,
         });
@@ -909,7 +937,7 @@ ${ctx.allowSuitChange ? `<div class="form-group"><label>変更後のスート</l
     // _consumeUses は廃止。全ての消費は用途の消費先設定(consumeTargets)からのみ発生し、
     // 解決・確認・適用は usage-consumption.mjs が担う(ctx.consumeUses には適用可能な平プランが入る)
 
-    static async _execute({ card, cardCheckValue, suit, ctx, fromDeck = false, trumpUsed = false, suitMismatch = false, suitChangedFrom = null, cardOverride = null }) {
+    static async _execute({ card, cardCheckValue, suit, ctx, fromDeck = false, trumpUsed = false, trumpCardId = null, suitMismatch = false, suitChangedFrom = null, cardOverride = null }) {
         if (Number.isFinite(cardCheckValue) && Number.isSafeInteger(cardOverride?.modifier)) {
             cardCheckValue += cardOverride.modifier;
         }
@@ -938,6 +966,22 @@ ${ctx.allowSuitChange ? `<div class="form-group"><label>変更後のスート</l
             }
         }
 
+        if (suitMismatch && !fromDeck) {
+            const decision = await foundry.applications.api.DialogV2.wait({
+                window: { title: "スート不一致" },
+                content: "<p>このカードを出すと判定は不成立（達成値0）で確定します。</p>",
+                buttons: [
+                    { action: "cancel", label: "判定をキャンセル", default: true },
+                    { action: "play", label: "不成立でカードを出す" },
+                ],
+                rejectClose: false,
+            });
+            if (TnxCheckFlow._context !== ctx) return false;
+            if (decision !== "play") { TnxCheckFlow.cancel(); return false; }
+        }
+        if (ctx.attack?.stunDeclared && ctx.attack.targets?.length > 1) {
+            ctx.attack.targets = ctx.attack.targets.slice(0, 1);
+        }
         // ダイアログを閉じて判定状態をクリア（カード選択後に即時）
         TnxCheckFlow._context   = null;
         TnxCheckFlow._trumpMode = false;
@@ -945,6 +989,7 @@ ${ctx.allowSuitChange ? `<div class="form-group"><label>変更後のスート</l
 
         // 手札からカードをプレイ（山札から判定の場合は既に捨て札にある）
         if (!fromDeck) {
+            if (trumpCardId) await TnxActionHandler.useTrump(trumpCardId);
             await TnxActionHandler.playCard(card.id);
             // 手札を使用した直後に上限まで自動補充
             await TnxActionHandler.autoReplenishHand();
@@ -955,7 +1000,7 @@ ${ctx.allowSuitChange ? `<div class="form-group"><label>変更後のスート</l
         // メジャーアクション記帳(2026-07-26 一般則): カードプレイ＝確定トリガーでメジャーが実行された。
         // メジャータイミングの用途なら本人を現プロセスの majorActed に積む(プロセス終了時に AR−1＋
         // CSカレント0)。カット進行中でなければ no-op。成否・スート不一致は問わない(実行済みだから)。
-        if (isMajorActionTiming(ctx.usageTiming)) await TnxCombat.markMajorAction(actor);
+        if (!ctx.isRecheck && isMajorActionTiming(ctx.usageTiming)) await TnxCombat.markMajorAction(actor);
 
         // 《不可知》(17-6): 宣言で立てた「次の行動」の印をこの判定で消費し、結果に載せて攻撃カード・
         // ダメージカードへ運ぶ(リアクション不可・ダメージの状態に神業由来の印)。AR・CSカレントは
@@ -1046,6 +1091,7 @@ ${ctx.allowSuitChange ? `<div class="form-group"><label>変更後のスート</l
             }
         }
 
+        result.suitMismatch = suitMismatch;
         result.formulaContributions = { baseline: checkInfo.baseline ?? [], sources: checkInfo.sources };
 
         // 代用判定(2026-07-09): 指定と別の技能で判定した事実を結果に載せ、
@@ -1212,6 +1258,7 @@ ${ctx.allowSuitChange ? `<div class="form-group"><label>変更後のスート</l
     static async _applyRecheckReplacement({ ctx, card, suit, result, cardCheckValue = null, fromDeck, trumpUsed, suitMismatch = false, checkSources = [] }) {
         const message = game.messages.get(ctx.recheckMessageId);
         if (!message) { ui.notifications.warn("再判定する元のカードが見つかりません。"); return; }
+        if (TnxCheckFlow.suitMismatchLocked(message)) return;
 
         // 継続判定(治療/回復/controlNegate=B)の「失敗→成功のみ適用」ゲート用に旧成否を控える
         const oldSuccess = message.getFlag(SYSTEM_ID, "checkResult")?.result?.success === true;
@@ -1269,6 +1316,10 @@ ${ctx.allowSuitChange ? `<div class="form-group"><label>変更後のスート</l
             patch[`flags.${SYSTEM_ID}.attackCheck.suit`] = suit;
             patch[`flags.${SYSTEM_ID}.attackCheck.state`] = overall;
             patch[`flags.${SYSTEM_ID}.attackCheck.targets`] = newTargets;
+            for (const key of ["damageBonuses", "damageBonusSelf", "damageBonusSelfStackable",
+                "damageBonusSelfCondition", "damageType", "damageTypeOptions"]) {
+                if (ctx.attack[key] !== undefined) patch[`flags.${SYSTEM_ID}.attackCheck.${key}`] = ctx.attack[key];
+            }
             if (ctx.attack.isAttack) patch[`flags.${SYSTEM_ID}.attackCheck.nextCheckExpiry`] = result.nextCheckExpiry;
         } else if (ctx.movement) {
             // 操縦移動は通常結果カードでなく移動カード。達成値÷10 段階を新達成値で描き直す(表示のみ=A)
@@ -1335,6 +1386,7 @@ ${ctx.allowSuitChange ? `<div class="form-group"><label>変更後のスート</l
             allowRecheck:    ctx.allowRecheck === true, // 技能の再判定効果。標準ボタンの表示条件にはしない。
             allowNumberChange: ctx.allowNumberChange === true,
             allowSuitChange: ctx.allowSuitChange === true, // スート変更可能(用途の設定・再判定でも維持)
+            usageAllowsSuitChange: ctx.usageAllowsSuitChange,
             type:            ctx.type,
             actorId:         ctx.actorId,
             skillIds:        ctx.skillIds ?? [],
@@ -1345,6 +1397,10 @@ ${ctx.allowSuitChange ? `<div class="form-group"><label>変更後のスート</l
             // 報酬点は「使えるか」だけ保存し、量は再判定時点の所持から取り直す(元判定の消費を反映)
             bountyAllowed:   (ctx.bountyAvailable ?? 0) > 0,
             usageSettingsInput: ctx.usageSettingsInput,
+            usageType: ctx.usageType,
+            usageKind: ctx.usageKind,
+            attackWeaponKind: ctx.attackWeaponKind,
+            usageTiming: ctx.usageTiming,
             usageExtraCheckBonuses: ctx.usageExtraCheckBonuses,
             checkBonuses:    ctx.checkBonuses ?? [],
             checkBonusSelf:  ctx.checkBonusSelf ?? "",
@@ -1391,6 +1447,7 @@ ${ctx.allowSuitChange ? `<div class="form-group"><label>変更後のスート</l
      * @returns {string|null} 警告文(可能なら null)
      */
     static recheckBlockReason(message) {
+        if (TnxCheckFlow.suitMismatchLocked(message)) return "スート不一致で不成立のため再判定できません。";
         const rc = message.getFlag(SYSTEM_ID, "checkRecheck");
         if (!rc) return "このカードは再判定できません。";
         if (rc.rechecked === true) return "この判定は再判定済みです（再判定は一度だけ）。";
@@ -1457,6 +1514,10 @@ ${ctx.allowSuitChange ? `<div class="form-group"><label>変更後のスート</l
             skillRefs: skillIds.map(itemId => ({ itemId })) }, parent, id => actor.items.get(id));
         await TnxCheckFlow.open({
             type:            rc.type,
+            usageType: rc.usageType ?? rc.usageSettingsInput?.type ?? rc.attack?.usageType ?? (rc.reaction ? "reaction" : null),
+            usageKind: rc.usageKind ?? (rc.reaction ? "reaction" : rc.attack?.isAttack ? "attack" : null),
+            attackWeaponKind: rc.attackWeaponKind ?? rc.attack?.attackWeaponKind,
+            usageTiming: rc.usageTiming,
             actorId:         rc.actorId,
             skillIds,
             skillLabel,
@@ -1491,6 +1552,7 @@ ${ctx.allowSuitChange ? `<div class="form-group"><label>変更後のスート</l
             allowRecheck:    rc.allowRecheck === true, // 元と同じゲート(付与再判定で権利は増やさない)
             allowNumberChange: rc.allowNumberChange === true,
             allowSuitChange: rc.allowSuitChange === true,
+            usageAllowsSuitChange: rc.usageAllowsSuitChange ?? supplied.allowSuitChange ?? false,
             isRecheck:       true,
             recheckMessageId: message.id, // 置き換え着地(2026-07-14): 完了時に元カードの達成値を置き換える
         });
@@ -1600,6 +1662,10 @@ ${ctx.allowSuitChange ? `<div class="form-group"><label>変更後のスート</l
             const blocked = TnxCheckFlow.recheckBlockReason(message);
             if (blocked) { ui.notifications.warn(blocked); return; }
         }
+        if (state.kind === "modify" && TnxCheckFlow.suitMismatchLocked(message)) {
+            ui.notifications.warn("スート不一致で不成立のため達成値は修正できません。");
+            return;
+        }
         const actor = game.actors.get(state.actorId);
         const skill = actor?.items.get(state.skillItemId);
         if (!skill) { TnxCheckFlow.cancelAchievementAction(); return; }
@@ -1627,6 +1693,10 @@ ${ctx.allowSuitChange ? `<div class="form-group"><label>変更後のスート</l
      * 消費なし・ダメージ算出後も制限しない=2026-07-14)。
      */
     static async _applyCheckModify(message, { actor, skill, usageId, consumeUses, manual = null } = {}) {
+        if (TnxCheckFlow.suitMismatchLocked(message)) {
+            ui.notifications.warn("スート不一致で不成立のため達成値は修正できません。");
+            return;
+        }
         const rc = message.getFlag(SYSTEM_ID, "checkRecheck");
         const attackF = message.getFlag(SYSTEM_ID, "attackCheck");
         const checkF = message.getFlag(SYSTEM_ID, "checkResult");
@@ -1680,6 +1750,8 @@ ${ctx.allowSuitChange ? `<div class="form-group"><label>変更後のスート</l
             }
         }
 
+        // 入力ダイアログが開いている間に再判定が確定した場合も、消費前に検査する。
+        if (TnxCheckFlow.suitMismatchLocked(message)) return;
         // 消費(用途の consumeTargets)は適用の確定時
         if (consumeUses?.length) await applyConsumptionPlan(consumeUses);
 
@@ -1719,7 +1791,7 @@ ${ctx.allowSuitChange ? `<div class="form-group"><label>変更後のスート</l
                 const { rebuildRecheckedTargets } = await import("./attack-flow.mjs");
                 patch[`flags.${SYSTEM_ID}.attackCheck.targets`] = await rebuildRecheckedTargets(attackF.targets, {
                     achievement: newAch, suit: attackF.suit,
-                    fumble: attackF.state === "fumble", suitMismatch: attackF.state === "miss",
+                    fumble: attackF.state === "fumble", suitMismatch: false,
                 });
             }
             // 解決済みなら保存済みの相手値に対して再解決(pending は以後の解決が新しい値を使う)
@@ -1794,8 +1866,14 @@ ${ctx.allowSuitChange ? `<div class="form-group"><label>変更後のスート</l
         return !!rc && (game.user.isGM || game.actors.get(rc.actorId)?.isOwner === true);
     }
 
+    static suitMismatchLocked(message) {
+        const mismatch = message?.getFlag(SYSTEM_ID, "checkResult")?.result?.suitMismatch;
+        // 旧カードでは確定時の不一致表示だけが残る。通常の達成値0もあり得る。
+        return mismatch ?? /class="[^"]*\b(?:cr-badge--mismatch|cr-mismatch-label)\b[^"]*"/.test(message?.content ?? "");
+    }
+
     static async manualEditAchievement(message) {
-        if (!TnxCheckFlow.canManageCheckResult(message)) return;
+        if (!TnxCheckFlow.canManageCheckResult(message) || TnxCheckFlow.suitMismatchLocked(message)) return;
         const attackF = message.getFlag(SYSTEM_ID, "attackCheck");
         const checkF = message.getFlag(SYSTEM_ID, "checkResult");
         if (!checkF && !attackF) return;
